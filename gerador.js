@@ -89,8 +89,21 @@ async function carregarCopys() {
     if (modelo) url.searchParams.set('modelo', modelo);
     if (tipo) url.searchParams.set('tipo', tipo);
 
-    const resp = await fetch(url.toString());
-    const data = await resp.json();
+    let resp;
+    try {
+      resp = await fetch(url.toString(), { redirect: 'follow' });
+    } catch (fetchErr) {
+      throw new Error('Sem conexao com o Apps Script. Verifique se a URL esta correta e se o script foi publicado como "Qualquer pessoa" (Anyone).');
+    }
+
+    if (!resp.ok) throw new Error('Servidor retornou erro ' + resp.status);
+
+    let data;
+    try {
+      data = await resp.json();
+    } catch (jsonErr) {
+      throw new Error('Resposta invalida do servidor. Republique o Apps Script como nova versao.');
+    }
 
     if (data.status === 'erro') throw new Error(data.msg);
 
@@ -817,9 +830,10 @@ function escAttr(str) {
 (function init() {
   const cfg = getConfig();
   if (cfg.sheetsUrl) {
-    setStatus('Pronto — clique em Carregar Copys', 'ok');
+    // Carrega as copys automaticamente ao abrir a página
+    carregarCopys();
   } else {
-    setStatus('Configure a URL do Apps Script nas configuracoes', 'aviso');
+    setStatus('Configure a URL do Apps Script nas configurações', 'aviso');
   }
   carregarBancoDisparos();
 })();
