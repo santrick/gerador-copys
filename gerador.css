@@ -835,25 +835,17 @@ main {
 
 .gerada-card {
   background: var(--bg-card);
-  border: 1px solid var(--accent);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   padding: 14px 16px;
   margin-bottom: 10px;
   position: relative;
 }
-.gerada-card::before {
-  content: 'IA';
-  position: absolute;
-  top: -8px;
-  right: 12px;
-  background: linear-gradient(135deg, var(--accent), var(--pink));
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 10px;
-  letter-spacing: 0.5px;
-}
+.gerada-card.slot-bomdia   { border-left-color: var(--yellow); }
+.gerada-card.slot-video    { border-left-color: var(--accent); }
+.gerada-card.slot-oferta   { border-left-color: var(--green); }
+.gerada-card.slot-aquecimento { border-left-color: var(--pink); }
 .gerada-texto {
   font-size: 13px;
   line-height: 1.6;

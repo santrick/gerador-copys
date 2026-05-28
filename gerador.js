@@ -691,7 +691,7 @@ function renderGrade(grade) {
 
   lista.innerHTML = SLOTS.map(slot => {
     const texto = grade[slot.tag] || '(nao gerada)';
-    return '<div class="gerada-card">'
+    return '<div class="gerada-card slot-' + slot.classe + '">'
       + '<div class="slot-label">'
       + '<span class="slot-label-hora" style="background:' + slot.cor + '">' + slot.hora + '</span>'
       + '<span class="slot-label-tipo">' + slot.tipo + '</span>'
