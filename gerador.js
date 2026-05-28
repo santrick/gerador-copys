@@ -173,6 +173,20 @@ function renderExemplos() {
       + (c.preco ? '<span class="copy-card-preco">' + esc(c.preco) + '</span>' : '')
       + '<span>' + esc(c.data) + '</span>'
       + '</div>'
+      + '<div class="btn-reescrever-wrap">'
+      + '<button class="btn-reescrever" data-texto="' + escAttr(c.mensagem) + '" title="Reescrever com IA">'
+      + '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>'
+      + ' IA'
+      + '</button>'
+      + '<select class="select-estilo-ia" data-texto="' + escAttr(c.mensagem) + '">'
+      + '<option value="">Estilo...</option>'
+      + '<option value="sensual">Mais sensual</option>'
+      + '<option value="urgente">Mais urgente</option>'
+      + '<option value="casual">Mais casual</option>'
+      + '<option value="criativa">Mais criativa</option>'
+      + '<option value="curta">Mais curta</option>'
+      + '</select>'
+      + '</div>'
       + '<button class="btn-copiar" data-texto="' + escAttr(c.mensagem) + '">Copiar</button>'
       + '</div>'
       + '</div>';
@@ -200,6 +214,22 @@ function renderExemplos() {
         btn.classList.add('copiado');
         setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copiado'); }, 2000);
       });
+    });
+  });
+
+  // Reescrever com IA (mineradas)
+  container.querySelectorAll('.btn-reescrever').forEach(btn => {
+    btn.addEventListener('click', () => {
+      reescreverCopy(btn.dataset.texto, 'criativa', btn);
+    });
+  });
+  container.querySelectorAll('.select-estilo-ia').forEach(sel => {
+    sel.addEventListener('change', () => {
+      if (sel.value) {
+        const btn = sel.closest('.btn-reescrever-wrap').querySelector('.btn-reescrever');
+        reescreverCopy(sel.dataset.texto, sel.value, btn);
+        sel.value = '';
+      }
     });
   });
 }
@@ -514,6 +544,20 @@ function renderDisparos() {
         + '<option value="19h">19h Aquecimento</option>'
         + '</select>'
         + '</div>'
+        + '<div class="btn-reescrever-wrap">'
+        + '<button class="btn-reescrever" data-texto="' + escAttr(texto) + '" title="Reescrever com IA">'
+        + '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>'
+        + ' IA'
+        + '</button>'
+        + '<select class="select-estilo-ia" data-texto="' + escAttr(texto) + '">'
+        + '<option value="">Estilo...</option>'
+        + '<option value="sensual">Mais sensual</option>'
+        + '<option value="urgente">Mais urgente</option>'
+        + '<option value="casual">Mais casual</option>'
+        + '<option value="criativa">Mais criativa</option>'
+        + '<option value="curta">Mais curta</option>'
+        + '</select>'
+        + '</div>'
         + '<button class="btn-copiar" data-texto="' + escAttr(texto) + '">Copiar</button>'
         + '</div>'
         + '</div>'
@@ -582,6 +626,22 @@ function renderDisparos() {
     sel.addEventListener('change', () => {
       if (sel.value) {
         addGrade(sel.value, sel.dataset.texto);
+        sel.value = '';
+      }
+    });
+  });
+
+  // Events: reescrever com IA
+  container.querySelectorAll('.btn-reescrever').forEach(btn => {
+    btn.addEventListener('click', () => {
+      reescreverCopy(btn.dataset.texto, 'criativa', btn);
+    });
+  });
+  container.querySelectorAll('.select-estilo-ia').forEach(sel => {
+    sel.addEventListener('change', () => {
+      if (sel.value) {
+        const btn = sel.closest('.btn-reescrever-wrap').querySelector('.btn-reescrever');
+        reescreverCopy(sel.dataset.texto, sel.value, btn);
         sel.value = '';
       }
     });
@@ -748,9 +808,8 @@ function renderGrade(grade) {
 document.getElementById('btn-config').addEventListener('click', () => {
   const cfg = getConfig();
   document.getElementById('input-sheets-url').value = cfg.sheetsUrl || '';
-  document.getElementById('select-provedor').value = cfg.provedor || 'openai';
-  document.getElementById('input-api-key').value = cfg.apiKey || '';
-  document.getElementById('input-modelo-ia').value = cfg.modeloIA || '';
+  document.getElementById('input-openrouter-key').value = cfg.openrouterKey || '';
+  document.getElementById('input-openrouter-model').value = cfg.openrouterModel || 'google/gemini-2.0-flash-001';
   document.getElementById('modal-config').classList.remove('oculto');
 });
 
@@ -763,42 +822,50 @@ function fecharModal() {
 
 document.getElementById('btn-salvar-config').addEventListener('click', () => {
   const sheetsUrl = document.getElementById('input-sheets-url').value.trim();
-  const provedor = document.getElementById('select-provedor').value;
-  const apiKey = document.getElementById('input-api-key').value.trim();
-  const modeloIA = document.getElementById('input-modelo-ia').value.trim();
+  const openrouterKey = document.getElementById('input-openrouter-key').value.trim();
+  const openrouterModel = document.getElementById('input-openrouter-model').value.trim() || 'google/gemini-2.0-flash-001';
 
-  salvarConfig({ sheetsUrl, provedor, apiKey, modeloIA });
-  mostrarMsgConfig('Configuracoes salvas!', 'sucesso');
+  salvarConfig({ sheetsUrl, openrouterKey, openrouterModel });
+  mostrarMsgConfig('Configurações salvas!', 'sucesso');
 
   if (sheetsUrl) {
-    setStatus('Pronto — clique em Carregar Copys', 'ok');
+    setStatus('Pronto', 'ok');
   }
 });
 
 document.getElementById('btn-testar-config').addEventListener('click', async () => {
-  const url = document.getElementById('input-sheets-url').value.trim();
-  if (!url) { mostrarMsgConfig('Cole a URL primeiro', 'erro'); return; }
+  const key = document.getElementById('input-openrouter-key').value.trim();
+  if (!key) { mostrarMsgConfig('Cole a API Key do OpenRouter primeiro', 'erro'); return; }
 
   const btn = document.getElementById('btn-testar-config');
-  btn.textContent = 'Testando...';
+  btn.textContent = 'Testando IA...';
   btn.disabled = true;
 
   try {
-    const resp = await fetch(url, {
+    const modelo = document.getElementById('input-openrouter-model').value.trim() || 'google/gemini-2.0-flash-001';
+    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ teste: true, linhas: [] })
+      headers: {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: modelo,
+        messages: [{ role: 'user', content: 'Responda apenas "OK" se estiver funcionando.' }],
+        max_tokens: 10
+      })
     });
-    const data = await resp.json();
-    if (data.status === 'ok') {
-      mostrarMsgConfig('Conexao OK! ' + (data.msg || ''), 'sucesso');
+
+    if (resp.ok) {
+      mostrarMsgConfig('IA conectada! Modelo: ' + modelo, 'sucesso');
     } else {
-      mostrarMsgConfig('Erro: ' + (data.msg || ''), 'erro');
+      const err = await resp.json().catch(() => ({}));
+      mostrarMsgConfig('Erro: ' + (err.error?.message || resp.status), 'erro');
     }
   } catch (err) {
     mostrarMsgConfig('Falha: ' + err.message, 'erro');
   } finally {
-    btn.textContent = 'Testar conexao';
+    btn.textContent = 'Testar IA';
     btn.disabled = false;
   }
 });
@@ -809,6 +876,166 @@ function mostrarMsgConfig(texto, tipo) {
   el.className = 'msg ' + tipo;
   el.classList.remove('oculto');
   setTimeout(() => el.classList.add('oculto'), 5000);
+}
+
+// ═══════════════════════════════════════════════
+// OPENROUTER IA
+// ═══════════════════════════════════════════════
+
+async function chamarOpenRouter(mensagens, opts) {
+  const cfg = getConfig();
+  if (!cfg.openrouterKey) throw new Error('Configure sua API Key do OpenRouter nas configurações.');
+  const modelo = cfg.openrouterModel || 'google/gemini-2.0-flash-001';
+
+  const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + cfg.openrouterKey,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': window.location.href,
+      'X-Title': 'Gerador de Copys'
+    },
+    body: JSON.stringify({
+      model: modelo,
+      messages: mensagens,
+      max_tokens: opts?.maxTokens || 1024,
+      temperature: opts?.temperature ?? 0.8
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'Erro ' + resp.status + ' no OpenRouter');
+  }
+
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+// Reescrever copy com IA
+async function reescreverCopy(texto, estilo, btnEl) {
+  const original = btnEl.innerHTML;
+  btnEl.disabled = true;
+  btnEl.innerHTML = '<div class="spinner-sm"></div>';
+
+  const estilos = {
+    sensual: 'Reescreva de forma mais sensual e provocante, mantendo a essência.',
+    urgente: 'Reescreva criando mais urgência e escassez, como se fosse a última chance.',
+    casual: 'Reescreva de forma mais casual e descontraída, como uma conversa informal.',
+    criativa: 'Reescreva de forma criativa e diferente, surpreendendo o leitor.',
+    curta: 'Reescreva de forma mais curta e direta, sem perder o impacto.'
+  };
+
+  const instrucao = estilos[estilo] || estilos.criativa;
+
+  try {
+    const resultado = await chamarOpenRouter([
+      {
+        role: 'system',
+        content: 'Você é um copywriter especialista em copys para plataformas de conteúdo adulto (Privacy/OnlyFans). Escreva copys diretas, provocantes e que geram engajamento. Responda APENAS com a copy reescrita, sem explicações.'
+      },
+      {
+        role: 'user',
+        content: instrucao + '\n\nCopy original:\n' + texto
+      }
+    ]);
+
+    mostrarResultadoIA(btnEl, texto, resultado.trim());
+  } catch (err) {
+    setStatus('Erro IA: ' + err.message, 'erro');
+  } finally {
+    btnEl.disabled = false;
+    btnEl.innerHTML = original;
+  }
+}
+
+function mostrarResultadoIA(btnEl, original, resultado) {
+  // Remove resultado anterior se existir
+  const cardEl = btnEl.closest('.copy-card') || btnEl.closest('.gerada-card');
+  const antigo = cardEl.querySelector('.ia-resultado');
+  if (antigo) antigo.remove();
+
+  const div = document.createElement('div');
+  div.className = 'ia-resultado';
+  div.innerHTML = '<div class="ia-resultado-header">'
+    + '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>'
+    + ' Reescrita pela IA'
+    + '</div>'
+    + '<div class="ia-resultado-texto">' + esc(resultado) + '</div>'
+    + '<div class="ia-resultado-acoes">'
+    + '<button class="btn-copiar btn-copiar-ia" data-texto="' + escAttr(resultado) + '">Copiar</button>'
+    + '<button class="btn-ia-refazer" data-original="' + escAttr(original) + '">Refazer</button>'
+    + '<button class="btn-ia-fechar">Fechar</button>'
+    + '</div>';
+
+  cardEl.appendChild(div);
+
+  // Events
+  div.querySelector('.btn-copiar-ia').addEventListener('click', function() {
+    copiarTexto(this.dataset.texto).then(() => {
+      this.textContent = 'Copiado!';
+      this.classList.add('copiado');
+      setTimeout(() => { this.textContent = 'Copiar'; this.classList.remove('copiado'); }, 2000);
+    });
+  });
+
+  div.querySelector('.btn-ia-refazer').addEventListener('click', function() {
+    div.remove();
+    reescreverCopy(this.dataset.original, 'criativa', btnEl);
+  });
+
+  div.querySelector('.btn-ia-fechar').addEventListener('click', () => div.remove());
+}
+
+// Gerar grade com IA
+async function gerarGradeIA() {
+  const cfg = getConfig();
+  if (!cfg.openrouterKey) {
+    setStatus('Configure sua API Key do OpenRouter nas configurações.', 'erro');
+    document.getElementById('modal-config').classList.remove('oculto');
+    return;
+  }
+
+  const btn = document.getElementById('btn-gerar-ia');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner-sm"></div> Gerando com IA...';
+
+  // Coleta exemplos do banco pra contexto
+  let exemplos = '';
+  if (bancoDisparos) {
+    const cats = bancoDisparos.categorias;
+    cats.forEach(cat => {
+      const amostra = cat.copys.slice(0, 3).join('\n');
+      exemplos += cat.nome + ':\n' + amostra + '\n\n';
+    });
+  }
+
+  try {
+    const resultado = await chamarOpenRouter([
+      {
+        role: 'system',
+        content: 'Você é um copywriter especialista em copys para plataformas de conteúdo adulto (Privacy/OnlyFans). Crie copys diretas, provocantes e que geram engajamento e vendas. Responda EXATAMENTE no formato pedido, sem explicações extras.'
+      },
+      {
+        role: 'user',
+        content: 'Crie uma grade de disparos para o dia com 4 copys originais, uma para cada horário. Use o formato EXATO abaixo:\n\n'
+          + '[11H] (copy de bom dia, acolhedora e sensual)\n'
+          + '[14H] (copy vendendo conteúdo exclusivo/vídeo)\n'
+          + '[16H] (copy com oferta, desconto ou urgência)\n'
+          + '[19H] (copy de aquecimento noturno, provocante)\n\n'
+          + 'Exemplos de referência do banco:\n' + exemplos.slice(0, 2000)
+      }
+    ], { temperature: 0.9 });
+
+    const grade = parsearGrade(resultado);
+    renderGrade(grade);
+    setStatus('Grade gerada pela IA! Clique de novo pra gerar outra.', 'ok');
+  } catch (err) {
+    setStatus('Erro IA: ' + err.message, 'erro');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Gerar Grade com IA';
+  }
 }
 
 // ═══════════════════════════════════════════════

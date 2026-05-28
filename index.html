@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gerador de Copys</title>
-  <link rel="stylesheet" href="gerador.css?v=6">
+  <link rel="stylesheet" href="gerador.css?v=7">
 </head>
 <body>
 
@@ -255,10 +255,16 @@
           <span class="exemplos-dica">Quanto mais copys no banco, mais variedade na grade</span>
         </div>
 
-        <button id="btn-gerar" class="btn-gerar">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
-          Sortear Grade do Dia
-        </button>
+        <div class="grade-botoes">
+          <button id="btn-gerar" class="btn-gerar">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+            Sortear Grade do Dia
+          </button>
+          <button id="btn-gerar-ia" class="btn-gerar btn-gerar-ia" onclick="gerarGradeIA()">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            Gerar Grade com IA
+          </button>
+        </div>
       </div>
 
       <!-- RESULTADO -->
@@ -283,32 +289,28 @@
           <input type="url" id="input-sheets-url" placeholder="https://script.google.com/macros/s/.../exec">
           <p class="form-dica">Mesma URL usada na extensao do Minerador.</p>
         </div>
-        <div class="form-group">
-          <label for="select-provedor">Provedor de IA</label>
-          <select id="select-provedor">
-            <option value="openai">OpenAI (ChatGPT)</option>
-            <option value="anthropic">Anthropic (Claude)</option>
-          </select>
+        <div class="config-separator">
+          <span>OpenRouter (IA)</span>
         </div>
         <div class="form-group">
-          <label for="input-api-key">Chave da API</label>
-          <input type="password" id="input-api-key" placeholder="sk-...">
-          <p class="form-dica">Sua chave fica salva apenas no seu navegador (localStorage).</p>
+          <label for="input-openrouter-key">API Key do OpenRouter</label>
+          <input type="password" id="input-openrouter-key" placeholder="sk-or-v1-...">
+          <p class="form-dica">Crie sua chave em <strong>openrouter.ai/keys</strong>. Fica salva só no seu navegador.</p>
         </div>
         <div class="form-group">
-          <label for="input-modelo-ia">Modelo da IA</label>
-          <input type="text" id="input-modelo-ia" placeholder="gpt-4o-mini">
-          <p class="form-dica">OpenAI: gpt-4o-mini, gpt-4o | Claude: claude-sonnet-4-20250514</p>
+          <label for="input-openrouter-model">Modelo</label>
+          <input type="text" id="input-openrouter-model" placeholder="google/gemini-2.0-flash-001">
+          <p class="form-dica">Sugestões: google/gemini-2.0-flash-001 (barato), anthropic/claude-sonnet-4-20250514, openai/gpt-4o-mini</p>
         </div>
         <div class="modal-acoes">
           <button id="btn-salvar-config" class="btn-principal">Salvar</button>
-          <button id="btn-testar-config" class="btn-secundario">Testar conexao</button>
+          <button id="btn-testar-config" class="btn-secundario">Testar IA</button>
         </div>
         <div id="msg-config" class="msg oculto"></div>
       </div>
     </div>
   </div>
 
-  <script src="gerador.js?v=7"></script>
+  <script src="gerador.js?v=8"></script>
 </body>
 </html>
