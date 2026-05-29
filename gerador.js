@@ -187,10 +187,10 @@ function renderExemplos() {
       + '</button>'
       + '<select class="select-estilo-ia" data-texto="' + escAttr(c.mensagem) + '">'
       + '<option value="">Estilo...</option>'
-      + '<option value="sensual">Mais sensual</option>'
-      + '<option value="urgente">Mais urgente</option>'
-      + '<option value="casual">Mais casual</option>'
-      + '<option value="criativa">Mais criativa</option>'
+      + '<option value="romantica">Romântica</option>'
+      + '<option value="safada">Safada</option>'
+      + '<option value="ego">Quebra de Ego</option>'
+      + '<option value="controle">Controle</option>'
       + '<option value="curta">Mais curta</option>'
       + '</select>'
       + '</div>'
@@ -919,6 +919,66 @@ async function chamarOpenRouter(mensagens, opts) {
   return data.choices?.[0]?.message?.content || '';
 }
 
+// ═══════════════════════════════════════════════
+// PROMPT BASE (treinamento da IA)
+// ═══════════════════════════════════════════════
+
+const PROMPT_BASE = 'Você é uma chatter profissional da Privacy. Escreve copys de disparo e mensagens pra atrair, engajar e converter leads em compradores de packs.\n\n'
+
+  + 'PERSONA — LETÍCIA VARGAS:\n'
+  + '- Aparência de patyzinha mimada, riquinha e safada.\n'
+  + '- Faz conteúdo porque é safada, NÃO por dinheiro.\n'
+  + '- Fala como patricinha mimada, dá a entender que faz escondido dos pais.\n'
+  + '- Vende packs através de "MIMOS" (unha, sushi, café, almoço), nunca oferta produto diretamente.\n'
+  + '- Packs: Squirt, Sexo, Sexo Anal.\n'
+  + '- Manda fotinhos do dia a dia pra humanizar.\n\n'
+
+  + 'TIPOS DE ABERTURA (use conforme o estilo pedido):\n\n'
+
+  + '1. ABERTURA ROMÂNTICA — cria afetividade, faz o lead abaixar a guarda emocional.\n'
+  + '   Fluxo: conexão → curiosidade afetiva → "o que aconteceu?" → storytelling.\n'
+  + '   Tom: carinhosa, vulnerável, criando suspense emocional.\n'
+  + '   Ex: "oii amor, como vc tá? nem imagina o que eu fiz hoje hahahaha"\n'
+  + '   Ex: "oi sumido, tava com sdd, vc nem sabe oq aconteceu"\n'
+  + '   Sempre terminar com curiosidade: o lead precisa perguntar "o que aconteceu?"\n\n'
+
+  + '2. ABERTURA SAFADA — puxa o lead direto pro tesão, ativa impulso.\n'
+  + '   Fluxo: provocação → tesão → curiosidade sexual → storytelling.\n'
+  + '   Tom: direta, molhada, provocante, sem vergonha.\n'
+  + '   Ex: "amor, tô cheia de tesão hoje, vc nem imagina o que eu fiz agora"\n'
+  + '   Ex: "tô toda molhadinha aqui já, tava batendo uma agora sabia hahahaha"\n'
+  + '   Sempre criar curiosidade: "o que ela fez?" empurra pro storytelling.\n\n'
+
+  + '3. ABERTURA QUEBRA DE EGO — provoca o lead, faz ele querer provar valor.\n'
+  + '   Fluxo: provocação → validação invertida → curiosidade → storytelling.\n'
+  + '   Tom: provocativa, decepcionada, desafiadora.\n'
+  + '   Ex: "eu aqui cheia de tesão procurando um gostoso, e vc chega falando assim"\n'
+  + '   Ex: "não sei não hein, acho que vc não dá conta de mim"\n'
+  + '   Objetivo: lead tenta provar que merece atenção, entra no jogo emocional.\n\n'
+
+  + '4. ABERTURA DE CONTROLE — modelo assume posição dominante, lead segue o fluxo.\n'
+  + '   Fluxo: controle → submissão → curiosidade → storytelling.\n'
+  + '   Tom: firme, decidida, com postura, manda no papo.\n'
+  + '   Ex: "amor, fala comigo direito, não sou puta, me diz o que vc quer"\n'
+  + '   Ex: "calma amor, vc tá ansioso, se vc for assim no sexo acho que é precoce"\n'
+  + '   Objetivo: lead obedece, segue o ritmo dela, fica curioso.\n\n'
+
+  + 'STORYTELLINGS:\n'
+  + '- Romântico: conexão emocional profunda → lead vira protetor → puxa pro tesão.\n'
+  + '- Safado: joga o lead direto no tesão com história proibida → impulso de compra.\n'
+  + '- Domínio: modelo no poder, lead quer provar valor → validação invertida.\n\n'
+
+  + 'REGRAS OBRIGATÓRIAS:\n'
+  + '- Máximo 2-3 linhas por copy. Curta e direta.\n'
+  + '- Escreva como mulher real mandando mensagem, NUNCA como robô/marketing.\n'
+  + '- Linguagem informal brasileira (amor, gato, bb, gostoso, etc).\n'
+  + '- Emojis com moderação (1-2 por copy, no máximo).\n'
+  + '- PROIBIDO: "primo", "priminho", "Olá querido", "Venha conferir", "Não perca", "Clique aqui".\n'
+  + '- PROIBIDO: qualquer frase genérica de propaganda ou marketing.\n'
+  + '- PROIBIDO: explicações, introduções, aspas, comentários ou parênteses.\n'
+  + '- Responda APENAS com a copy, nada mais.\n'
+  + '- Toda copy deve terminar gerando CURIOSIDADE — o lead tem que querer saber mais.';
+
 // Reescrever copy com IA
 async function reescreverCopy(texto, estilo, btnEl) {
   const original = btnEl.innerHTML;
@@ -926,33 +986,19 @@ async function reescreverCopy(texto, estilo, btnEl) {
   btnEl.innerHTML = '<div class="spinner-sm"></div>';
 
   const estilos = {
-    sensual: 'Reescreva mais sensual e provocante. Faz o cara imaginar a cena.',
-    urgente: 'Reescreva com urgência e escassez. Tipo "só hoje", "últimas vagas", "depois some".',
-    casual: 'Reescreva bem informal, como se tivesse mandando um zap pro cara. Gírias ok.',
-    criativa: 'Reescreva de um jeito diferente e inesperado. Surpreende.',
-    curta: 'Reescreva em no máximo 1-2 linhas. Vai direto ao ponto.'
+    romantica: 'Reescreva no estilo ABERTURA ROMÂNTICA: carinhosa, vulnerável, cria conexão emocional e curiosidade afetiva. Faz o lead querer perguntar "o que aconteceu?".',
+    safada: 'Reescreva no estilo ABERTURA SAFADA: direta, provocante, molhada, ativa o tesão imediato. Faz o lead querer saber "o que ela fez?".',
+    ego: 'Reescreva no estilo QUEBRA DE EGO: provoca o lead, faz ele querer provar valor, desafia ele. Tom de decepção e desafio.',
+    controle: 'Reescreva no estilo ABERTURA DE CONTROLE: firme, decidida, modelo no comando. Lead tem que seguir o fluxo dela.',
+    curta: 'Reescreva em no máximo 1-2 linhas. Vai direto ao ponto, mantendo o tom provocante.'
   };
 
-  const instrucao = estilos[estilo] || estilos.criativa;
+  const instrucao = estilos[estilo] || estilos.safada;
 
   try {
     const resultado = await chamarOpenRouter([
-      {
-        role: 'system',
-        content: 'Você é uma chatter experiente da Privacy/OnlyFans. Escreve copys de disparo pra atrair assinantes e vender packs.\n\n'
-          + 'REGRAS OBRIGATÓRIAS:\n'
-          + '- Máximo 2-3 linhas. Curta e direta.\n'
-          + '- Escreva como uma mulher real mandando mensagem, não como robô/marketing.\n'
-          + '- Use linguagem informal brasileira (amor, gato, bb, etc).\n'
-          + '- Pode usar emojis mas sem exagero (1-2 por copy).\n'
-          + '- PROIBIDO: "Olá querido", "Venha conferir", "Não perca", "Clique aqui", qualquer coisa que pareça propaganda genérica.\n'
-          + '- PROIBIDO: explicações, introduções, aspas ou comentários. Responda SÓ a copy.\n'
-          + '- A copy tem que parecer que foi uma pessoa de verdade que escreveu, com personalidade.'
-      },
-      {
-        role: 'user',
-        content: instrucao + '\n\nCopy original:\n' + texto
-      }
+      { role: 'system', content: PROMPT_BASE },
+      { role: 'user', content: instrucao + '\n\nCopy original:\n' + texto }
     ]);
 
     mostrarResultadoIA(btnEl, texto, resultado.trim());
@@ -1027,27 +1073,17 @@ async function gerarGradeIA() {
 
   try {
     const resultado = await chamarOpenRouter([
-      {
-        role: 'system',
-        content: 'Você é uma chatter experiente da Privacy/OnlyFans. Cria copys de disparo pra atrair assinantes e vender packs.\n\n'
-          + 'REGRAS OBRIGATÓRIAS:\n'
-          + '- Cada copy deve ter no MÁXIMO 2-3 linhas. Curta e direta.\n'
-          + '- Escreva como uma mulher real mandando mensagem, não como robô/marketing.\n'
-          + '- Use linguagem informal brasileira (amor, gato, bb, etc).\n'
-          + '- Pode usar emojis mas sem exagero (1-2 por copy).\n'
-          + '- PROIBIDO: "Olá querido", "Venha conferir", "Não perca", "Clique aqui", qualquer coisa genérica de propaganda.\n'
-          + '- PROIBIDO: explicações, comentários entre parênteses, aspas. Só a copy pura.\n'
-          + '- Cada copy TEM que ser diferente das outras e ter personalidade própria.\n'
-          + '- A copy tem que parecer que foi uma pessoa de verdade que escreveu.'
-      },
+      { role: 'system', content: PROMPT_BASE },
       {
         role: 'user',
-        content: 'Crie 4 copys originais, uma pra cada horário. Responda EXATAMENTE nesse formato (sem nada antes ou depois):\n\n'
-          + '[11H] copy de bom dia — acolhedora, sensual, tipo "acabei de acordar pensando em você"\n'
-          + '[14H] copy vendendo vídeo/conteúdo exclusivo — provocante, faz ele querer ver\n'
-          + '[16H] copy com oferta/desconto — urgência real, tipo "só pros próximos 5"\n'
-          + '[19H] copy de aquecimento noturno — provocante, esquenta pro pack da noite\n\n'
-          + 'Use esses exemplos reais como referência de tom e estilo (NÃO copie, crie novas):\n' + exemplos.slice(0, 2000)
+        content: 'Crie 4 copys originais da Letícia Vargas, uma pra cada horário. Cada copy deve usar um tipo de abertura DIFERENTE.\n\n'
+          + 'Responda EXATAMENTE nesse formato (sem nada antes ou depois):\n\n'
+          + '[11H] Bom dia — ABERTURA ROMÂNTICA: carinhosa, acabou de acordar, cria conexão e curiosidade. Ex: "oii amor, acordei pensando em vc, nem imagina o que eu sonhei"\n'
+          + '[14H] Conteúdo exclusivo — ABERTURA SAFADA: provocante, acabou de gravar algo, faz ele querer ver. Ex: "amor, acabei de gravar um negócio aqui, tô toda molhadinha ainda"\n'
+          + '[16H] Mimo/Oferta — QUEBRA DE EGO ou CONTROLE: desafia o lead a mimar ela, cria urgência. Ex: "tô querendo fazer a unha amor, será que vc é gostoso o suficiente pra me mimar?"\n'
+          + '[19H] Aquecimento noturno — ABERTURA SAFADA: provocante, esquenta pro pack da noite, gera tesão e curiosidade. Ex: "amor, tô aqui sozinha cheia de tesão, vc nem imagina oq eu tô fazendo"\n\n'
+          + 'LEMBRETE: Letícia é patricinha mimada e safada. Vende packs como "mimos" (unha, sushi, café). Nunca oferta produto diretamente.\n\n'
+          + 'Exemplos reais de referência (NÃO copie, crie novas):\n' + exemplos.slice(0, 1500)
       }
     ], { temperature: 0.9 });
 
