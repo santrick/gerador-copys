@@ -192,6 +192,15 @@ function renderExemplos() {
       + '<option value="ego">Quebra de Ego</option>'
       + '<option value="controle">Controle</option>'
       + '<option value="curta">Mais curta</option>'
+      + '<optgroup label="Ofertas / Mimos">'
+      + '<option value="oferta_unha">💅 Unha (R$200)</option>'
+      + '<option value="oferta_sushi">🍣 Sushi (R$150)</option>'
+      + '<option value="oferta_cafe">☕ Café (R$100)</option>'
+      + '<option value="oferta_almoco">🍽️ Almoço (R$150)</option>'
+      + '<option value="oferta_chamada">📞 Chamada (R$100)</option>'
+      + '<option value="oferta_whats">📱 WhatsApp (R$200)</option>'
+      + '<option value="oferta_pack">🔥 Pack exclusivo</option>'
+      + '</optgroup>'
       + '</select>'
       + '</div>'
       + '<button class="btn-copiar" data-texto="' + escAttr(c.mensagem) + '">Copiar</button>'
@@ -994,7 +1003,14 @@ async function reescreverCopy(texto, estilo, btnEl) {
     safada: 'Reescreva no estilo ABERTURA SAFADA: direta, provocante, molhada, ativa o tesão imediato. Faz o lead querer saber "o que ela fez?".',
     ego: 'Reescreva no estilo QUEBRA DE EGO: provoca o lead, faz ele querer provar valor, desafia ele. Tom de decepção e desafio.',
     controle: 'Reescreva no estilo ABERTURA DE CONTROLE: firme, decidida, modelo no comando. Lead tem que seguir o fluxo dela.',
-    curta: 'Reescreva em no máximo 1-2 linhas. Vai direto ao ponto, mantendo o tom provocante.'
+    curta: 'Reescreva em no máximo 1-2 linhas. Vai direto ao ponto, mantendo o tom provocante.',
+    oferta_unha: 'Crie uma copy pedindo MIMO DE UNHA (R$200). Tom de patricinha mimada: "amor, tô querendo fazer a unha, será que vc me mima?". Nunca falar "compre" ou "pague", é sempre MIMO. Faz parecer que se ele mimar, ela vai mandar algo especial em troca.',
+    oferta_sushi: 'Crie uma copy pedindo MIMO DE SUSHI (R$150). Tom de menininha com vontade: "amor, tô com uma vontade de sushi, me leva?". Insinua que se ele pagar, ela fica toda feliz e manda algo gostoso de volta.',
+    oferta_cafe: 'Crie uma copy pedindo MIMO DE CAFÉ (R$100). Tom leve e fofo: "amor, me paga um cafézinho? tô precisando de energia pra gravar umas coisinhas". Conecta o café com algo que ela vai fazer depois (gravar, mandar foto).',
+    oferta_almoco: 'Crie uma copy pedindo MIMO DE ALMOÇO (R$150). Tom carente e fofa: "amor, tô com fome, me paga um almoço? prometo que te recompenso depois". Insinua recompensa sem falar diretamente.',
+    oferta_chamada: 'Crie uma copy oferecendo CHAMADA (mínimo R$100). Tom provocante: "amor, quer me ver ao vivo? me mima que eu te ligo". Faz parecer exclusivo, que ela nunca faz isso pra ninguém.',
+    oferta_whats: 'Crie uma copy oferecendo WHATSAPP (mínimo R$200). Tom exclusivo e proibido: "amor, quer meu whats? é só me mimar que eu te passo, mas não conta pra ninguém". Tem que parecer super exclusivo, algo que ninguém tem.',
+    oferta_pack: 'Crie uma copy vendendo PACK EXCLUSIVO. Nunca dizer "pack" ou "compre". Tom: "amor, gravei um negócio aqui agora que nunca mandei pra ninguém, quer ver?". Faz parecer que acabou de gravar, é exclusivo, primeira vez mandando. Pede mimo em troca.'
   };
 
   const instrucao = estilos[estilo] || estilos.safada;
