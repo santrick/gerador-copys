@@ -199,7 +199,14 @@ function renderExemplos() {
       + '<option value="oferta_almoco">🍽️ Almoço (R$150)</option>'
       + '<option value="oferta_chamada">📞 Chamada (R$100)</option>'
       + '<option value="oferta_whats">📱 WhatsApp (R$200)</option>'
+      + '</optgroup>'
+      + '<optgroup label="Conteúdo">'
       + '<option value="oferta_pack">🔥 Pack exclusivo</option>'
+      + '<option value="oferta_video">🎬 Vídeo exclusivo</option>'
+      + '<option value="oferta_foto">📸 Fotos exclusivas</option>'
+      + '<option value="oferta_squirt">💦 Squirt</option>'
+      + '<option value="oferta_anal">🍑 Anal</option>'
+      + '<option value="oferta_sexo">🔞 Sexo</option>'
       + '</optgroup>'
       + '</select>'
       + '</div>'
@@ -1014,7 +1021,12 @@ async function reescreverCopy(texto, estilo, btnEl) {
     oferta_almoco: 'Crie uma copy pedindo MIMO DE ALMOÇO (R$150). Tom carente e fofa: "amor, tô com fome, me paga um almoço? prometo que te recompenso depois". Insinua recompensa sem falar diretamente.',
     oferta_chamada: 'Crie uma copy oferecendo CHAMADA (mínimo R$100). Tom provocante: "amor, quer me ver ao vivo? me mima que eu te ligo". Faz parecer exclusivo, que ela nunca faz isso pra ninguém.',
     oferta_whats: 'Crie uma copy oferecendo WHATSAPP (mínimo R$200). Tom exclusivo e proibido: "amor, quer meu whats? é só me mimar que eu te passo, mas não conta pra ninguém". Tem que parecer super exclusivo, algo que ninguém tem.',
-    oferta_pack: 'Crie uma copy vendendo PACK EXCLUSIVO. Nunca dizer "pack" ou "compre". Tom: "amor, gravei um negócio aqui agora que nunca mandei pra ninguém, quer ver?". Faz parecer que acabou de gravar, é exclusivo, primeira vez mandando. Pede mimo em troca.'
+    oferta_pack: 'Crie uma copy vendendo PACK EXCLUSIVO. Nunca dizer "pack" ou "compre". Tom: "amor, gravei um negócio aqui agora que nunca mandei pra ninguém, quer ver?". Faz parecer que acabou de gravar, é exclusivo, primeira vez mandando. Pede mimo em troca.',
+    oferta_video: 'Crie uma copy oferecendo VÍDEO EXCLUSIVO. Tom safadinho: acabou de gravar, tá toda molhada, nunca mandou pra ninguém. Faz o lead morrer de curiosidade. "amor, acabei de gravar um videozinho aqui... nunca mostrei pra ninguém, quer ver?" Pede mimo em troca.',
+    oferta_foto: 'Crie uma copy oferecendo FOTOS EXCLUSIVAS. Tom provocante e tímida ao mesmo tempo: acabou de tirar umas fotos ousadas, ficou com vergonha mas quer mostrar pra ele. "amor, tirei umas fotinhas agora que fiquei com vergonha até de olhar hahahaha quer ver?" Pede mimo.',
+    oferta_squirt: 'Crie uma copy oferecendo conteúdo de SQUIRT. Tom safadinha e envergonhada: gravou escondido, nunca mostrou, é proibido. "amor, aconteceu uma coisa aqui agora que eu nunca contei pra ninguém... gravei sem querer e fiquei toda molhada, quer ver?" Pede mimo em troca.',
+    oferta_anal: 'Crie uma copy oferecendo conteúdo ANAL. Tom proibido e exclusivo: fez pela primeira vez, gravou escondido, tem vergonha. "amor, fiz uma coisa que nunca tinha feito... gravei pra vc mas tenho vergonha de mandar assim" Pede mimo em troca.',
+    oferta_sexo: 'Crie uma copy oferecendo conteúdo de SEXO. Tom safada e exclusiva: gravou com alguém, é proibidão, nunca mandou pra ninguém. "amor, gravei um negócio muito proibido... se eu te contar vc não acredita, quer ver?" Pede mimo em troca.'
   };
 
   const instrucao = estilos[estilo] || estilos.safada;
