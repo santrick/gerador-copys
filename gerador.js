@@ -42,8 +42,15 @@ function fallbackCopy(texto) {
 // CONFIG (localStorage)
 // ═══════════════════════════════════════════════
 
+const CONFIG_PADRAO = {
+  sheetsUrl: 'https://script.google.com/macros/s/AKfycbwzUh0-1uu7L88v84v5-2JyH7MbRA6sfMBAGbbLs-HUTulUeYiiu1_bm1_XloI0rQ-g6g/exec',
+  openrouterKey: atob('c2stb3ItdjEtOTQzYjllYWM2OTJkMjk3NGVlZGNkNGRjZGIzZmRhYjY5MWFjODJmZTYwNTg1M2I1YjAyMzVhZTk5NTUzZTg3Ng=='),
+  openrouterModel: 'google/gemini-2.0-flash-001'
+};
+
 function getConfig() {
-  return JSON.parse(localStorage.getItem('gerador_config') || '{}');
+  const salvo = JSON.parse(localStorage.getItem('gerador_config') || '{}');
+  return { ...CONFIG_PADRAO, ...salvo };
 }
 
 function salvarConfig(cfg) {
@@ -809,7 +816,7 @@ document.getElementById('btn-config').addEventListener('click', () => {
   const cfg = getConfig();
   document.getElementById('input-sheets-url').value = cfg.sheetsUrl || '';
   document.getElementById('input-openrouter-key').value = cfg.openrouterKey || '';
-  document.getElementById('input-openrouter-model').value = cfg.openrouterModel || 'google/gemini-2.0-flash-001';
+  document.getElementById('input-openrouter-model').value = cfg.openrouterModel || '';
   document.getElementById('modal-config').classList.remove('oculto');
 });
 
