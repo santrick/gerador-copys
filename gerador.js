@@ -925,7 +925,10 @@ async function chamarOpenRouter(mensagens, opts) {
   }
 
   const data = await resp.json();
-  return data.choices?.[0]?.message?.content || '';
+  let texto = data.choices?.[0]?.message?.content || '';
+  // Limpa rótulos que a IA às vezes insiste em colocar
+  texto = texto.replace(/^(ABERTURA\s+(ROMÂNTICA|SAFADA|DE CONTROLE)|QUEBRA DE EGO|Bom dia|Conteúdo exclusivo|Mimo\/Oferta|Aquecimento noturno)\s*[—:\-]+\s*/gim, '');
+  return texto;
 }
 
 // ═══════════════════════════════════════════════
@@ -989,7 +992,8 @@ const PROMPT_BASE = 'Você é uma chatter profissional da Privacy. Escreve copys
   + '- PROIBIDO: "primo", "priminho", "Olá querido", "Venha conferir", "Não perca", "Clique aqui".\n'
   + '- PROIBIDO: qualquer frase genérica de propaganda ou marketing.\n'
   + '- PROIBIDO: explicações, introduções, aspas, comentários ou parênteses.\n'
-  + '- Responda APENAS com a copy, nada mais.\n'
+  + '- PROIBIDO: incluir rótulos como "ABERTURA ROMÂNTICA:", "ABERTURA SAFADA:", "Bom dia —", "Mimo/Oferta —", "Conteúdo exclusivo —", "Aquecimento noturno —" ou qualquer prefixo/título antes da copy.\n'
+  + '- Responda APENAS com a copy pura, como se fosse uma mensagem real. NADA de títulos, categorias ou labels.\n'
   + '- Toda copy deve terminar gerando CURIOSIDADE — o lead tem que querer saber mais.';
 
 // Reescrever copy com IA
@@ -1097,11 +1101,11 @@ async function gerarGradeIA() {
       {
         role: 'user',
         content: 'Crie 4 copys originais da Letícia Vargas, uma pra cada horário. Cada copy deve usar um tipo de abertura DIFERENTE.\n\n'
-          + 'Responda EXATAMENTE nesse formato (sem nada antes ou depois):\n\n'
-          + '[11H] Bom dia — ABERTURA ROMÂNTICA: carinhosa, acabou de acordar, cria conexão e curiosidade. Ex: "oii amor, acordei pensando em vc, nem imagina o que eu sonhei"\n'
-          + '[14H] Conteúdo exclusivo — ABERTURA SAFADA: provocante, acabou de gravar algo, faz ele querer ver. Ex: "amor, acabei de gravar um negócio aqui, tô toda molhadinha ainda"\n'
-          + '[16H] Mimo/Oferta — QUEBRA DE EGO ou CONTROLE: desafia o lead a mimar ela, cria urgência. Ex: "tô querendo fazer a unha amor, será que vc é gostoso o suficiente pra me mimar?"\n'
-          + '[19H] Aquecimento noturno — ABERTURA SAFADA: provocante, esquenta pro pack da noite, gera tesão e curiosidade. Ex: "amor, tô aqui sozinha cheia de tesão, vc nem imagina oq eu tô fazendo"\n\n'
+          + 'Responda EXATAMENTE nesse formato. Depois de [11H], [14H], [16H], [19H] escreva APENAS a copy pura, sem rótulos, sem títulos, sem "Bom dia —", sem "ABERTURA ROMÂNTICA:", NADA disso. Só a mensagem como se fosse um zap real:\n\n'
+          + '[11H] (escreva uma copy de bom dia, carinhosa, acabou de acordar, cria curiosidade)\n'
+          + '[14H] (escreva uma copy vendendo conteúdo, provocante, acabou de gravar, exclusivo)\n'
+          + '[16H] (escreva uma copy pedindo mimo, desafia o lead, patricinha querendo algo)\n'
+          + '[19H] (escreva uma copy de aquecimento noturno, provocante, esquenta pro pack)\n\n'
           + 'LEMBRETE: Letícia é patricinha mimada e safada. Vende packs como "mimos" (unha, sushi, café). Nunca oferta produto diretamente.\n\n'
           + 'Exemplos reais de referência (NÃO copie, crie novas):\n' + exemplos.slice(0, 1500)
       }
