@@ -926,11 +926,11 @@ async function reescreverCopy(texto, estilo, btnEl) {
   btnEl.innerHTML = '<div class="spinner-sm"></div>';
 
   const estilos = {
-    sensual: 'Reescreva de forma mais sensual e provocante, mantendo a essência.',
-    urgente: 'Reescreva criando mais urgência e escassez, como se fosse a última chance.',
-    casual: 'Reescreva de forma mais casual e descontraída, como uma conversa informal.',
-    criativa: 'Reescreva de forma criativa e diferente, surpreendendo o leitor.',
-    curta: 'Reescreva de forma mais curta e direta, sem perder o impacto.'
+    sensual: 'Reescreva mais sensual e provocante. Faz o cara imaginar a cena.',
+    urgente: 'Reescreva com urgência e escassez. Tipo "só hoje", "últimas vagas", "depois some".',
+    casual: 'Reescreva bem informal, como se tivesse mandando um zap pro cara. Gírias ok.',
+    criativa: 'Reescreva de um jeito diferente e inesperado. Surpreende.',
+    curta: 'Reescreva em no máximo 1-2 linhas. Vai direto ao ponto.'
   };
 
   const instrucao = estilos[estilo] || estilos.criativa;
@@ -939,7 +939,15 @@ async function reescreverCopy(texto, estilo, btnEl) {
     const resultado = await chamarOpenRouter([
       {
         role: 'system',
-        content: 'Você é um copywriter especialista em copys para plataformas de conteúdo adulto (Privacy/OnlyFans). Escreva copys diretas, provocantes e que geram engajamento. Responda APENAS com a copy reescrita, sem explicações.'
+        content: 'Você é uma chatter experiente da Privacy/OnlyFans. Escreve copys de disparo pra atrair assinantes e vender packs.\n\n'
+          + 'REGRAS OBRIGATÓRIAS:\n'
+          + '- Máximo 2-3 linhas. Curta e direta.\n'
+          + '- Escreva como uma mulher real mandando mensagem, não como robô/marketing.\n'
+          + '- Use linguagem informal brasileira (amor, gato, bb, etc).\n'
+          + '- Pode usar emojis mas sem exagero (1-2 por copy).\n'
+          + '- PROIBIDO: "Olá querido", "Venha conferir", "Não perca", "Clique aqui", qualquer coisa que pareça propaganda genérica.\n'
+          + '- PROIBIDO: explicações, introduções, aspas ou comentários. Responda SÓ a copy.\n'
+          + '- A copy tem que parecer que foi uma pessoa de verdade que escreveu, com personalidade.'
       },
       {
         role: 'user',
@@ -1021,16 +1029,25 @@ async function gerarGradeIA() {
     const resultado = await chamarOpenRouter([
       {
         role: 'system',
-        content: 'Você é um copywriter especialista em copys para plataformas de conteúdo adulto (Privacy/OnlyFans). Crie copys diretas, provocantes e que geram engajamento e vendas. Responda EXATAMENTE no formato pedido, sem explicações extras.'
+        content: 'Você é uma chatter experiente da Privacy/OnlyFans. Cria copys de disparo pra atrair assinantes e vender packs.\n\n'
+          + 'REGRAS OBRIGATÓRIAS:\n'
+          + '- Cada copy deve ter no MÁXIMO 2-3 linhas. Curta e direta.\n'
+          + '- Escreva como uma mulher real mandando mensagem, não como robô/marketing.\n'
+          + '- Use linguagem informal brasileira (amor, gato, bb, etc).\n'
+          + '- Pode usar emojis mas sem exagero (1-2 por copy).\n'
+          + '- PROIBIDO: "Olá querido", "Venha conferir", "Não perca", "Clique aqui", qualquer coisa genérica de propaganda.\n'
+          + '- PROIBIDO: explicações, comentários entre parênteses, aspas. Só a copy pura.\n'
+          + '- Cada copy TEM que ser diferente das outras e ter personalidade própria.\n'
+          + '- A copy tem que parecer que foi uma pessoa de verdade que escreveu.'
       },
       {
         role: 'user',
-        content: 'Crie uma grade de disparos para o dia com 4 copys originais, uma para cada horário. Use o formato EXATO abaixo:\n\n'
-          + '[11H] (copy de bom dia, acolhedora e sensual)\n'
-          + '[14H] (copy vendendo conteúdo exclusivo/vídeo)\n'
-          + '[16H] (copy com oferta, desconto ou urgência)\n'
-          + '[19H] (copy de aquecimento noturno, provocante)\n\n'
-          + 'Exemplos de referência do banco:\n' + exemplos.slice(0, 2000)
+        content: 'Crie 4 copys originais, uma pra cada horário. Responda EXATAMENTE nesse formato (sem nada antes ou depois):\n\n'
+          + '[11H] copy de bom dia — acolhedora, sensual, tipo "acabei de acordar pensando em você"\n'
+          + '[14H] copy vendendo vídeo/conteúdo exclusivo — provocante, faz ele querer ver\n'
+          + '[16H] copy com oferta/desconto — urgência real, tipo "só pros próximos 5"\n'
+          + '[19H] copy de aquecimento noturno — provocante, esquenta pro pack da noite\n\n'
+          + 'Use esses exemplos reais como referência de tom e estilo (NÃO copie, crie novas):\n' + exemplos.slice(0, 2000)
       }
     ], { temperature: 0.9 });
 
