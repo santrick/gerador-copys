@@ -171,7 +171,7 @@ function renderExemplos() {
     const cor = COR_TIPO[c.tipo] || '#64748b';
     return '<div class="copy-card">'
       + '<div class="copy-card-header">'
-      + '<span class="copy-card-modelo">@' + esc(c.modelo) + '</span>'
+      + '<span class="copy-card-modelo">' + esc(c.modelo) + '</span>'
       + '<span class="copy-card-tipo" style="background:' + cor + '">' + esc(c.tipo) + '</span>'
       + '</div>'
       + '<div class="copy-card-texto">' + esc(c.mensagem) + '</div>'
