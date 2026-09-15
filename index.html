@@ -271,16 +271,29 @@
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h2>🔔 Notificações no Celular</h2></div>
-            <p class="panel-desc">Avisa a equipe no celular nos 4 horários da grade — funciona mesmo com o site fechado, via <a href="https://ntfy.sh" target="_blank" rel="noopener">ntfy.sh</a> (grátis, sem conta).</p>
+            <div class="panel-head"><h2>🔔 Notificações no Navegador</h2></div>
+            <p class="panel-desc">Avisa nos horários da grade direto pelo navegador, com o ícone da Synora. <strong>Precisa manter essa aba aberta</strong> (pode minimizar, mas não fechar) pra continuar recebendo.</p>
             <ol class="notif-steps">
-              <li>Baixe o app <strong>ntfy</strong> (Android/iOS) ou abra o link do canal direto no navegador do celular</li>
-              <li>Toque em <strong>Inscrever-se</strong> no canal <code id="ntfyTopicLabel">…</code></li>
-              <li>Pronto — todo atendente que se inscrever recebe o mesmo aviso, nos 4 horários, todo dia</li>
+              <li>Clique em <strong>Ativar Notificações</strong> e permita quando o navegador perguntar</li>
+              <li>Deixe essa aba aberta (funciona em segundo plano, minimizada)</li>
+              <li>Nos horários da grade, chega um aviso — toque nele pra abrir direto aqui</li>
             </ol>
             <div class="notif-actions">
-              <a id="ntfyLink" class="btn btn-secondary" href="#" target="_blank" rel="noopener">🔗 Abrir canal ntfy</a>
-              <button id="btnTestarNtfy" class="btn btn-primary">🔔 Testar notificação agora</button>
+              <button id="btnAtivarNotif" class="btn btn-primary">🔔 Ativar Notificações</button>
+              <button id="btnTestarNotif" class="btn btn-secondary">Testar agora</button>
+            </div>
+            <p class="notif-status" id="notifStatus"></p>
+            <div class="notif-horarios">
+              <span class="slot-chip" style="--c:#fbbf24">11h</span>
+              <span class="slot-chip" style="--c:#a855f7">14h</span>
+              <span class="slot-chip" style="--c:#34d399">16h</span>
+              <span class="slot-chip" style="--c:#ec4899">19h</span>
+              <span class="notif-sep">·</span>
+              <span class="slot-chip" style="--c:#8e8ea3">12h</span>
+              <span class="slot-chip" style="--c:#8e8ea3">15h</span>
+              <span class="slot-chip" style="--c:#8e8ea3">17h</span>
+              <span class="slot-chip" style="--c:#8e8ea3">20h</span>
+              <span class="slot-chip" style="--c:#8e8ea3">23h</span>
             </div>
           </div>
 

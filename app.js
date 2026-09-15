@@ -1,43 +1,74 @@
 /* Synora Copys — app.js
    Site estático (GitHub Pages). Sem dependência de extensão — config e dados ficam em localStorage. */
 
-// ═══════════════════════════════════════════════ NOTIFICAÇÕES (ntfy.sh) ═══
-// Precisa bater com o "NTFY_TOPIC" do workflow .github/workflows/notificar-disparos.yml
+// ═══════════════════════════════════════════════ NOTIFICAÇÕES (navegador) ═══
+// Só funcionam com essa aba aberta (pode estar minimizada/em 2º plano).
+// Sem servidor: cada dispositivo agenda e dispara localmente, checando o horário de Brasília.
 
-const NTFY_TOPIC = 'synora-disparos-f9229d45';
-const NTFY_URL = `https://ntfy.sh/${NTFY_TOPIC}`;
+const ICON_URL = location.origin + location.pathname.replace(/[^/]*$/, '') + 'icon.png';
+
+const LEMBRETES_HORARIO = {
+  '11:00': { titulo: '11h - Bom Dia', msg: 'Hora de mandar a copy de Bom Dia pros fãs' },
+  '14:00': { titulo: '14h - Vídeo Exclusivo', msg: 'Hora de disparar a copy de Vídeo Exclusivo' },
+  '16:00': { titulo: '16h - Oferta', msg: 'Hora de mandar a Oferta do dia' },
+  '19:00': { titulo: '19h - Aquecimento', msg: 'Hora do Aquecimento pra Pack' },
+  '12:00': { titulo: 'Programe a grade de amanhã', msg: 'Já pensou na grade de amanhã? Começa a programar agora, vida' },
+  '15:00': { titulo: 'Programe a grade de amanhã', msg: 'Lembrete: prepara os disparos de amanhã com calma' },
+  '17:00': { titulo: 'Programe a grade de amanhã', msg: 'Faltam poucas horas do dia — deixa a grade de amanhã pronta' },
+  '20:00': { titulo: 'Programe a grade de amanhã', msg: 'Hora de fechar a grade do dia seguinte' },
+  '23:00': { titulo: 'Última call: grade de amanhã', msg: 'É hora de vender! Garante que amanhã já tá tudo programado' }
+};
+
+function horaAgoraBRT() {
+  return new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
+}
+function diaAgoraBRT() {
+  return new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+
+function dispararNotificacao(titulo, msg) {
+  if (Notification.permission !== 'granted') return;
+  const n = new Notification(titulo, { body: msg, icon: ICON_URL, badge: ICON_URL, tag: titulo });
+  n.onclick = () => { window.focus(); location.hash = '#grade'; n.close(); };
+}
+
+function checarLembretes() {
+  const hora = horaAgoraBRT();
+  const item = LEMBRETES_HORARIO[hora];
+  if (!item) return;
+  const chave = 'synora_lembrete_' + hora + '_' + diaAgoraBRT();
+  if (localStorage.getItem(chave)) return;
+  localStorage.setItem(chave, '1');
+  dispararNotificacao(item.titulo, item.msg);
+}
+
+function atualizarStatusNotif() {
+  const el = document.getElementById('notifStatus');
+  if (!('Notification' in window)) { el.textContent = 'Seu navegador não suporta notificações.'; el.className = 'notif-status erro'; return; }
+  if (Notification.permission === 'granted') { el.textContent = '✓ Notificações ativas nesse navegador.'; el.className = 'notif-status ok'; }
+  else if (Notification.permission === 'denied') { el.textContent = 'Notificações bloqueadas — ative nas configurações do navegador.'; el.className = 'notif-status erro'; }
+  else { el.textContent = 'Notificações ainda não ativadas.'; el.className = 'notif-status'; }
+}
 
 function configurarNotificacoes() {
-  document.getElementById('ntfyTopicLabel').textContent = NTFY_TOPIC;
-  document.getElementById('ntfyLink').href = NTFY_URL;
+  atualizarStatusNotif();
 
-  document.getElementById('btnTestarNtfy').addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Enviando…';
-    try {
-      const resp = await fetch(NTFY_URL, {
-        method: 'POST',
-        headers: {
-          Title: 'Teste - Synora Copys',
-          Priority: 'default',
-          Tags: 'test_tube',
-          Icon: 'https://geradorcopys.com.br/icon.png',
-          Click: location.origin + location.pathname + '#grade',
-          Actions: `view, Abrir Grade do Dia, ${location.origin}${location.pathname}#grade, clear=true`
-        },
-        body: 'Notificação de teste! Se você recebeu isso, o canal está funcionando 🔔'
-      });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      toast('Notificação de teste enviada! Confira o app ntfy.');
-    } catch (err) {
-      toast('Erro ao enviar: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = original;
-    }
+  document.getElementById('btnAtivarNotif').addEventListener('click', async () => {
+    if (!('Notification' in window)) { toast('Seu navegador não suporta notificações.'); return; }
+    const perm = await Notification.requestPermission();
+    atualizarStatusNotif();
+    if (perm === 'granted') toast('Notificações ativadas! Mantenha essa aba aberta.');
+    else toast('Permissão não concedida.');
   });
+
+  document.getElementById('btnTestarNotif').addEventListener('click', () => {
+    if (Notification.permission !== 'granted') { toast('Ative as notificações primeiro.'); return; }
+    dispararNotificacao('Teste - Synora Copys', 'Notificação de teste! Se você recebeu isso, está funcionando 🔔');
+    toast('Notificação de teste disparada.');
+  });
+
+  checarLembretes();
+  setInterval(checarLembretes, 20000);
 }
 
 // ═══════════════════════════════════════════════ CONFIG (localStorage) ═══
