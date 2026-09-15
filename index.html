@@ -6,6 +6,16 @@
   <title>Synora Copys</title>
   <meta name="description" content="Minere, organize e sorteie as melhores copys para disparos. Dashboard, banco de disparos e IA em um só lugar." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 130%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop offset=%220%22 stop-color=%22%23c084fc%22/><stop offset=%221%22 stop-color=%22%237c3aed%22/></linearGradient><mask id=%22m%22><path d=%22M50 5 C30 30 20 48 20 68 C20 98 40 120 50 128 C60 120 80 98 80 68 C80 48 70 30 50 5 Z%22 fill=%22white%22/><path d=%22M38 38 C56 47 32 59 50 68 C68 77 44 89 58 100%22 stroke=%22black%22 stroke-width=%2211%22 fill=%22none%22 stroke-linecap=%22round%22/></mask></defs><rect width=%22100%22 height=%22130%22 fill=%22url(%23g)%22 mask=%22url(%23m)%22/></svg>" />
+
+  <!-- PWA / instalar na tela inicial -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#06060b" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Synora" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
@@ -274,8 +284,9 @@
             <div class="panel-head"><h2>🔔 Notificações no Navegador</h2></div>
             <p class="panel-desc">Avisa nos horários da grade direto pelo navegador, com o ícone da Synora. <strong>Precisa manter essa aba aberta</strong> (pode minimizar, mas não fechar) pra continuar recebendo.</p>
             <ol class="notif-steps">
-              <li>Clique em <strong>Ativar Notificações</strong> e permita quando o navegador perguntar</li>
-              <li>Deixe essa aba aberta (funciona em segundo plano, minimizada)</li>
+              <li><strong>iPhone:</strong> no Safari, toque em compartilhar (□↑) → <strong>Adicionar à Tela de Início</strong> — abre um app "Synora" próprio, sem barra do navegador</li>
+              <li>Abra pelo ícone da tela de início e clique em <strong>Ativar Notificações</strong>, permitindo quando pedir</li>
+              <li>Deixe esse app/aba aberto (pode minimizar, mas não fechar)</li>
               <li>Nos horários da grade, chega um aviso — toque nele pra abrir direto aqui</li>
             </ol>
             <div class="notif-actions">
