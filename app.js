@@ -183,6 +183,52 @@ function iniciarFeedAdmin() {
     }, (err) => console.error('[feed admin]', err));
 }
 
+function configurarCriarAtendente() {
+  const btn = document.getElementById('btnCriarAtendente');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const nome = document.getElementById('novoAtendenteNome').value.trim();
+    const email = document.getElementById('novoAtendenteEmail').value.trim();
+    const senha = document.getElementById('novoAtendenteSenha').value;
+    const msg = document.getElementById('criarAtendenteMsg');
+    msg.className = 'login-msg';
+    if (!nome || !email || !senha) { msg.textContent = 'Preenche nome, e-mail e senha.'; return; }
+    if (senha.length < 6) { msg.textContent = 'Senha precisa ter no mínimo 6 caracteres.'; return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Criando…';
+    msg.textContent = '';
+
+    // Usa um app Firebase secundário só pra criar a conta, sem trocar a sua sessão de admin
+    const nomeAppSecundario = 'CriarAtendente_' + Date.now();
+    const appSecundario = firebase.initializeApp(FIREBASE_CONFIG, nomeAppSecundario);
+    const authSecundario = appSecundario.auth();
+    try {
+      const cred = await authSecundario.createUserWithEmailAndPassword(email, senha);
+      await cred.user.updateProfile({ displayName: nome });
+      await authSecundario.signOut();
+      msg.style.color = 'var(--green)';
+      msg.textContent = `Conta de "${nome}" criada! Já pode passar o e-mail e a senha pra ela.`;
+      document.getElementById('novoAtendenteNome').value = '';
+      document.getElementById('novoAtendenteEmail').value = '';
+      document.getElementById('novoAtendenteSenha').value = '';
+      registrarAtividade('Criou login de atendente', `${nome} (${email})`);
+    } catch (err) {
+      const mapa = {
+        'auth/email-already-in-use': 'Já existe uma conta com esse e-mail.',
+        'auth/invalid-email': 'E-mail inválido.',
+        'auth/weak-password': 'Senha muito fraca (mínimo 6 caracteres).'
+      };
+      msg.style.color = 'var(--red)';
+      msg.textContent = mapa[err.code] || ('Erro: ' + err.message);
+    } finally {
+      await appSecundario.delete();
+      btn.disabled = false;
+      btn.textContent = 'Criar Conta';
+    }
+  });
+}
+
 // ═══════════════════════════════════════════════ CONFIG (localStorage) ═══
 
 const CONFIG_PADRAO = {
@@ -1204,6 +1250,7 @@ function renderDashboard() {
 
 document.addEventListener('DOMContentLoaded', () => {
   configurarLogin();
+  configurarCriarAtendente();
   configurarNav();
   configurarConfigModal();
   configurarMineradas();

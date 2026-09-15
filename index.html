@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -386,6 +386,25 @@
         <!-- ADMIN (só aparece pro admin) -->
         <section id="tab-admin" class="tab-panel">
           <div class="panel">
+            <div class="panel-head"><h2>➕ Criar Login de Atendente</h2></div>
+            <p class="panel-desc">Cria um acesso novo sem precisar ir no Firebase.</p>
+            <label class="field">
+              <span>Nome do atendente</span>
+              <input type="text" id="novoAtendenteNome" placeholder="Ex: Bia" />
+            </label>
+            <label class="field">
+              <span>E-mail</span>
+              <input type="email" id="novoAtendenteEmail" placeholder="bia@synoracopys.com" />
+            </label>
+            <label class="field">
+              <span>Senha</span>
+              <input type="password" id="novoAtendenteSenha" placeholder="mínimo 6 caracteres" />
+            </label>
+            <button id="btnCriarAtendente" class="btn btn-primary">Criar Conta</button>
+            <p class="login-msg" id="criarAtendenteMsg"></p>
+          </div>
+
+          <div class="panel">
             <div class="panel-head"><h2>👑 Atividade da Equipe</h2></div>
             <p class="panel-desc">O que cada atendente fez, em tempo real. Só você vê essa aba.</p>
             <div id="atividadeEquipe" class="activity-list"></div>
@@ -426,6 +445,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
