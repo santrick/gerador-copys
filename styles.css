@@ -485,6 +485,39 @@ select {
 .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
 .modal-head h2 { margin: 0; font-size: 16px; }
 
+/* ===================== LOGIN ===================== */
+
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background:
+    radial-gradient(600px circle at 15% -5%, rgba(168,85,247,0.18), transparent 60%),
+    radial-gradient(500px circle at 100% 10%, rgba(236,72,153,0.12), transparent 55%),
+    var(--bg);
+}
+.login-box {
+  width: 100%;
+  max-width: 360px;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  padding: 32px 28px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.login-brand-mark { margin: 0 auto 14px; filter: drop-shadow(0 3px 14px rgba(168,85,247,0.5)); width: 30px; }
+.login-box h1 { margin: 0 0 4px; font-size: 20px; }
+.login-sub { margin: 0 0 22px; font-size: 12.5px; color: var(--text-dim); }
+.login-box .field { text-align: left; }
+.login-msg { min-height: 16px; font-size: 12.5px; color: var(--red); margin: 10px 0 0; }
+
+.usuario-logado { font-size: 12px; color: var(--text-dim); padding: 2px 4px 10px; text-align: center; }
+
 /* ===================== TOAST ===================== */
 
 #toastContainer {

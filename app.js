@@ -71,6 +71,118 @@ function configurarNotificacoes() {
   setInterval(checarLembretes, 20000);
 }
 
+// ═══════════════════════════════════════════════ LOGIN + ATIVIDADE (Firebase) ═══
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCJ8kKdGZHhHzsFYicUGzyy9Z_J-aoiPmM",
+  authDomain: "synora-copys.firebaseapp.com",
+  projectId: "synora-copys",
+  storageBucket: "synora-copys.firebasestorage.app",
+  messagingSenderId: "201340469613",
+  appId: "1:201340469613:web:59825e32a56ebe13d2da64"
+};
+const ADMIN_EMAIL = 'rickempresa1@gmail.com';
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+let usuarioAtual = null;
+let souAdmin = false;
+let feedAdminAtivo = false;
+
+function configurarLogin() {
+  const overlay = document.getElementById('loginOverlay');
+  const shell = document.getElementById('appShell');
+  const msg = document.getElementById('loginMsg');
+
+  document.getElementById('btnLogin').addEventListener('click', fazerLogin);
+  document.getElementById('loginSenha').addEventListener('keydown', (e) => { if (e.key === 'Enter') fazerLogin(); });
+  document.getElementById('loginEmail').addEventListener('keydown', (e) => { if (e.key === 'Enter') fazerLogin(); });
+
+  async function fazerLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const senha = document.getElementById('loginSenha').value;
+    if (!email || !senha) { msg.textContent = 'Preenche e-mail e senha.'; return; }
+    const btn = document.getElementById('btnLogin');
+    btn.disabled = true;
+    btn.textContent = 'Entrando…';
+    msg.textContent = '';
+    try {
+      await auth.signInWithEmailAndPassword(email, senha);
+    } catch (err) {
+      const mapa = {
+        'auth/invalid-email': 'E-mail inválido.',
+        'auth/user-not-found': 'Usuário não encontrado.',
+        'auth/wrong-password': 'Senha incorreta.',
+        'auth/invalid-credential': 'E-mail ou senha incorretos.',
+        'auth/too-many-requests': 'Muitas tentativas. Aguarde um pouco.'
+      };
+      msg.textContent = mapa[err.code] || ('Erro: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+    }
+  }
+
+  document.getElementById('btnLogout').addEventListener('click', () => auth.signOut());
+
+  auth.onAuthStateChanged(async (user) => {
+    usuarioAtual = user;
+    if (!user) {
+      souAdmin = false;
+      overlay.classList.remove('hidden');
+      shell.hidden = true;
+      document.getElementById('loginEmail').value = '';
+      document.getElementById('loginSenha').value = '';
+      return;
+    }
+
+    if (!user.displayName) {
+      const nome = prompt('Bem-vindo! Como podemos te chamar?');
+      if (nome && nome.trim()) { try { await user.updateProfile({ displayName: nome.trim() }); } catch (e) {} }
+    }
+
+    souAdmin = user.email === ADMIN_EMAIL;
+    document.getElementById('navAdmin').classList.toggle('hidden', !souAdmin);
+    document.getElementById('usuarioLogado').textContent = '👤 ' + (user.displayName || user.email);
+
+    overlay.classList.add('hidden');
+    shell.hidden = false;
+
+    registrarAtividade('Entrou no sistema', '');
+    if (souAdmin) iniciarFeedAdmin();
+  });
+}
+
+function registrarAtividade(acao, detalhe) {
+  if (!usuarioAtual) return;
+  db.collection('atividade').add({
+    uid: usuarioAtual.uid,
+    nome: usuarioAtual.displayName || usuarioAtual.email,
+    acao,
+    detalhe: (detalhe || '').slice(0, 200),
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  }).catch((err) => console.error('[atividade]', err));
+}
+
+function iniciarFeedAdmin() {
+  if (feedAdminAtivo) return;
+  feedAdminAtivo = true;
+  db.collection('atividade').orderBy('timestamp', 'desc').limit(50)
+    .onSnapshot((snap) => {
+      const container = document.getElementById('atividadeEquipe');
+      if (!container) return;
+      if (snap.empty) { container.innerHTML = '<p class="empty-hint">Nenhuma atividade ainda.</p>'; return; }
+      container.innerHTML = snap.docs.map((doc) => {
+        const d = doc.data();
+        const hora = d.timestamp ? d.timestamp.toDate().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '…';
+        return `<div class="activity-item"><span class="activity-dot"></span>
+          <div><div class="activity-text"><b>${esc(d.nome || '—')}</b> · ${esc(d.acao || '')}${d.detalhe ? ' — ' + esc(d.detalhe) : ''}</div><div class="activity-meta">${esc(hora)}</div></div>
+        </div>`;
+      }).join('');
+    }, (err) => console.error('[feed admin]', err));
+}
+
 // ═══════════════════════════════════════════════ CONFIG (localStorage) ═══
 
 const CONFIG_PADRAO = {
@@ -229,6 +341,7 @@ function registrarCopia(texto) {
   if (!chave) return;
   copyCounts[chave] = (copyCounts[chave] || 0) + 1;
   localStorage.setItem('gerador_copy_counts', JSON.stringify(copyCounts));
+  registrarAtividade('Copiou uma copy', chave);
 }
 
 // ═══════════════════════════════════════════════ HELPERS ═══
@@ -527,8 +640,10 @@ function ligarEventosCard(container) {
 
 function toggleFavorito(texto) {
   const idx = favoritos.indexOf(texto);
+  const favoritou = idx < 0;
   if (idx >= 0) favoritos.splice(idx, 1); else favoritos.push(texto);
   localStorage.setItem('gerador_favoritos', JSON.stringify(favoritos));
+  registrarAtividade(favoritou ? 'Favoritou uma copy' : 'Desfavoritou uma copy', texto.slice(0, 80));
 }
 
 // ═══════════════════════════════════════════════ DISPAROS ═══
@@ -582,6 +697,7 @@ function configurarDisparos() {
     document.getElementById('novaCopyTexto').value = '';
     document.getElementById('formAddCopy').classList.add('hidden');
     toast('Copy adicionada ao banco.');
+    registrarAtividade('Adicionou copy customizada', `${categoria}: ${texto.slice(0, 60)}`);
     renderDisparos();
     renderDashboard();
   });
@@ -867,6 +983,7 @@ function sortearGradeDia() {
   gradeGerada = grade;
   renderGradeGerada(grade);
   setStatus('Grade do dia montada! Clique de novo pra sortear outras.', 'ok');
+  registrarAtividade('Sorteou a grade do dia', '');
 }
 
 function renderGradeGerada(grade) {
@@ -913,6 +1030,7 @@ async function gerarGradeIA() {
     gradeGerada = grade;
     renderGradeGerada(grade);
     setStatus('Grade gerada pela IA! Clique de novo pra gerar outra.', 'ok');
+    registrarAtividade('Gerou a grade do dia com IA', '');
   } catch (err) {
     toast('Erro IA: ' + err.message);
   } finally {
@@ -1085,6 +1203,7 @@ function renderDashboard() {
 // ═══════════════════════════════════════════════ INIT ═══
 
 document.addEventListener('DOMContentLoaded', () => {
+  configurarLogin();
   configurarNav();
   configurarConfigModal();
   configurarMineradas();
