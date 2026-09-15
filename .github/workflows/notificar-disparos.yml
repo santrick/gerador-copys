@@ -1,0 +1,57 @@
+name: Lembrete de Disparos (ntfy)
+
+# Dispara uma notificação push (via ntfy.sh) nos 4 horários da Grade do Dia.
+# Brasil não tem horário de verão desde 2019, então o fuso BRT (UTC-3) é fixo o ano todo.
+# 11h BRT = 14h UTC | 14h BRT = 17h UTC | 16h BRT = 19h UTC | 19h BRT = 22h UTC
+
+on:
+  schedule:
+    - cron: '0 14 * * *'
+    - cron: '0 17 * * *'
+    - cron: '0 19 * * *'
+    - cron: '0 22 * * *'
+  workflow_dispatch: {}
+
+env:
+  NTFY_TOPIC: synora-disparos-f9229d45
+
+jobs:
+  notificar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enviar notificação pro canal ntfy
+        run: |
+          case "${{ github.event.schedule }}" in
+            "0 14 * * *")
+              TITULO="11h - Bom Dia"
+              MSG="Hora de mandar a copy de Bom Dia pros fãs"
+              TAGS="sunny"
+              ;;
+            "0 17 * * *")
+              TITULO="14h - Vídeo Exclusivo"
+              MSG="Hora de disparar a copy de Vídeo Exclusivo"
+              TAGS="movie_camera"
+              ;;
+            "0 19 * * *")
+              TITULO="16h - Oferta"
+              MSG="Hora de mandar a Oferta do dia"
+              TAGS="gift"
+              ;;
+            "0 22 * * *")
+              TITULO="19h - Aquecimento"
+              MSG="Hora do Aquecimento pra Pack"
+              TAGS="fire"
+              ;;
+            *)
+              TITULO="Lembrete de Disparo"
+              MSG="Hora de checar a Grade do Dia"
+              TAGS="bell"
+              ;;
+          esac
+
+          curl -s \
+            -H "Title: $TITULO" \
+            -H "Priority: high" \
+            -H "Tags: $TAGS" \
+            -d "$MSG" \
+            "https://ntfy.sh/${NTFY_TOPIC}"
