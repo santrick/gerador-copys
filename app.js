@@ -201,6 +201,15 @@ function esc(str) {
   return div.innerHTML;
 }
 function escAttr(str) { return esc(str).replace(/"/g, '&quot;'); }
+function formatarData(valor) {
+  if (!valor) return '';
+  const d = new Date(valor);
+  if (isNaN(d.getTime())) return String(valor);
+  const hoje = new Date();
+  const mesmodia = d.toDateString() === hoje.toDateString();
+  if (mesmodia) return 'Hoje ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 function toast(msg) {
   const c = document.getElementById('toastContainer');
   const el = document.createElement('div');
@@ -389,7 +398,7 @@ function renderMineradas() {
   const totalPaginas = Math.ceil(mineradasFiltradas.length / POR_PAGINA);
 
   container.innerHTML = pagina.map((c) => cardCopyHtml({
-    texto: c.mensagem, tag: c.tipo, modelo: c.modelo, data: c.data, preco: c.preco, comIA: true, origem: 'minerada'
+    texto: c.mensagem, tag: c.tipo, modelo: c.modelo, data: formatarData(c.data), preco: c.preco, comIA: true, origem: 'minerada'
   })).join('');
 
   ligarEventosCard(container);
@@ -1022,7 +1031,7 @@ function renderDashboard() {
   const recentes = [...todasMineradas].filter((c) => c.data).sort((a, b) => new Date(b.data) - new Date(a.data)).slice(0, 8);
   document.getElementById('atividadeRecente').innerHTML = recentes.length ? recentes.map((c) => `
     <div class="activity-item"><span class="activity-dot"></span>
-      <div><div class="activity-text"><b>${esc(c.modelo || '—')}</b> · ${esc(c.tipo || 'Outro')}</div><div class="activity-meta">${esc(c.data || '')}</div></div>
+      <div><div class="activity-text"><b>${esc(c.modelo || '—')}</b> · ${esc(c.tipo || 'Outro')}</div><div class="activity-meta">${esc(formatarData(c.data))}</div></div>
     </div>`).join('') : '<p class="empty-hint">Nenhuma atividade recente.</p>';
 }
 
