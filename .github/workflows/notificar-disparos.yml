@@ -53,5 +53,7 @@ jobs:
             -H "Title: $TITULO" \
             -H "Priority: high" \
             -H "Tags: $TAGS" \
+            -H "Click: https://geradorcopys.com.br/#grade" \
+            -H "Actions: view, Abrir Grade do Dia, https://geradorcopys.com.br/#grade, clear=true" \
             -d "$MSG" \
             "https://ntfy.sh/${NTFY_TOPIC}"

@@ -19,7 +19,13 @@ function configurarNotificacoes() {
     try {
       const resp = await fetch(NTFY_URL, {
         method: 'POST',
-        headers: { Title: 'Teste - Synora Copys', Priority: 'default', Tags: 'test_tube' },
+        headers: {
+          Title: 'Teste - Synora Copys',
+          Priority: 'default',
+          Tags: 'test_tube',
+          Click: location.origin + location.pathname + '#grade',
+          Actions: `view, Abrir Grade do Dia, ${location.origin}${location.pathname}#grade, clear=true`
+        },
         body: 'Notificação de teste! Se você recebeu isso, o canal está funcionando 🔔'
       });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -240,14 +246,23 @@ const ESTILOS_REESCRITA = {
 
 // ═══════════════════════════════════════════════ TABS / NAV / SIDEBAR ═══
 
-function irParaTab(tab) {
+function irParaTab(tab, opts) {
+  if (!PAGE_INFO[tab]) return;
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
   document.getElementById('pageTitle').textContent = PAGE_INFO[tab].title;
   document.getElementById('pageSubtitle').textContent = PAGE_INFO[tab].subtitle;
   fecharSidebarMobile();
+  if (!opts || !opts.semHash) {
+    history.replaceState(null, '', '#' + tab);
+  }
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'disparos' && !bancoDisparos) carregarBancoDisparos();
+}
+
+function abrirTabDaHash() {
+  const tab = (location.hash || '').replace('#', '');
+  if (PAGE_INFO[tab]) irParaTab(tab, { semHash: true });
 }
 
 function abrirSidebarMobile() { document.getElementById('sidebar').classList.add('open'); document.getElementById('scrim').classList.add('show'); }
@@ -829,7 +844,7 @@ function renderGradeGerada(grade) {
     return `<div class="grade-slot ${texto ? 'preenchido' : ''}">
       <div class="grade-slot-header"><span class="grade-slot-hora" style="color:${slot.cor}">${slot.hora}</span><span class="grade-slot-nome">${slot.tipo}</span></div>
       <div class="grade-slot-texto ${texto ? '' : 'grade-slot-empty'}">${texto ? esc(texto) : '(sem copy disponível)'}</div>
-      ${texto ? `<button class="icon-btn btn-copiar-slot" data-texto="${escAttr(texto)}" style="margin-top:10px;">📋 Copiar</button>` : ''}
+      ${texto ? `<button class="btn btn-secondary btn-sm btn-copiar-slot" data-texto="${escAttr(texto)}" style="margin-top:10px; width:100%;">📋 Copiar</button>` : ''}
     </div>`;
   }).join('');
   container.querySelectorAll('.btn-copiar-slot').forEach((btn) => btn.addEventListener('click', () => copiarTexto(btn.dataset.texto).then(() => toast('Copy copiada!'))));
@@ -1053,4 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const cfg = getConfig();
   if (cfg.sheetsUrl) carregarMineradas();
   else setStatus('Configure a URL do Apps Script nas Configurações', 'aviso');
+
+  abrirTabDaHash();
+  window.addEventListener('hashchange', abrirTabDaHash);
 });
