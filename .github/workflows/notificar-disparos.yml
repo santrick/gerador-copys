@@ -1,8 +1,13 @@
 name: Lembrete de Disparos (ntfy)
 
-# Dispara uma notificação push (via ntfy.sh) nos 4 horários da Grade do Dia.
+# Dispara notificações push (via ntfy.sh):
+#  - 4 lembretes de EXECUÇÃO no próprio dia, nos horários da Grade (11h/14h/16h/19h)
+#  - 5 lembretes de PREPARO à tarde/noite, pra programar a grade do DIA SEGUINTE (12h/15h/17h/20h/23h)
+#
 # Brasil não tem horário de verão desde 2019, então o fuso BRT (UTC-3) é fixo o ano todo.
-# 11h BRT = 14h UTC | 14h BRT = 17h UTC | 16h BRT = 19h UTC | 19h BRT = 22h UTC
+# BRT -> UTC (soma 3h):
+#   Execução:  11h->14h | 14h->17h | 16h->19h | 19h->22h
+#   Preparo:   12h->15h | 15h->18h | 17h->20h | 20h->23h | 23h->02h (dia seguinte em UTC)
 
 on:
   schedule:
@@ -10,10 +15,16 @@ on:
     - cron: '0 17 * * *'
     - cron: '0 19 * * *'
     - cron: '0 22 * * *'
+    - cron: '0 15 * * *'
+    - cron: '0 18 * * *'
+    - cron: '0 20 * * *'
+    - cron: '0 23 * * *'
+    - cron: '0 2 * * *'
   workflow_dispatch: {}
 
 env:
   NTFY_TOPIC: synora-disparos-f9229d45
+  NTFY_ICON: https://geradorcopys.com.br/icon.png
 
 jobs:
   notificar:
@@ -42,6 +53,31 @@ jobs:
               MSG="Hora do Aquecimento pra Pack"
               TAGS="fire"
               ;;
+            "0 15 * * *")
+              TITULO="Programe a grade de amanhã"
+              MSG="Já pensou na grade de amanhã? Começa a programar agora, vida"
+              TAGS="calendar"
+              ;;
+            "0 18 * * *")
+              TITULO="Programe a grade de amanhã"
+              MSG="Lembrete: prepara os disparos de amanhã com calma"
+              TAGS="alarm_clock"
+              ;;
+            "0 20 * * *")
+              TITULO="Programe a grade de amanhã"
+              MSG="Faltam poucas horas do dia — deixa a grade de amanhã pronta"
+              TAGS="bell"
+              ;;
+            "0 23 * * *")
+              TITULO="Programe a grade de amanhã"
+              MSG="Hora de fechar a grade do dia seguinte"
+              TAGS="crescent_moon"
+              ;;
+            "0 2 * * *")
+              TITULO="Última call: grade de amanhã"
+              MSG="É hora de vender! Garante que amanhã já tá tudo programado"
+              TAGS="rotating_light"
+              ;;
             *)
               TITULO="Lembrete de Disparo"
               MSG="Hora de checar a Grade do Dia"
@@ -53,6 +89,7 @@ jobs:
             -H "Title: $TITULO" \
             -H "Priority: high" \
             -H "Tags: $TAGS" \
+            -H "Icon: ${NTFY_ICON}" \
             -H "Click: https://geradorcopys.com.br/#grade" \
             -H "Actions: view, Abrir Grade do Dia, https://geradorcopys.com.br/#grade, clear=true" \
             -d "$MSG" \

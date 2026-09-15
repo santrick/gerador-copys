@@ -23,6 +23,7 @@ function configurarNotificacoes() {
           Title: 'Teste - Synora Copys',
           Priority: 'default',
           Tags: 'test_tube',
+          Icon: 'https://geradorcopys.com.br/icon.png',
           Click: location.origin + location.pathname + '#grade',
           Actions: `view, Abrir Grade do Dia, ${location.origin}${location.pathname}#grade, clear=true`
         },
