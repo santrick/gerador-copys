@@ -1145,9 +1145,10 @@ async function gerarGradeIA() {
     return;
   }
   const btn = document.getElementById('btnGerarGradeIA');
+  const btnTextEl = btn.querySelector('.btn-premium-text') || btn;
   btn.disabled = true;
-  const original = btn.textContent;
-  btn.textContent = '✨ Gerando…';
+  const original = btnTextEl.textContent;
+  btnTextEl.textContent = '✨ Gerando…';
 
   let exemplos = '';
   if (bancoDisparos) bancoDisparos.categorias.forEach((cat) => { exemplos += cat.nome + ':\n' + cat.copys.slice(0, 3).join('\n') + '\n\n'; });
@@ -1172,7 +1173,7 @@ async function gerarGradeIA() {
     toast('Erro IA: ' + err.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = original;
+    btnTextEl.textContent = original;
   }
 }
 

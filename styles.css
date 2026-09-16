@@ -172,6 +172,78 @@ a { color: inherit; }
 .btn-sm { padding: 7px 13px; font-size: 12px; }
 .btn-block { width: 100%; }
 
+/* ===================== BOTÃO PREMIUM (brilho + ícone deslizante) ===================== */
+
+.btn-premium {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  z-index: 1;
+  padding: 13px 24px;
+  border-radius: 16px;
+  border: 1.2px solid rgba(232,180,255,0.35);
+  background: radial-gradient(120% 140% at 50% 0%, #f0c4ff 0%, #c084fc 28%, #a855f7 58%, #7c3aed 100%);
+  box-shadow: 0 6px 24px rgba(168,85,247,0.35), 0 14px 54px rgba(124,58,237,0.4);
+  color: white;
+  font-weight: 700;
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: padding 0.45s ease, filter 0.3s ease;
+}
+.btn-premium:hover { filter: brightness(1.15); padding-right: 46px; }
+.btn-premium:active { transform: scale(0.97); }
+.btn-premium:disabled { opacity: 0.6; cursor: default; filter: none; padding-right: 24px; }
+
+.btn-premium-text { position: relative; z-index: 2; transition: transform 0.4s ease; }
+.btn-premium:hover .btn-premium-text { transform: translateX(-3px); }
+
+.btn-premium-icon {
+  position: absolute;
+  top: 50%; left: 10px;
+  transform: translateY(-50%) scale(0.001);
+  opacity: 0;
+  background: white;
+  color: #7c3aed;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  transition: left 0.45s ease, transform 0.45s ease, opacity 0.3s ease;
+  z-index: 2;
+}
+.btn-premium:hover .btn-premium-icon {
+  left: calc(100% - 32px);
+  transform: translateY(-50%) scale(1) rotate(360deg);
+  opacity: 1;
+}
+
+.btn-premium::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -15%;
+  height: 100%;
+  width: 70px;
+  background: #ffffff;
+  box-shadow: 0 0 30px 20px rgba(255,255,255,0.55);
+  transform: skewX(-20deg);
+  mix-blend-mode: plus-lighter;
+  opacity: 0;
+  pointer-events: none;
+  animation: btnPremiumBrilho 2.6s linear infinite;
+}
+@keyframes btnPremiumBrilho {
+  0% { opacity: 0; left: -15%; }
+  25% { opacity: 0.22; }
+  50% { opacity: 0.4; left: 55%; }
+  75% { opacity: 0.18; }
+  100% { opacity: 0; left: 115%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-premium::before { animation: none; }
+}
+
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 12.5px; color: var(--text-dim); font-weight: 600; }
 .field input {
   padding: 10px 12px;
