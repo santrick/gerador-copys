@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=10" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -36,15 +36,17 @@
       </div>
       <h1>Synora Copys</h1>
       <p class="login-sub">Entre com o acesso do seu time</p>
-      <label class="field">
-        <span>E-mail</span>
-        <input type="email" id="loginEmail" placeholder="seuemail@synoracopys.com" autocomplete="username" />
-      </label>
-      <label class="field">
-        <span>Senha</span>
-        <input type="password" id="loginSenha" placeholder="••••••••" autocomplete="current-password" />
-      </label>
-      <button id="btnLogin" class="btn btn-primary btn-block">Entrar</button>
+      <form id="loginForm" autocomplete="on">
+        <label class="field">
+          <span>E-mail</span>
+          <input type="email" id="loginEmail" name="email" placeholder="seuemail@synoracopys.com" autocomplete="username" required />
+        </label>
+        <label class="field">
+          <span>Senha</span>
+          <input type="password" id="loginSenha" name="password" placeholder="••••••••" autocomplete="current-password" required />
+        </label>
+        <button id="btnLogin" type="submit" class="btn btn-primary btn-block">Entrar</button>
+      </form>
       <p class="login-msg" id="loginMsg"></p>
     </div>
   </div>
@@ -438,6 +440,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

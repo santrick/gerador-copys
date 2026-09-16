@@ -97,9 +97,7 @@ function configurarLogin() {
   const shell = document.getElementById('appShell');
   const msg = document.getElementById('loginMsg');
 
-  document.getElementById('btnLogin').addEventListener('click', fazerLogin);
-  document.getElementById('loginSenha').addEventListener('keydown', (e) => { if (e.key === 'Enter') fazerLogin(); });
-  document.getElementById('loginEmail').addEventListener('keydown', (e) => { if (e.key === 'Enter') fazerLogin(); });
+  document.getElementById('loginForm').addEventListener('submit', (e) => { e.preventDefault(); fazerLogin(); });
 
   async function fazerLogin() {
     const email = document.getElementById('loginEmail').value.trim();
