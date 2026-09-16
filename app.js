@@ -145,7 +145,6 @@ function configurarLogin() {
     if (!user) {
       souAdmin = false;
       document.getElementById('navAdmin').classList.add('hidden');
-      document.getElementById('painelNotificacoes').classList.add('hidden');
       overlay.classList.remove('hidden');
       shell.hidden = true;
       document.getElementById('loginEmail').value = '';
@@ -160,7 +159,6 @@ function configurarLogin() {
 
     souAdmin = user.email === ADMIN_EMAIL;
     document.getElementById('navAdmin').classList.toggle('hidden', !souAdmin);
-    document.getElementById('painelNotificacoes').classList.toggle('hidden', !souAdmin);
     document.getElementById('usuarioLogado').textContent = '👤 ' + (user.displayName || user.email);
 
     overlay.classList.add('hidden');
