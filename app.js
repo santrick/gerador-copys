@@ -1199,7 +1199,7 @@ async function gerarGradeIA() {
           + 'Responda EXATAMENTE nesse formato, só a copy pura depois de cada tag, sem rótulos:\n\n'
           + '[11H] (copy de bom dia, carinhosa, cria curiosidade)\n'
           + '[14H] (copy oferecendo conteúdo exclusivo — prévia, foto ou vídeo — gera curiosidade pra ele querer ver)\n'
-          + '[16H] (copy de OFERTA CONCRETA: menciona um mimo específico com valor, tipo "unha R$50", "sushi R$80" ou "chamada R$100", com urgência/escassez — não pode ser vaga falando só dela mesma, precisa dizer claramente o que tá sendo oferecido e o valor)\n'
+          + '[16H] (copy de OFERTA: menciona um mimo específico e concreto — tipo unha, sushi, café, um vídeo ou pack — de forma carinhosa e com leve urgência. NÃO pode ser vaga falando só dela mesma, mas também NÃO pode soar como cobrança ou pedido de pagamento — é sempre um mimo espontâneo que ele pode dar se quiser, nunca uma exigência de valor)\n'
           + '[19H] (copy de aquecimento noturno, provocante, prepara o clima pro pack)\n\n'
           + 'Exemplos reais de referência (não copie, crie novas):\n' + exemplos.slice(0, 1500)
       }
@@ -1236,7 +1236,7 @@ function parsearGrade(texto) {
 const TIPO_GERADOR_DESC = {
   Saudacao: 'Mensagem de saudação / primeiro contato — recebe o fã, cria conexão inicial, sem vender nada ainda.',
   Aquecimento: 'Mensagem de aquecimento — cria expectativa e tesão aos poucos, prepara terreno pra uma oferta em breve, sem oferecer ainda.',
-  Venda: 'Mensagem de venda direta — precisa mencionar claramente um mimo/conteúdo específico com valor (ex: "unha R$50", "pack R$100"), não pode ficar vaga falando só dela mesma. Usa a lógica de mimo, gera desejo de compra com urgência.',
+  Venda: 'Mensagem de venda direta — menciona um mimo/conteúdo específico e concreto (ex: unha, sushi, café, pack, vídeo), não pode ficar vaga falando só dela mesma. NÃO pode soar como cobrança ou pedido de pagamento — é sempre um mimo espontâneo, nunca uma exigência de valor. Gera desejo com leve urgência.',
   Chamada: 'Convite pra uma chamada de vídeo, tom provocante e exclusivo.',
   Pergunta: 'Uma pergunta simples pra puxar resposta e manter o papo, baixo esforço de leitura.',
   Engajamento: 'Mensagem leve pra manter o fã engajado, sem foco em venda.',
