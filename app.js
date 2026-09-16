@@ -1156,7 +1156,7 @@ function renderGradeGerada(grade) {
     return `<div class="grade-slot ${texto ? 'preenchido' : ''}">
       <div class="grade-slot-header"><span class="grade-slot-hora" style="color:${slot.cor}">${slot.hora}</span><span class="grade-slot-nome">${slot.tipo}</span></div>
       <div class="grade-slot-texto ${texto ? '' : 'grade-slot-empty'}">${texto ? esc(texto) : '(sem copy disponível)'}</div>
-      ${texto ? `<button class="btn btn-secondary btn-sm btn-copiar-slot" data-texto="${escAttr(texto)}" style="margin-top:10px; width:100%;">📋 Copiar</button>` : ''}
+      ${texto ? `<button class="btn-shimmer btn-copiar-slot" data-texto="${escAttr(texto)}" style="margin-top:10px; width:100%;"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>` : ''}
     </div>`;
   }).join('');
   container.querySelectorAll('.btn-copiar-slot').forEach((btn) => btn.addEventListener('click', () => copiarTexto(btn.dataset.texto).then(() => toast('Copy copiada!'))));
