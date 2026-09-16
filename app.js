@@ -1197,7 +1197,10 @@ async function gerarGradeIA() {
         role: 'user',
         content: 'Crie 4 copys originais, uma pra cada horário, cada uma com um tipo de abertura diferente.\n\n'
           + 'Responda EXATAMENTE nesse formato, só a copy pura depois de cada tag, sem rótulos:\n\n'
-          + '[11H] (copy de bom dia, carinhosa, cria curiosidade)\n[14H] (copy vendendo conteúdo, provocante, exclusivo)\n[16H] (copy pedindo mimo, desafia o lead)\n[19H] (copy de aquecimento noturno)\n\n'
+          + '[11H] (copy de bom dia, carinhosa, cria curiosidade)\n'
+          + '[14H] (copy oferecendo conteúdo exclusivo — prévia, foto ou vídeo — gera curiosidade pra ele querer ver)\n'
+          + '[16H] (copy de OFERTA CONCRETA: menciona um mimo específico com valor, tipo "unha R$50", "sushi R$80" ou "chamada R$100", com urgência/escassez — não pode ser vaga falando só dela mesma, precisa dizer claramente o que tá sendo oferecido e o valor)\n'
+          + '[19H] (copy de aquecimento noturno, provocante, prepara o clima pro pack)\n\n'
           + 'Exemplos reais de referência (não copie, crie novas):\n' + exemplos.slice(0, 1500)
       }
     ], { temperature: 0.9, maxTokens: tokensParaComprimento(4) });
@@ -1233,7 +1236,7 @@ function parsearGrade(texto) {
 const TIPO_GERADOR_DESC = {
   Saudacao: 'Mensagem de saudação / primeiro contato — recebe o fã, cria conexão inicial, sem vender nada ainda.',
   Aquecimento: 'Mensagem de aquecimento — cria expectativa e tesão aos poucos, prepara terreno pra uma oferta em breve, sem oferecer ainda.',
-  Venda: 'Mensagem de venda direta — oferece um conteúdo/pack, usa a lógica de mimo, gera desejo de compra.',
+  Venda: 'Mensagem de venda direta — precisa mencionar claramente um mimo/conteúdo específico com valor (ex: "unha R$50", "pack R$100"), não pode ficar vaga falando só dela mesma. Usa a lógica de mimo, gera desejo de compra com urgência.',
   Chamada: 'Convite pra uma chamada de vídeo, tom provocante e exclusivo.',
   Pergunta: 'Uma pergunta simples pra puxar resposta e manter o papo, baixo esforço de leitura.',
   Engajamento: 'Mensagem leve pra manter o fã engajado, sem foco em venda.',
