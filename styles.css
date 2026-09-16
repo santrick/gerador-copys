@@ -111,7 +111,36 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .nav::after { animation: none; }
 }
+.nav-glider {
+  position: absolute;
+  left: -10px;
+  top: 0;
+  width: 3px;
+  height: 40px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, transparent, var(--pink), var(--accent), transparent);
+  transform: translateY(0);
+  transition: transform 0.5s cubic-bezier(0.37, 1.95, 0.66, 0.56), height 0.3s ease, opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+}
+.nav-glider.pronto { opacity: 1; }
+.nav-glider::before {
+  content: '';
+  position: absolute;
+  top: 15%;
+  bottom: 15%;
+  left: -6px;
+  right: -6px;
+  background: var(--pink);
+  filter: blur(9px);
+  opacity: 0.8;
+}
+
 .nav-item {
+  position: relative;
+  z-index: 1;
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;

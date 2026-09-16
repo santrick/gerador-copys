@@ -161,6 +161,7 @@ function configurarLogin() {
 
     overlay.classList.add('hidden');
     shell.hidden = false;
+    setTimeout(atualizarNavGlider, 0);
 
     const ativo = await upsertFuncionario(user);
     if (!ativo && !souAdmin) {
@@ -551,11 +552,22 @@ const ESTILOS_REESCRITA = {
 
 // ═══════════════════════════════════════════════ TABS / NAV / SIDEBAR ═══
 
+function atualizarNavGlider() {
+  const glider = document.getElementById('navGlider');
+  const ativo = document.querySelector('.nav-item.active');
+  if (!glider || !ativo || ativo.offsetHeight === 0) return;
+  glider.style.transform = `translateY(${ativo.offsetTop + 4}px)`;
+  glider.style.height = (ativo.offsetHeight - 8) + 'px';
+  glider.classList.add('pronto');
+}
+window.addEventListener('resize', atualizarNavGlider);
+
 function irParaTab(tab, opts) {
   if (!PAGE_INFO[tab]) return;
   if (tab === 'admin' && !souAdmin) tab = 'dashboard';
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
+  atualizarNavGlider();
   document.getElementById('pageTitle').textContent = PAGE_INFO[tab].title;
   document.getElementById('pageSubtitle').textContent = PAGE_INFO[tab].subtitle;
   fecharSidebarMobile();
