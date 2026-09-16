@@ -316,7 +316,8 @@ const PAGE_INFO = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
   mineradas: { title: 'Mineradas', subtitle: 'Copys reais coletadas da planilha' },
   disparos: { title: 'Disparos', subtitle: 'Banco de copys prontas + grade manual do dia' },
-  grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA os 4 horários do dia' }
+  grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA os 4 horários do dia' },
+  admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
 };
 
 // ═══════════════════════════════════════════════ ESTADO ═══
