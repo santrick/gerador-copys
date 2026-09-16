@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Synora Copys</title>
   <meta name="description" content="Minere, organize e sorteie as melhores copys para disparos. Dashboard, banco de disparos e IA em um só lugar." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 130%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop offset=%220%22 stop-color=%22%23c084fc%22/><stop offset=%221%22 stop-color=%22%237c3aed%22/></linearGradient><mask id=%22m%22><path d=%22M50 5 C30 30 20 48 20 68 C20 98 40 120 50 128 C60 120 80 98 80 68 C80 48 70 30 50 5 Z%22 fill=%22white%22/><path d=%22M38 38 C56 47 32 59 50 68 C68 77 44 89 58 100%22 stroke=%22black%22 stroke-width=%2211%22 fill=%22none%22 stroke-linecap=%22round%22/></mask></defs><rect width=%22100%22 height=%22130%22 fill=%22url(%23g)%22 mask=%22url(%23m)%22/></svg>" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
 
   <!-- PWA / instalar na tela inicial -->
   <link rel="manifest" href="manifest.json" />
@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -32,19 +32,7 @@
   <div class="login-overlay" id="loginOverlay">
     <div class="login-box">
       <div class="brand-mark login-brand-mark">
-        <svg viewBox="0 0 100 130" width="30" height="39">
-          <defs>
-            <linearGradient id="loginBrandGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#c084fc"/>
-              <stop offset="1" stop-color="#f5f3ff"/>
-            </linearGradient>
-            <mask id="loginBrandMask">
-              <path d="M50 5 C30 30 20 48 20 68 C20 98 40 120 50 128 C60 120 80 98 80 68 C80 48 70 30 50 5 Z" fill="white"/>
-              <path d="M38 38 C56 47 32 59 50 68 C68 77 44 89 58 100" stroke="black" stroke-width="11" fill="none" stroke-linecap="round"/>
-            </mask>
-          </defs>
-          <rect width="100" height="130" fill="url(#loginBrandGrad)" mask="url(#loginBrandMask)"/>
-        </svg>
+        <img src="icon-192.png" alt="Synora" width="42" height="42" />
       </div>
       <h1>Synora Copys</h1>
       <p class="login-sub">Entre com o acesso do seu time</p>
@@ -67,19 +55,7 @@
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark">
-          <svg viewBox="0 0 100 130" width="24" height="31">
-            <defs>
-              <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#c084fc"/>
-                <stop offset="1" stop-color="#f5f3ff"/>
-              </linearGradient>
-              <mask id="brandMask">
-                <path d="M50 5 C30 30 20 48 20 68 C20 98 40 120 50 128 C60 120 80 98 80 68 C80 48 70 30 50 5 Z" fill="white"/>
-                <path d="M38 38 C56 47 32 59 50 68 C68 77 44 89 58 100" stroke="black" stroke-width="11" fill="none" stroke-linecap="round"/>
-              </mask>
-            </defs>
-            <rect width="100" height="130" fill="url(#brandGrad)" mask="url(#brandMask)"/>
-          </svg>
+          <img src="icon-192.png" alt="Synora" width="34" height="34" />
         </div>
         <div class="brand-text">
           <strong>Synora</strong>
