@@ -648,7 +648,7 @@ const PAGE_INFO = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
   mineradas: { title: 'Mineradas', subtitle: 'Copys reais coletadas da planilha' },
   disparos: { title: 'Disparos', subtitle: 'Banco de copys prontas + grade manual do dia' },
-  grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA os 3 horários do dia' },
+  grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA em horários aleatórios do dia' },
   gerador: { title: 'Gerador', subtitle: 'Gere uma copy avulsa ou um script por tipo' },
   treinar: { title: 'Treinar IA', subtitle: 'Ensine a IA a escrever do jeito da sua equipe' },
   admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
@@ -662,17 +662,51 @@ const COR_TIPO = {
   Pergunta: '#84cc16', Outro: '#64748b'
 };
 
-const SLOTS = [
-  { tag: '11H', key: '11h', hora: '11h', tipo: 'Bom Dia', cor: '#fbbf24' },
-  { tag: '14H', key: '14h', hora: '14h', tipo: 'Vídeo Exclusivo', cor: '#a855f7' },
-  { tag: '19H', key: '19h', hora: '19h', tipo: 'Aquecimento', cor: '#ec4899' }
+// Arquétipos possíveis de horário da grade — sem horário fixo, a grade sorteia
+// entre 5 e 8 desses, em horários aleatórios do dia (veja gerarSlotsAleatorios()).
+const TIPOS_GRADE = [
+  { nome: 'Primeiro Contato', categorias: ['Primeiro Contato'], tipoMinerada: 'Saudacao' },
+  { nome: 'Bom Dia', categorias: ['Bom Dia'], tipoMinerada: 'Saudacao' },
+  { nome: 'Boa Noite', categorias: ['Boa Noite'], tipoMinerada: 'Aquecimento' },
+  { nome: 'Gatilhos Sensuais', categorias: ['Gatilhos Sensuais'], tipoMinerada: 'Conteudo' },
+  { nome: 'Gatilhos de Banho', categorias: ['Gatilhos de Banho'], tipoMinerada: 'Conteudo' },
+  { nome: 'Gatilhos Temáticos', categorias: ['Gatilhos Temáticos'], tipoMinerada: 'Conteudo' },
+  { nome: 'Reengajamento', categorias: ['Reengajamento'], tipoMinerada: 'Reengajamento' },
+  { nome: 'Remarketing', categorias: ['Remarketing'], tipoMinerada: 'Reengajamento' },
+  { nome: 'Aquecimento pra Pack', categorias: ['Aquecimento pra Pack'], tipoMinerada: 'Aquecimento' },
+  { nome: 'Escassez e Urgência', categorias: ['Escassez e Urgência'], tipoMinerada: 'Venda' },
+  { nome: 'Desconto e Bônus', categorias: ['Desconto e Bônus'], tipoMinerada: 'Venda' },
+  { nome: 'Chamada com Preço', categorias: ['Chamada com Preço'], tipoMinerada: 'Venda' },
+  { nome: 'Venda de Conteúdo', categorias: ['Venda de Conteúdo'], tipoMinerada: 'Venda' },
+  { nome: 'Chamada de Vídeo', categorias: ['Chamada de Vídeo'], tipoMinerada: 'Chamada' }
 ];
-const SLOT_CATEGORIAS = {
-  '11H': ['Bom Dia', 'Primeiro Contato'],
-  '14H': ['Venda de Conteúdo', 'Gatilhos Sensuais', 'Gatilhos Temáticos', 'Gatilhos de Banho'],
-  '19H': ['Aquecimento pra Pack', 'Boa Noite', 'Chamada de Vídeo', 'Reengajamento']
-};
-const TIPO_MAP_SLOT = { '11H': 'Saudacao', '14H': 'Conteudo', '19H': 'Aquecimento' };
+
+function gerarSlotsAleatorios() {
+  const qtd = 5 + Math.floor(Math.random() * 4); // 5 a 8
+  const inicioMin = 8 * 60; // 08:00
+  const fimMin = 23 * 60 + 30; // 23:30
+  const janela = (fimMin - inicioMin) / qtd;
+  const embaralhados = [...TIPOS_GRADE].sort(() => Math.random() - 0.5);
+  const slots = [];
+  for (let i = 0; i < qtd; i++) {
+    const base = inicioMin + i * janela;
+    const minuto = Math.round(base + Math.random() * Math.max(janela - 15, 5));
+    const hh = String(Math.floor(minuto / 60)).padStart(2, '0');
+    const mm = String(minuto % 60).padStart(2, '0');
+    const arquetipo = embaralhados[i % embaralhados.length];
+    slots.push({
+      tag: 'S' + i,
+      hora: `${hh}:${mm}`,
+      tipo: arquetipo.nome,
+      cor: COR_TIPO[arquetipo.tipoMinerada] || 'var(--accent)',
+      categorias: arquetipo.categorias,
+      tipoMinerada: arquetipo.tipoMinerada
+    });
+  }
+  return slots;
+}
+
+let gradeSlots = [];
 
 const POR_PAGINA = 24;
 let todasMineradas = [];
@@ -807,7 +841,7 @@ function irParaTab(tab, opts) {
   }
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'disparos' && !bancoDisparos) carregarBancoDisparos();
-  if (tab === 'grade' && !gradeGerada) { gradeGerada = {}; renderGradeGerada(gradeGerada); }
+  if (tab === 'grade' && !gradeGerada) { gradeSlots = gerarSlotsAleatorios(); gradeGerada = {}; renderGradeGerada(gradeGerada); }
 }
 
 function abrirTabDaHash() {
@@ -1368,7 +1402,7 @@ function configurarGrade() {
   document.getElementById('btnCompletarGradeIA').addEventListener('click', completarGradeIA);
   document.getElementById('btnCopiarGradeGerada').addEventListener('click', () => {
     if (!gradeGerada) return;
-    const texto = SLOTS.map((s) => `${s.hora} — ${s.tipo}:\n${gradeGerada[s.tag] || ''}`).join('\n\n---\n\n');
+    const texto = gradeSlots.filter((s) => gradeGerada[s.tag]).map((s) => `${s.hora} — ${s.tipo}:\n${gradeGerada[s.tag]}`).join('\n\n---\n\n');
     copiarTexto(texto).then(() => toast('Grade completa copiada!'));
   });
 
@@ -1394,37 +1428,39 @@ function configurarGrade() {
   });
 }
 
-function poolParaSlot(tag) {
+function poolParaSlot(slot) {
   let pool = [];
   if (bancoDisparos) {
-    (SLOT_CATEGORIAS[tag] || []).forEach((catNome) => {
+    (slot.categorias || []).forEach((catNome) => {
       const cat = bancoDisparos.categorias.find((c) => c.nome === catNome);
       if (cat) pool.push(...cat.copys.filter(naoEhRuim));
     });
   }
-  copysCustom.forEach((c) => { if (naoEhRuim(c.texto) && (SLOT_CATEGORIAS[tag] || []).includes(c.categoria)) pool.push(c.texto); });
-  if (mineradasFiltradas.length) {
-    const tipoAlvo = TIPO_MAP_SLOT[tag];
-    pool.push(...mineradasFiltradas.filter((c) => c.tipo === tipoAlvo).map((c) => c.mensagem));
+  copysCustom.forEach((c) => { if (naoEhRuim(c.texto) && (slot.categorias || []).includes(c.categoria)) pool.push(c.texto); });
+  if (mineradasFiltradas.length && slot.tipoMinerada) {
+    pool.push(...mineradasFiltradas.filter((c) => c.tipo === slot.tipoMinerada).map((c) => c.mensagem));
   }
   return pool;
 }
 
 function sortearGradeDia() {
   if (!bancoDisparos) { toast('Aguarde o banco de disparos carregar.'); return; }
+  gradeSlots = gerarSlotsAleatorios();
   const grade = {};
-  SLOTS.forEach((slot) => {
-    const pool = poolParaSlot(slot.tag);
+  gradeSlots.forEach((slot) => {
+    const pool = poolParaSlot(slot);
     grade[slot.tag] = pool.length ? pool[Math.floor(Math.random() * pool.length)] : '';
   });
   gradeGerada = grade;
   renderGradeGerada(grade);
-  setStatus('Grade do dia montada! Clique de novo pra sortear outras.', 'ok');
+  setStatus('Grade do dia montada! Clique de novo pra sortear outros horários.', 'ok');
   registrarAtividade('Sorteou a grade do dia', '');
 }
 
 function trocarSlotSorteio(tag) {
-  const pool = poolParaSlot(tag);
+  const slot = gradeSlots.find((s) => s.tag === tag);
+  if (!slot) return;
+  const pool = poolParaSlot(slot);
   if (!pool.length) { toast('Nenhuma copy disponível pra esse horário.'); return; }
   if (!gradeGerada) gradeGerada = {};
   const atual = gradeGerada[tag];
@@ -1444,9 +1480,9 @@ async function gerarSlotIA(tag) {
     document.getElementById('modalBackdrop').classList.add('open');
     return;
   }
-  const slot = SLOTS.find((s) => s.tag === tag);
+  const slot = gradeSlots.find((s) => s.tag === tag);
   if (!slot) return;
-  let exemplos = poolParaSlot(tag).slice(0, 4).join('\n');
+  let exemplos = poolParaSlot(slot).slice(0, 4).join('\n');
   const exemplosBoa = await buscarExemplosBoa(4);
   if (exemplosBoa.length) exemplos += '\n\nCopys que a equipe já marcou como BOAS:\n' + exemplosBoa.join('\n');
 
@@ -1474,7 +1510,7 @@ async function completarGradeIA() {
     return;
   }
   if (!gradeGerada) gradeGerada = {};
-  const vazios = SLOTS.filter((s) => !gradeGerada[s.tag]);
+  const vazios = gradeSlots.filter((s) => !gradeGerada[s.tag]);
   if (!vazios.length) { toast('Todos os horários já têm copy.'); return; }
   const btn = document.getElementById('btnCompletarGradeIA');
   btn.disabled = true;
@@ -1493,7 +1529,7 @@ async function completarGradeIA() {
 
 function renderGradeGerada(grade) {
   const container = document.getElementById('gradeContainer');
-  container.innerHTML = SLOTS.map((slot) => {
+  container.innerHTML = gradeSlots.map((slot) => {
     const texto = grade[slot.tag];
     const av = texto ? feedbackCopy[hashTexto(texto)] : null;
     return `<div class="grade-slot ${texto ? 'preenchido' : ''}">
@@ -1549,6 +1585,8 @@ async function gerarGradeIA() {
   const original = btnTextEl.textContent;
   btnTextEl.textContent = '✨ Gerando…';
 
+  gradeSlots = gerarSlotsAleatorios();
+
   let exemplos = '';
   if (bancoDisparos) bancoDisparos.categorias.forEach((cat) => { exemplos += cat.nome + ':\n' + cat.copys.filter(naoEhRuim).slice(0, 3).join('\n') + '\n\n'; });
   const exemplosBoa = await buscarExemplosBoa(6);
@@ -1559,18 +1597,16 @@ async function gerarGradeIA() {
       { role: 'system', content: montarPromptBase() },
       {
         role: 'user',
-        content: 'Crie 3 copys originais, uma pra cada horário, cada uma com um tipo de abertura diferente.\n\n'
+        content: `Crie ${gradeSlots.length} copys originais, uma pra cada horário abaixo, cada uma com um tipo de abertura diferente.\n\n`
           + 'Responda EXATAMENTE nesse formato, só a copy pura depois de cada tag, sem rótulos:\n\n'
-          + '[11H] (copy de bom dia, carinhosa, cria curiosidade)\n'
-          + '[14H] (copy oferecendo conteúdo exclusivo — prévia, foto ou vídeo — gera curiosidade pra ele querer ver)\n'
-          + '[19H] (copy de aquecimento noturno, provocante, prepara o clima pro pack)\n\n'
-          + 'Exemplos reais de referência (não copie, crie novas):\n' + exemplos.slice(0, 1500)
+          + gradeSlots.map((s) => `[${s.tag}] (copy pro horário ${s.hora}, tema: ${s.tipo})`).join('\n')
+          + '\n\nExemplos reais de referência (não copie, crie novas):\n' + exemplos.slice(0, 1500)
       }
-    ], { temperature: 0.9, maxTokens: tokensParaComprimento(3) });
+    ], { temperature: 0.9, maxTokens: tokensParaComprimento(gradeSlots.length) });
     const grade = parsearGrade(resultado);
     gradeGerada = grade;
     renderGradeGerada(grade);
-    setStatus('Grade gerada pela IA! Clique de novo pra gerar outra.', 'ok');
+    setStatus('Grade gerada pela IA! Clique de novo pra gerar outros horários.', 'ok');
     registrarAtividade('Gerou a grade do dia com IA', '');
     incrementarContadorFuncionario('copysGeradas', Object.values(grade).filter(Boolean).length);
     incrementarMetricaGlobal('copysGeradas', Object.values(grade).filter(Boolean).length);
@@ -1584,14 +1620,14 @@ async function gerarGradeIA() {
 
 function parsearGrade(texto) {
   const grade = {};
-  SLOTS.forEach((slot) => {
-    const regex = new RegExp('\\[' + slot.tag + '\\]\\s*([\\s\\S]*?)(?=\\[\\d{2}H\\]|$)', 'i');
+  gradeSlots.forEach((slot) => {
+    const regex = new RegExp('\\[' + slot.tag + '\\]\\s*([\\s\\S]*?)(?=\\[S\\d+\\]|$)', 'i');
     const match = texto.match(regex);
     grade[slot.tag] = match ? match[1].trim() : '';
   });
   if (!Object.values(grade).some((v) => v.length)) {
     const partes = texto.split(/---|\n\n+/).map((p) => p.trim()).filter((p) => p.length > 10);
-    SLOTS.forEach((slot, i) => { if (partes[i]) grade[slot.tag] = partes[i]; });
+    gradeSlots.forEach((slot, i) => { if (partes[i]) grade[slot.tag] = partes[i]; });
   }
   return grade;
 }
