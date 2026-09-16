@@ -286,6 +286,11 @@ function hashTexto(texto) {
   return 'c' + Math.abs(h).toString(36);
 }
 
+// Copy marcada como "ruim" some da equipe toda (não dá pra apagar da planilha/arquivo de verdade, só escondemos)
+function naoEhRuim(texto) {
+  return feedbackCopy[hashTexto(texto)] !== 'ruim';
+}
+
 // ═══════════════════════════════════════════════ FAVORITOS COMPARTILHADOS (equipe) ═══
 
 function iniciarFeedFavoritos() {
@@ -322,7 +327,7 @@ function iniciarFeedFeedbackCopy() {
     feedbackCopy = {};
     snap.docs.forEach((d) => { feedbackCopy[d.id] = d.data().avaliacao; });
     if (bancoDisparos) renderDisparos();
-    if (typeof mineradasFiltradas !== 'undefined' && mineradasFiltradas.length) renderMineradas();
+    if (typeof todasMineradas !== 'undefined' && todasMineradas.length) aplicarFiltroMineradas();
   }, (err) => console.error('[feedback_copy]', err));
 }
 
@@ -795,11 +800,11 @@ async function carregarMineradas() {
 
 function aplicarFiltroMineradas() {
   const termo = (document.getElementById('buscaMineradas').value || '').toLowerCase().trim();
-  mineradasFiltradas = !termo ? todasMineradas : todasMineradas.filter((c) =>
+  mineradasFiltradas = todasMineradas.filter((c) => naoEhRuim(c.mensagem) && (!termo ||
     (c.mensagem && c.mensagem.toLowerCase().includes(termo)) ||
     (c.modelo && c.modelo.toLowerCase().includes(termo)) ||
     (c.tipo && c.tipo.toLowerCase().includes(termo))
-  );
+  ));
   renderMineradas();
 }
 
@@ -888,6 +893,10 @@ function ligarEventosCard(container) {
   }));
   container.querySelectorAll('.btn-avaliar').forEach((btn) => btn.addEventListener('click', () => {
     avaliarCopy(btn.dataset.texto, btn.dataset.avaliacao);
+    if (btn.dataset.avaliacao === 'ruim') {
+      const card = btn.closest('.copy-card');
+      if (card) { card.style.transition = 'opacity 0.3s ease'; card.style.opacity = '0'; setTimeout(() => card.remove(), 300); }
+    }
   }));
   container.querySelectorAll('.btn-del-custom').forEach((btn) => btn.addEventListener('click', () => {
     copysCustom = copysCustom.filter((c) => c.texto !== btn.dataset.texto);
@@ -1000,9 +1009,10 @@ function populaCategoriaSelect() {
 function todasCopysDoBanco() {
   const lista = [];
   if (bancoDisparos) {
-    bancoDisparos.categorias.forEach((cat) => cat.copys.forEach((texto) => lista.push({ texto, categoria: cat.nome, icone: cat.icone })));
+    bancoDisparos.categorias.forEach((cat) => cat.copys.forEach((texto) => { if (naoEhRuim(texto)) lista.push({ texto, categoria: cat.nome, icone: cat.icone }); }));
   }
   copysCustom.forEach((c) => {
+    if (!naoEhRuim(c.texto)) return;
     const catOriginal = bancoDisparos?.categorias.find((cat) => cat.nome === c.categoria);
     lista.push({ texto: c.texto, categoria: c.categoria, icone: catOriginal?.icone || '✏️', custom: true });
   });
@@ -1228,9 +1238,9 @@ function sortearGradeDia() {
     let pool = [];
     (SLOT_CATEGORIAS[slot.tag] || []).forEach((catNome) => {
       const cat = bancoDisparos.categorias.find((c) => c.nome === catNome);
-      if (cat) pool.push(...cat.copys);
+      if (cat) pool.push(...cat.copys.filter(naoEhRuim));
     });
-    copysCustom.forEach((c) => { if ((SLOT_CATEGORIAS[slot.tag] || []).includes(c.categoria)) pool.push(c.texto); });
+    copysCustom.forEach((c) => { if (naoEhRuim(c.texto) && (SLOT_CATEGORIAS[slot.tag] || []).includes(c.categoria)) pool.push(c.texto); });
     if (mineradasFiltradas.length) {
       const tipoAlvo = TIPO_MAP_SLOT[slot.tag];
       pool.push(...mineradasFiltradas.filter((c) => c.tipo === tipoAlvo).map((c) => c.mensagem));
@@ -1247,13 +1257,32 @@ function renderGradeGerada(grade) {
   const container = document.getElementById('gradeContainer');
   container.innerHTML = SLOTS.map((slot) => {
     const texto = grade[slot.tag];
+    const av = texto ? feedbackCopy[hashTexto(texto)] : null;
     return `<div class="grade-slot ${texto ? 'preenchido' : ''}">
       <div class="grade-slot-header"><span class="grade-slot-hora" style="color:${slot.cor}">${slot.hora}</span><span class="grade-slot-nome">${slot.tipo}</span></div>
       <div class="grade-slot-texto ${texto ? '' : 'grade-slot-empty'}">${texto ? esc(texto) : '(sem copy disponível)'}</div>
-      ${texto ? `<button class="btn-shimmer btn-copiar-slot" data-texto="${escAttr(texto)}" style="margin-top:10px; width:100%;"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>` : ''}
+      ${texto ? `<div class="grade-slot-actions">
+        <button class="icon-btn btn-avaliar ${av === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
+        <button class="icon-btn btn-avaliar ${av === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>
+        <button class="btn-shimmer btn-copiar-slot" data-texto="${escAttr(texto)}" style="flex:1;"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>
+      </div>` : ''}
     </div>`;
   }).join('');
   container.querySelectorAll('.btn-copiar-slot').forEach((btn) => btn.addEventListener('click', () => copiarTexto(btn.dataset.texto).then(() => toast('Copy copiada!'))));
+  container.querySelectorAll('.btn-avaliar').forEach((btn) => btn.addEventListener('click', () => {
+    avaliarCopy(btn.dataset.texto, btn.dataset.avaliacao);
+    if (btn.dataset.avaliacao === 'ruim') {
+      const slot = btn.closest('.grade-slot');
+      slot.classList.remove('preenchido');
+      slot.querySelector('.grade-slot-texto').textContent = '🚫 Marcada como ruim e excluída';
+      slot.querySelector('.grade-slot-texto').classList.add('grade-slot-empty');
+      slot.querySelector('.grade-slot-actions')?.remove();
+      return;
+    }
+    const ativou = !btn.classList.contains('avaliacao-' + btn.dataset.avaliacao);
+    btn.parentElement.querySelectorAll('.btn-avaliar').forEach((b) => b.classList.remove('avaliacao-boa', 'avaliacao-ruim'));
+    if (ativou) btn.classList.add('avaliacao-' + btn.dataset.avaliacao);
+  }));
   document.getElementById('btnCopiarGradeGerada').classList.toggle('hidden', !Object.values(grade).some(Boolean));
 }
 
@@ -1271,7 +1300,7 @@ async function gerarGradeIA() {
   btnTextEl.textContent = '✨ Gerando…';
 
   let exemplos = '';
-  if (bancoDisparos) bancoDisparos.categorias.forEach((cat) => { exemplos += cat.nome + ':\n' + cat.copys.slice(0, 3).join('\n') + '\n\n'; });
+  if (bancoDisparos) bancoDisparos.categorias.forEach((cat) => { exemplos += cat.nome + ':\n' + cat.copys.filter(naoEhRuim).slice(0, 3).join('\n') + '\n\n'; });
   const exemplosBoa = await buscarExemplosBoa(6);
   if (exemplosBoa.length) exemplos += 'Copys que a equipe já marcou como BOAS (siga esse estilo de perto):\n' + exemplosBoa.join('\n') + '\n\n';
 
@@ -1391,16 +1420,33 @@ async function gerarCopyAvulsa() {
       mensagens = [resultado.trim()];
     }
 
-    resultadoEl.innerHTML = mensagens.map((texto, i) => `
-      <div class="gerador-card">
+    resultadoEl.innerHTML = mensagens.map((texto, i) => {
+      const av = feedbackCopy[hashTexto(texto)];
+      return `<div class="gerador-card">
         ${mensagens.length > 1 ? `<span class="gerador-card-num">${i + 1}</span>` : ''}
         <div class="gerador-card-texto">${esc(texto)}</div>
-        <button class="btn-shimmer" data-texto="${escAttr(texto)}"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>
-      </div>
-    `).join('');
-    resultadoEl.querySelectorAll('button[data-texto]').forEach((b) => {
+        <div class="grade-slot-actions">
+          <button class="icon-btn btn-avaliar ${av === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
+          <button class="icon-btn btn-avaliar ${av === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>
+          <button class="btn-shimmer btn-copiar-gerador" data-texto="${escAttr(texto)}" style="flex:1;"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>
+        </div>
+      </div>`;
+    }).join('');
+    resultadoEl.querySelectorAll('.btn-copiar-gerador').forEach((b) => {
       b.addEventListener('click', () => copiarTexto(b.dataset.texto).then(() => toast('Copy copiada!')));
     });
+    resultadoEl.querySelectorAll('.btn-avaliar').forEach((btn) => btn.addEventListener('click', () => {
+      avaliarCopy(btn.dataset.texto, btn.dataset.avaliacao);
+      if (btn.dataset.avaliacao === 'ruim') {
+        const card = btn.closest('.gerador-card');
+        card.style.opacity = '0.4';
+        card.innerHTML = '<div class="gerador-card-texto">🚫 Marcada como ruim e excluída</div>';
+        return;
+      }
+      const ativou = !btn.classList.contains('avaliacao-' + btn.dataset.avaliacao);
+      btn.parentElement.querySelectorAll('.btn-avaliar').forEach((b) => b.classList.remove('avaliacao-boa', 'avaliacao-ruim'));
+      if (ativou) btn.classList.add('avaliacao-' + btn.dataset.avaliacao);
+    }));
     registrarAtividade('Gerou copy avulsa', `${tipo} (${formato === 'script' ? 'script' : 'única'})`);
   } catch (err) {
     resultadoEl.innerHTML = `<p class="empty-hint">Erro: ${esc(err.message)}</p>`;
