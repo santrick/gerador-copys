@@ -132,8 +132,12 @@ function configurarLogin() {
     // Limpa qualquer estado/listener da sessão anterior (evita vazar dado de uma conta pra outra na mesma aba)
     if (unsubAtividade) { unsubAtividade(); unsubAtividade = null; }
     if (unsubFuncionarios) { unsubFuncionarios(); unsubFuncionarios = null; }
+    if (unsubFavoritos) { unsubFavoritos(); unsubFavoritos = null; }
+    if (unsubFeedbackCopy) { unsubFeedbackCopy(); unsubFeedbackCopy = null; }
     feedAdminAtivo = false;
     feedFuncionariosAtivo = false;
+    favoritos = [];
+    feedbackCopy = {};
     const listaFunc = document.getElementById('listaFuncionarios');
     const listaAtiv = document.getElementById('atividadeEquipe');
     if (listaFunc) listaFunc.innerHTML = '';
@@ -174,6 +178,8 @@ function configurarLogin() {
     }
 
     registrarAtividade('Entrou no sistema', '');
+    iniciarFeedFavoritos();
+    iniciarFeedFeedbackCopy();
     if (souAdmin) { iniciarFeedAdmin(); iniciarFeedFuncionarios(); }
   });
 }
@@ -271,6 +277,82 @@ function registrarAtividade(acao, detalhe) {
     detalhe: (detalhe || '').slice(0, 200),
     timestamp: firebase.firestore.FieldValue.serverTimestamp()
   }).catch((err) => console.error('[atividade]', err));
+}
+
+function hashTexto(texto) {
+  let h = 0;
+  const s = (texto || '').slice(0, 300);
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return 'c' + Math.abs(h).toString(36);
+}
+
+// ═══════════════════════════════════════════════ FAVORITOS COMPARTILHADOS (equipe) ═══
+
+function iniciarFeedFavoritos() {
+  if (unsubFavoritos) return;
+  unsubFavoritos = db.collection('favoritos').onSnapshot((snap) => {
+    favoritos = snap.docs.map((d) => d.data().texto).filter(Boolean);
+    renderDisparos();
+    renderDashboard();
+  }, (err) => console.error('[favoritos]', err));
+}
+
+function toggleFavorito(texto) {
+  if (!usuarioAtual) return;
+  const id = hashTexto(texto);
+  const ref = db.collection('favoritos').doc(id);
+  const jaEhFavorito = favoritos.includes(texto);
+  if (jaEhFavorito) {
+    ref.delete().catch((err) => toast('Erro: ' + err.message));
+  } else {
+    ref.set({
+      texto: texto.slice(0, 300),
+      adicionadoPor: usuarioAtual.displayName || usuarioAtual.email,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch((err) => toast('Erro: ' + err.message));
+  }
+  registrarAtividade(jaEhFavorito ? 'Desfavoritou uma copy' : 'Favoritou uma copy', texto.slice(0, 80));
+}
+
+// ═══════════════════════════════════════════════ FEEDBACK DE COPY (boa/ruim, treina a IA) ═══
+
+function iniciarFeedFeedbackCopy() {
+  if (unsubFeedbackCopy) return;
+  unsubFeedbackCopy = db.collection('feedback_copy').onSnapshot((snap) => {
+    feedbackCopy = {};
+    snap.docs.forEach((d) => { feedbackCopy[d.id] = d.data().avaliacao; });
+    if (bancoDisparos) renderDisparos();
+    if (typeof mineradasFiltradas !== 'undefined' && mineradasFiltradas.length) renderMineradas();
+  }, (err) => console.error('[feedback_copy]', err));
+}
+
+function avaliarCopy(texto, avaliacao) {
+  if (!usuarioAtual) return;
+  const id = hashTexto(texto);
+  const ref = db.collection('feedback_copy').doc(id);
+  const atual = feedbackCopy[id];
+  if (atual === avaliacao) {
+    ref.delete().catch((err) => toast('Erro: ' + err.message));
+    registrarAtividade('Removeu avaliação de copy', texto.slice(0, 80));
+  } else {
+    ref.set({
+      texto: texto.slice(0, 300),
+      avaliacao,
+      avaliadoPor: usuarioAtual.displayName || usuarioAtual.email,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch((err) => toast('Erro: ' + err.message));
+    registrarAtividade(avaliacao === 'boa' ? 'Marcou copy como boa' : 'Marcou copy como ruim', texto.slice(0, 80));
+  }
+}
+
+async function buscarExemplosBoa(limite) {
+  try {
+    const snap = await db.collection('feedback_copy').where('avaliacao', '==', 'boa').orderBy('timestamp', 'desc').limit(limite).get();
+    return snap.docs.map((d) => d.data().texto).filter(Boolean);
+  } catch (err) {
+    console.error('[buscarExemplosBoa]', err);
+    return [];
+  }
 }
 
 function iniciarFeedAdmin() {
@@ -466,7 +548,10 @@ let bancoDisparos = null;
 let disparosFiltrados = [];
 let mostrandoFavoritos = false;
 
-let favoritos = safeParse('gerador_favoritos', []);
+let favoritos = []; // agora compartilhado via Firestore (coleção "favoritos"), veja iniciarFeedFavoritos()
+let feedbackCopy = {}; // hash(texto) -> 'boa' | 'ruim', compartilhado via Firestore (coleção "feedback_copy")
+let unsubFavoritos = null;
+let unsubFeedbackCopy = null;
 let copysCustom = safeParse('gerador_copys_custom', []);
 let copyCounts = safeParse('gerador_copy_counts', {});
 let gradeManual = safeParse('gerador_grade_manual', { '11h': '', '14h': '', '16h': '', '19h': '' });
@@ -752,6 +837,8 @@ function renderMineradas() {
 
 function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA, origem, favorito, custom }) {
   const cor = COR_TIPO[tag] || 'var(--accent)';
+  const idFeedback = hashTexto(texto);
+  const avaliacao = feedbackCopy[idFeedback];
   return `<div class="copy-card" data-origem="${origem}">
     <div class="copy-card-header">
       ${modelo ? `<span class="copy-card-modelo">${esc(modelo)}</span>` : `<span class="copy-card-cat">${icone || ''} ${esc(categoria || '')}</span>`}
@@ -762,6 +849,8 @@ function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA
       <span class="copy-card-meta">${preco ? `<b>${esc(preco)}</b> · ` : ''}${data ? esc(data) : ''}</span>
       <div class="copy-card-actions">
         ${custom ? `<button class="icon-btn btn-del-custom" title="Apagar" data-texto="${escAttr(texto)}">🗑</button>` : ''}
+        ${comIA ? `<button class="icon-btn btn-avaliar ${avaliacao === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
+        <button class="icon-btn btn-avaliar ${avaliacao === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>` : ''}
         ${origem === 'disparo' ? `<button class="icon-btn btn-favoritar ${favorito ? 'favorito-ativo' : ''}" title="Favoritar" data-texto="${escAttr(texto)}">⭐</button>` : ''}
         ${origem !== 'gerada' ? `<div class="grade-add-wrap" title="Adicionar na grade">
           <span class="icon-btn">➕</span>
@@ -796,7 +885,9 @@ function ligarEventosCard(container) {
   }));
   container.querySelectorAll('.btn-favoritar').forEach((btn) => btn.addEventListener('click', () => {
     toggleFavorito(btn.dataset.texto);
-    renderDisparos();
+  }));
+  container.querySelectorAll('.btn-avaliar').forEach((btn) => btn.addEventListener('click', () => {
+    avaliarCopy(btn.dataset.texto, btn.dataset.avaliacao);
   }));
   container.querySelectorAll('.btn-del-custom').forEach((btn) => btn.addEventListener('click', () => {
     copysCustom = copysCustom.filter((c) => c.texto !== btn.dataset.texto);
@@ -810,14 +901,6 @@ function ligarEventosCard(container) {
   container.querySelectorAll('.select-estilo-ia').forEach((sel) => sel.addEventListener('change', () => {
     if (sel.value) { const btn = sel.closest('.ia-wrap').querySelector('.btn-reescrever'); reescreverCopy(sel.dataset.texto, sel.value, btn); sel.value = ''; }
   }));
-}
-
-function toggleFavorito(texto) {
-  const idx = favoritos.indexOf(texto);
-  const favoritou = idx < 0;
-  if (idx >= 0) favoritos.splice(idx, 1); else favoritos.push(texto);
-  localStorage.setItem('gerador_favoritos', JSON.stringify(favoritos));
-  registrarAtividade(favoritou ? 'Favoritou uma copy' : 'Desfavoritou uma copy', texto.slice(0, 80));
 }
 
 // ═══════════════════════════════════════════════ DISPAROS ═══
@@ -1189,6 +1272,8 @@ async function gerarGradeIA() {
 
   let exemplos = '';
   if (bancoDisparos) bancoDisparos.categorias.forEach((cat) => { exemplos += cat.nome + ':\n' + cat.copys.slice(0, 3).join('\n') + '\n\n'; });
+  const exemplosBoa = await buscarExemplosBoa(6);
+  if (exemplosBoa.length) exemplos += 'Copys que a equipe já marcou como BOAS (siga esse estilo de perto):\n' + exemplosBoa.join('\n') + '\n\n';
 
   try {
     const resultado = await chamarOpenRouter([
@@ -1283,6 +1368,8 @@ async function gerarCopyAvulsa() {
     instrucao = `Crie UMA copy pro objetivo: ${objetivo}`;
   }
   if (contexto) instrucao += `\n\nContexto extra pra considerar: ${contexto}`;
+  const exemplosBoa = await buscarExemplosBoa(5);
+  if (exemplosBoa.length) instrucao += '\n\nCopys que a equipe já marcou como BOAS (siga esse estilo de perto):\n' + exemplosBoa.join('\n');
 
   const resultadoEl = document.getElementById('geradorResultado');
   resultadoEl.innerHTML = '<p class="empty-hint">Gerando…</p>';

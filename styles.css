@@ -563,6 +563,8 @@ a { color: inherit; }
 }
 .icon-btn:hover { color: var(--pink); border-color: var(--pink); }
 .icon-btn.favorito-ativo { color: var(--amber); border-color: var(--amber); }
+.icon-btn.avaliacao-boa { color: var(--green); border-color: var(--green); background: rgba(52,211,153,0.12); }
+.icon-btn.avaliacao-ruim { color: var(--red); border-color: var(--red); background: rgba(248,113,113,0.12); }
 
 .skeleton { border-radius: 14px; background: linear-gradient(90deg, var(--bg-card-solid) 25%, rgba(255,255,255,0.06) 37%, var(--bg-card-solid) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; height: 120px; }
 @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
