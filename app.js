@@ -10,7 +10,6 @@ const ICON_URL = location.origin + location.pathname.replace(/[^/]*$/, '') + 'ic
 const LEMBRETES_HORARIO = {
   '11:00': { titulo: '11h - Bom Dia', msg: 'Hora de mandar a copy de Bom Dia pros fãs' },
   '14:00': { titulo: '14h - Vídeo Exclusivo', msg: 'Hora de disparar a copy de Vídeo Exclusivo' },
-  '16:00': { titulo: '16h - Oferta', msg: 'Hora de mandar a Oferta do dia' },
   '19:00': { titulo: '19h - Aquecimento', msg: 'Hora do Aquecimento pra Pack' },
   '12:00': { titulo: 'Programe a grade de amanhã', msg: 'Já pensou na grade de amanhã? Começa a programar agora, vida' },
   '15:00': { titulo: 'Programe a grade de amanhã', msg: 'Lembrete: prepara os disparos de amanhã com calma' },
@@ -271,7 +270,10 @@ function renderListaFuncionarios() {
         <option value="Sênior" ${cargo === 'Sênior' ? 'selected' : ''}>Sênior</option>
         <option value="Administrador" ${cargo === 'Administrador' ? 'selected' : ''}>Administrador</option>
       </select>
-      ${ehVoceMesmo ? '' : `<button class="btn btn-sm ${ativo ? 'btn-secondary' : 'btn-primary'} funcionario-toggle-ativo" data-uid="${escAttr(uidItem)}" data-ativo="${ativo}">${ativo ? 'Desativar' : 'Ativar'}</button>`}
+      ${ehVoceMesmo ? '' : `<div class="funcionario-acoes">
+        <button class="btn btn-sm ${ativo ? 'btn-secondary' : 'btn-primary'} funcionario-toggle-ativo" data-uid="${escAttr(uidItem)}" data-ativo="${ativo}">${ativo ? 'Desativar' : 'Ativar'}</button>
+        <button class="icon-btn funcionario-excluir" data-uid="${escAttr(uidItem)}" title="Excluir registro">🗑</button>
+      </div>`}
       <div class="funcionario-meta">Último acesso<br>${esc(acesso)}</div>
     </div>`;
   }).join('');
@@ -289,6 +291,15 @@ function renderListaFuncionarios() {
       if (estavaAtivo && !confirm(`Desativar o acesso de "${nomeItem}"? A pessoa não vai mais conseguir entrar.`)) return;
       db.collection('funcionarios').doc(btn.dataset.uid).update({ ativo: !estavaAtivo })
         .then(() => toast(estavaAtivo ? 'Acesso desativado.' : 'Acesso reativado.'))
+        .catch((err) => toast('Erro: ' + err.message));
+    });
+  });
+  container.querySelectorAll('.funcionario-excluir').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nomeItem = btn.closest('.funcionario-item').querySelector('.funcionario-nome').textContent.trim();
+      if (!confirm(`Excluir "${nomeItem}" da lista de funcionários?\n\nIsso apaga o registro e as estatísticas dela. Se a senha ainda for válida, a pessoa consegue entrar de novo e volta a aparecer como ativa — pra bloquear o acesso de vez, use "Desativar" antes de excluir.`)) return;
+      db.collection('funcionarios').doc(btn.dataset.uid).delete()
+        .then(() => { toast('Funcionário excluído.'); registrarAtividade('Excluiu um funcionário', nomeItem); })
         .catch((err) => toast('Erro: ' + err.message));
     });
   });
@@ -637,7 +648,7 @@ const PAGE_INFO = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
   mineradas: { title: 'Mineradas', subtitle: 'Copys reais coletadas da planilha' },
   disparos: { title: 'Disparos', subtitle: 'Banco de copys prontas + grade manual do dia' },
-  grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA os 4 horários do dia' },
+  grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA os 3 horários do dia' },
   gerador: { title: 'Gerador', subtitle: 'Gere uma copy avulsa ou um script por tipo' },
   treinar: { title: 'Treinar IA', subtitle: 'Ensine a IA a escrever do jeito da sua equipe' },
   admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
@@ -654,16 +665,14 @@ const COR_TIPO = {
 const SLOTS = [
   { tag: '11H', key: '11h', hora: '11h', tipo: 'Bom Dia', cor: '#fbbf24' },
   { tag: '14H', key: '14h', hora: '14h', tipo: 'Vídeo Exclusivo', cor: '#a855f7' },
-  { tag: '16H', key: '16h', hora: '16h', tipo: 'Oferta', cor: '#34d399' },
   { tag: '19H', key: '19h', hora: '19h', tipo: 'Aquecimento', cor: '#ec4899' }
 ];
 const SLOT_CATEGORIAS = {
   '11H': ['Bom Dia', 'Primeiro Contato'],
   '14H': ['Venda de Conteúdo', 'Gatilhos Sensuais', 'Gatilhos Temáticos', 'Gatilhos de Banho'],
-  '16H': ['Desconto e Bônus', 'Escassez e Urgência', 'Remarketing', 'Chamada com Preço'],
   '19H': ['Aquecimento pra Pack', 'Boa Noite', 'Chamada de Vídeo', 'Reengajamento']
 };
-const TIPO_MAP_SLOT = { '11H': 'Saudacao', '14H': 'Conteudo', '16H': 'Venda', '19H': 'Aquecimento' };
+const TIPO_MAP_SLOT = { '11H': 'Saudacao', '14H': 'Conteudo', '19H': 'Aquecimento' };
 
 const POR_PAGINA = 24;
 let todasMineradas = [];
@@ -684,7 +693,7 @@ let metricasGlobais = { copysGeradas: 0, copysCopiadas: 0, porHora: {} }; // com
 let unsubMetricas = null;
 let copysCustom = safeParse('gerador_copys_custom', []);
 let copyCounts = safeParse('gerador_copy_counts', {});
-let gradeManual = safeParse('gerador_grade_manual', { '11h': '', '14h': '', '16h': '', '19h': '' });
+let gradeManual = safeParse('gerador_grade_manual', { '11h': '', '14h': '', '19h': '' });
 let gradeGerada = null;
 
 function safeParse(key, fallback) {
@@ -995,7 +1004,6 @@ function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA
             <option value="">Horário…</option>
             <option value="11h">11h Bom Dia</option>
             <option value="14h">14h Vídeo</option>
-            <option value="16h">16h Oferta</option>
             <option value="19h">19h Aquecimento</option>
           </select>
         </div>` : ''}
@@ -1101,12 +1109,12 @@ function configurarDisparos() {
   });
 
   document.getElementById('btnLimparGradeManual').addEventListener('click', () => {
-    gradeManual = { '11h': '', '14h': '', '16h': '', '19h': '' };
+    gradeManual = { '11h': '', '14h': '', '19h': '' };
     localStorage.setItem('gerador_grade_manual', JSON.stringify(gradeManual));
     renderGradeManual();
   });
   document.getElementById('btnCopiarGradeManual').addEventListener('click', () => {
-    const nomes = { '11h': 'Bom Dia', '14h': 'Vídeo Exclusivo', '16h': 'Oferta', '19h': 'Aquecimento' };
+    const nomes = { '11h': 'Bom Dia', '14h': 'Vídeo Exclusivo', '19h': 'Aquecimento' };
     const texto = Object.keys(gradeManual).filter((k) => gradeManual[k])
       .map((k) => `${k} — ${nomes[k]}:\n${gradeManual[k]}`).join('\n\n---\n\n');
     if (!texto) return;
@@ -1211,8 +1219,8 @@ function setGradeManualSlot(slot, texto) {
 
 function renderGradeManual() {
   const container = document.getElementById('gradeManualSlots');
-  const nomes = { '11h': 'Bom Dia', '14h': 'Vídeo Exclusivo', '16h': 'Oferta', '19h': 'Aquecimento' };
-  const cores = { '11h': '#fbbf24', '14h': '#a855f7', '16h': '#34d399', '19h': '#ec4899' };
+  const nomes = { '11h': 'Bom Dia', '14h': 'Vídeo Exclusivo', '19h': 'Aquecimento' };
+  const cores = { '11h': '#fbbf24', '14h': '#a855f7', '19h': '#ec4899' };
   let preenchidos = 0;
   container.innerHTML = Object.keys(nomes).map((slot) => {
     const texto = gradeManual[slot];
@@ -1551,15 +1559,14 @@ async function gerarGradeIA() {
       { role: 'system', content: montarPromptBase() },
       {
         role: 'user',
-        content: 'Crie 4 copys originais, uma pra cada horário, cada uma com um tipo de abertura diferente.\n\n'
+        content: 'Crie 3 copys originais, uma pra cada horário, cada uma com um tipo de abertura diferente.\n\n'
           + 'Responda EXATAMENTE nesse formato, só a copy pura depois de cada tag, sem rótulos:\n\n'
           + '[11H] (copy de bom dia, carinhosa, cria curiosidade)\n'
           + '[14H] (copy oferecendo conteúdo exclusivo — prévia, foto ou vídeo — gera curiosidade pra ele querer ver)\n'
-          + '[16H] (copy de OFERTA: menciona um mimo específico e concreto — tipo unha, sushi, café, um vídeo ou pack — de forma carinhosa e com leve urgência. NÃO pode ser vaga falando só dela mesma, mas também NÃO pode soar como cobrança ou pedido de pagamento — é sempre um mimo espontâneo que ele pode dar se quiser, nunca uma exigência de valor)\n'
           + '[19H] (copy de aquecimento noturno, provocante, prepara o clima pro pack)\n\n'
           + 'Exemplos reais de referência (não copie, crie novas):\n' + exemplos.slice(0, 1500)
       }
-    ], { temperature: 0.9, maxTokens: tokensParaComprimento(4) });
+    ], { temperature: 0.9, maxTokens: tokensParaComprimento(3) });
     const grade = parsearGrade(resultado);
     gradeGerada = grade;
     renderGradeGerada(grade);
@@ -1624,6 +1631,13 @@ function configurarGerador() {
     });
   });
   document.getElementById('btnGerarCopyAvulsa').addEventListener('click', gerarCopyAvulsa);
+
+  const slider = document.getElementById('geradorEstilo');
+  const atualizarSliderVisual = () => {
+    slider.style.background = `linear-gradient(90deg, var(--accent) ${slider.value}%, var(--bg-input) ${slider.value}%)`;
+  };
+  slider.addEventListener('input', atualizarSliderVisual);
+  atualizarSliderVisual();
 }
 
 async function gerarCopyAvulsa() {
