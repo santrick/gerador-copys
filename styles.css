@@ -158,19 +158,50 @@ a { color: inherit; }
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.12s, opacity 0.15s, box-shadow 0.15s, background 0.15s;
+  transition: transform 0.15s ease, opacity 0.15s, box-shadow 0.3s ease, background 0.15s, background-position 0.6s ease, border-color 0.15s;
   font-family: inherit;
   white-space: nowrap;
 }
 .btn:active { transform: scale(0.97); }
-.btn:hover { opacity: 0.92; }
-.btn-primary { background: linear-gradient(135deg, var(--accent), var(--pink)); color: white; box-shadow: 0 4px 16px rgba(168,85,247,0.3); }
+.btn:hover { opacity: 0.92; transform: scale(1.04); }
+.btn:active:hover { transform: scale(0.97); }
+
+.btn-primary {
+  background: linear-gradient(90deg, var(--accent), var(--pink), var(--accent-2), var(--accent));
+  background-size: 300% 100%;
+  background-position: 0% 50%;
+  color: white;
+  box-shadow: 0 4px 16px rgba(168,85,247,0.3);
+}
+.btn-primary:hover {
+  background-position: 100% 50%;
+  box-shadow: 0 0 28px rgba(168,85,247,0.55);
+}
+
+.btn-accent {
+  background: linear-gradient(90deg, var(--green), #10b981, #059669, var(--green));
+  background-size: 300% 100%;
+  background-position: 0% 50%;
+  color: #052e21;
+}
+.btn-accent:hover {
+  background-position: 100% 50%;
+  box-shadow: 0 0 28px rgba(52,211,153,0.5);
+}
+
 .btn-secondary { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
-.btn-accent { background: linear-gradient(135deg, var(--green), #10b981); color: #052e21; }
+.btn-secondary:hover { border-color: var(--accent); box-shadow: 0 0 16px rgba(168,85,247,0.25); }
+
 .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-dim); }
-.btn-ghost:hover { color: var(--text); border-color: var(--border-strong); }
+.btn-ghost:hover { color: var(--text); border-color: var(--border-strong); transform: scale(1.02); }
+
 .btn-sm { padding: 7px 13px; font-size: 12px; }
 .btn-block { width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .btn-primary, .btn-accent { transition: none; }
+  .btn:hover { transform: none; }
+}
 
 /* ===================== BOTÃO PREMIUM (brilho + ícone deslizante) ===================== */
 
