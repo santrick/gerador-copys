@@ -150,9 +150,75 @@ function configurarLogin() {
     overlay.classList.add('hidden');
     shell.hidden = false;
 
+    await upsertFuncionario(user);
     registrarAtividade('Entrou no sistema', '');
-    if (souAdmin) iniciarFeedAdmin();
+    if (souAdmin) { iniciarFeedAdmin(); iniciarFeedFuncionarios(); }
   });
+}
+
+async function upsertFuncionario(user) {
+  try {
+    const ref = db.collection('funcionarios').doc(user.uid);
+    const snap = await ref.get();
+    const dados = {
+      nome: user.displayName || user.email,
+      email: user.email,
+      ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (!snap.exists) dados.cargo = souAdmin ? 'Administrador' : 'Funcionário';
+    await ref.set(dados, { merge: true });
+  } catch (err) {
+    console.error('[funcionarios]', err);
+  }
+}
+
+const CORES_AVATAR = ['#a855f7', '#ec4899', '#34d399', '#fbbf24', '#60a5fa', '#f472b6', '#38bdf8', '#fb923c'];
+function corAvatar(texto) {
+  let h = 0;
+  for (let i = 0; i < texto.length; i++) h = texto.charCodeAt(i) + ((h << 5) - h);
+  return CORES_AVATAR[Math.abs(h) % CORES_AVATAR.length];
+}
+function iniciais(nome) {
+  const partes = (nome || '?').trim().split(/\s+/);
+  return ((partes[0]?.[0] || '') + (partes[1]?.[0] || '')).toUpperCase() || '?';
+}
+
+let feedFuncionariosAtivo = false;
+function iniciarFeedFuncionarios() {
+  if (feedFuncionariosAtivo) return;
+  feedFuncionariosAtivo = true;
+  db.collection('funcionarios').orderBy('nome')
+    .onSnapshot((snap) => {
+      const container = document.getElementById('listaFuncionarios');
+      if (!container) return;
+      if (snap.empty) { container.innerHTML = '<p class="empty-hint">Nenhum funcionário ainda.</p>'; return; }
+      container.innerHTML = snap.docs.map((doc) => {
+        const d = doc.data();
+        const uid = doc.id;
+        const acesso = d.ultimoAcesso ? d.ultimoAcesso.toDate().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—';
+        const cargo = d.cargo || 'Funcionário';
+        return `<div class="funcionario-item">
+          <div class="funcionario-avatar" style="background:${corAvatar(d.nome || d.email || uid)}">${esc(iniciais(d.nome))}</div>
+          <div class="funcionario-info">
+            <div class="funcionario-nome">${esc(d.nome || '—')} <span class="funcionario-cargo-badge">${esc(cargo)}</span></div>
+            <div class="funcionario-email">${esc(d.email || '')}</div>
+          </div>
+          <select class="funcionario-cargo-select" data-uid="${escAttr(uid)}">
+            <option value="Funcionário" ${cargo === 'Funcionário' ? 'selected' : ''}>Funcionário</option>
+            <option value="Sênior" ${cargo === 'Sênior' ? 'selected' : ''}>Sênior</option>
+            <option value="Administrador" ${cargo === 'Administrador' ? 'selected' : ''}>Administrador</option>
+          </select>
+          <div class="funcionario-meta">Último acesso<br>${esc(acesso)}</div>
+        </div>`;
+      }).join('');
+      container.querySelectorAll('.funcionario-cargo-select').forEach((sel) => {
+        sel.addEventListener('change', () => {
+          db.collection('funcionarios').doc(sel.dataset.uid).update({ cargo: sel.value })
+            .then(() => toast('Cargo atualizado.'))
+            .catch((err) => toast('Erro: ' + err.message));
+        });
+      });
+    }, (err) => console.error('[feed funcionarios]', err));
 }
 
 function registrarAtividade(acao, detalhe) {
@@ -191,6 +257,7 @@ function configurarCriarAtendente() {
     const nome = document.getElementById('novoAtendenteNome').value.trim();
     const email = document.getElementById('novoAtendenteEmail').value.trim();
     const senha = document.getElementById('novoAtendenteSenha').value;
+    const cargo = document.getElementById('novoAtendenteCargo').value;
     const msg = document.getElementById('criarAtendenteMsg');
     msg.className = 'login-msg';
     if (!nome || !email || !senha) { msg.textContent = 'Preenche nome, e-mail e senha.'; return; }
@@ -207,7 +274,12 @@ function configurarCriarAtendente() {
     try {
       const cred = await authSecundario.createUserWithEmailAndPassword(email, senha);
       await cred.user.updateProfile({ displayName: nome });
+      const novoUid = cred.user.uid;
       await authSecundario.signOut();
+      await db.collection('funcionarios').doc(novoUid).set({
+        nome, email, cargo,
+        ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
       msg.style.color = 'var(--green)';
       msg.textContent = `Conta de "${nome}" criada! Já pode passar o e-mail e a senha pra ela.`;
       document.getElementById('novoAtendenteNome').value = '';
