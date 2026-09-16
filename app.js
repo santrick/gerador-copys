@@ -431,6 +431,7 @@ const PAGE_INFO = {
   mineradas: { title: 'Mineradas', subtitle: 'Copys reais coletadas da planilha' },
   disparos: { title: 'Disparos', subtitle: 'Banco de copys prontas + grade manual do dia' },
   grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA os 4 horários do dia' },
+  gerador: { title: 'Gerador', subtitle: 'Gere uma copy avulsa ou um script por tipo' },
   admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
 };
 
@@ -1227,6 +1228,98 @@ function parsearGrade(texto) {
   return grade;
 }
 
+// ═══════════════════════════════════════════════ GERADOR DE COPY AVULSA / SCRIPT ═══
+
+const TIPO_GERADOR_DESC = {
+  Saudacao: 'Mensagem de saudação / primeiro contato — recebe o fã, cria conexão inicial, sem vender nada ainda.',
+  Aquecimento: 'Mensagem de aquecimento — cria expectativa e tesão aos poucos, prepara terreno pra uma oferta em breve, sem oferecer ainda.',
+  Venda: 'Mensagem de venda direta — oferece um conteúdo/pack, usa a lógica de mimo, gera desejo de compra.',
+  Chamada: 'Convite pra uma chamada de vídeo, tom provocante e exclusivo.',
+  Pergunta: 'Uma pergunta simples pra puxar resposta e manter o papo, baixo esforço de leitura.',
+  Engajamento: 'Mensagem leve pra manter o fã engajado, sem foco em venda.',
+  Reengajamento: 'Mensagem pra um fã que sumiu ou não responde há um tempo, tenta trazer ele de volta.',
+  Conteudo: 'Oferece uma prévia/conteúdo exclusivo, cria curiosidade.',
+  Upsell: 'Oferece algo a mais pra quem já comprou, valorizando o que ele já tem.',
+  Outro: 'Mensagem seguindo a persona, sem objetivo específico.'
+};
+
+function configurarGerador() {
+  document.querySelectorAll('#geradorFormato .estilo-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#geradorFormato .estilo-btn').forEach((b) => b.classList.remove('ativo'));
+      btn.classList.add('ativo');
+    });
+  });
+  document.getElementById('btnGerarCopyAvulsa').addEventListener('click', gerarCopyAvulsa);
+}
+
+async function gerarCopyAvulsa() {
+  const cfg = getConfig();
+  if (!cfg.openrouterKey) {
+    toast('Configure sua API Key do OpenRouter nas Configurações.');
+    document.getElementById('modalBackdrop').classList.add('open');
+    return;
+  }
+
+  const tipo = document.getElementById('geradorTipo').value;
+  const formatoBtn = document.querySelector('#geradorFormato .estilo-btn.ativo');
+  const formato = formatoBtn ? formatoBtn.dataset.formato : 'unica';
+  const contexto = document.getElementById('geradorContexto').value.trim();
+  const btn = document.getElementById('btnGerarCopyAvulsa');
+  const btnText = btn.querySelector('.btn-premium-text');
+  const original = btnText.textContent;
+  btn.disabled = true;
+  btnText.textContent = '✨ Gerando…';
+
+  const objetivo = TIPO_GERADOR_DESC[tipo] || TIPO_GERADOR_DESC.Outro;
+  let instrucao;
+  if (formato === 'script') {
+    instrucao = `Crie um SCRIPT de 3 mensagens sequenciais (como se fossem enviadas em momentos próximos, cada uma avançando a conversa) pro objetivo: ${objetivo}\n\n`
+      + 'Responda EXATAMENTE nesse formato, só a copy pura depois de cada tag, sem rótulos:\n[1] (primeira mensagem)\n[2] (segunda mensagem, avança a conversa)\n[3] (terceira mensagem, fecha o objetivo)';
+  } else {
+    instrucao = `Crie UMA copy pro objetivo: ${objetivo}`;
+  }
+  if (contexto) instrucao += `\n\nContexto extra pra considerar: ${contexto}`;
+
+  const resultadoEl = document.getElementById('geradorResultado');
+  resultadoEl.innerHTML = '<p class="empty-hint">Gerando…</p>';
+
+  try {
+    const resultado = await chamarOpenRouter([
+      { role: 'system', content: montarPromptBase() },
+      { role: 'user', content: instrucao }
+    ], { maxTokens: tokensParaComprimento(formato === 'script' ? 3 : 1), temperature: 0.9 });
+
+    let mensagens;
+    if (formato === 'script') {
+      mensagens = [1, 2, 3].map((n) => {
+        const m = resultado.match(new RegExp('\\[' + n + '\\]\\s*([\\s\\S]*?)(?=\\[\\d\\]|$)'));
+        return m ? m[1].trim() : '';
+      }).filter(Boolean);
+      if (!mensagens.length) mensagens = resultado.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
+    } else {
+      mensagens = [resultado.trim()];
+    }
+
+    resultadoEl.innerHTML = mensagens.map((texto, i) => `
+      <div class="gerador-card">
+        ${mensagens.length > 1 ? `<span class="gerador-card-num">${i + 1}</span>` : ''}
+        <div class="gerador-card-texto">${esc(texto)}</div>
+        <button class="btn-shimmer" data-texto="${escAttr(texto)}"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>
+      </div>
+    `).join('');
+    resultadoEl.querySelectorAll('button[data-texto]').forEach((b) => {
+      b.addEventListener('click', () => copiarTexto(b.dataset.texto).then(() => toast('Copy copiada!')));
+    });
+    registrarAtividade('Gerou copy avulsa', `${tipo} (${formato === 'script' ? 'script' : 'única'})`);
+  } catch (err) {
+    resultadoEl.innerHTML = `<p class="empty-hint">Erro: ${esc(err.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = original;
+  }
+}
+
 // ═══════════════════════════════════════════════ REESCREVER COPY (IA, usado nos cards) ═══
 
 async function reescreverCopy(texto, estilo, btnEl) {
@@ -1384,6 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarMineradas();
   configurarDisparos();
   configurarGrade();
+  configurarGerador();
   configurarPersona();
   configurarNotificacoes();
 

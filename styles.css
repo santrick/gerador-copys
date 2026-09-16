@@ -676,6 +676,37 @@ select {
 }
 .resultado-reescrita.hidden { display: none; }
 
+/* ===================== GERADOR DE COPY AVULSA ===================== */
+
+.gerador-resultado { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.gerador-card {
+  position: relative;
+  background: var(--bg-input);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gerador-card-num {
+  position: absolute;
+  top: -10px;
+  left: 14px;
+  background: linear-gradient(135deg, var(--accent), var(--pink));
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gerador-card-texto { font-size: 13px; line-height: 1.5; }
+.gerador-card .btn-shimmer { align-self: flex-start; }
+
 /* ===================== MODAL ===================== */
 
 .modal-backdrop {

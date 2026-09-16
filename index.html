@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=12" />
+  <link rel="stylesheet" href="styles.css?v=13" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -79,6 +79,9 @@
         </button>
         <button class="nav-item" data-tab="grade">
           <span class="nav-ico">◔</span> Grade do Dia
+        </button>
+        <button class="nav-item" data-tab="gerador">
+          <span class="nav-ico">✨</span> Gerador
         </button>
         <button class="nav-item hidden" data-tab="admin" id="navAdmin">
           <span class="nav-ico">👑</span> Admin
@@ -337,6 +340,50 @@
           </div>
         </section>
 
+        <!-- GERADOR DE COPY AVULSA -->
+        <section id="tab-gerador" class="tab-panel">
+          <div class="panel">
+            <div class="panel-head"><h2>✨ Gerador de Copy</h2></div>
+            <p class="panel-desc">Gera uma copy avulsa ou um script (sequência) pronto pra qualquer momento — sem precisar passar pela Grade do Dia.</p>
+
+            <label class="field">
+              <span>Tipo de copy</span>
+              <select id="geradorTipo">
+                <option value="Saudacao">👋 Saudação / Primeiro contato</option>
+                <option value="Aquecimento">🔥 Aquecimento</option>
+                <option value="Venda" selected>💰 Venda</option>
+                <option value="Chamada">📞 Chamada de vídeo</option>
+                <option value="Pergunta">❓ Pergunta / Engajamento leve</option>
+                <option value="Engajamento">💬 Engajamento</option>
+                <option value="Reengajamento">🔄 Reengajamento (sumiu)</option>
+                <option value="Conteudo">🎬 Conteúdo / Prévia</option>
+                <option value="Upsell">⬆️ Upsell / Oferta maior</option>
+                <option value="Outro">✏️ Outro</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Formato</span>
+              <div class="comprimento-row" id="geradorFormato">
+                <button class="estilo-btn ativo" data-formato="unica">Copy única</button>
+                <button class="estilo-btn" data-formato="script">Script (3 mensagens)</button>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>Contexto extra (opcional)</span>
+              <textarea id="geradorContexto" rows="2" placeholder="Ex: fã comprou pack ontem, é a primeira mensagem do dia, ele sumiu há 3 dias..."></textarea>
+            </label>
+
+            <button id="btnGerarCopyAvulsa" class="btn-premium">
+              <span class="btn-premium-text">✨ Gerar</span>
+              <span class="btn-premium-icon">➜</span>
+            </button>
+
+            <div id="geradorResultado" class="gerador-resultado"></div>
+          </div>
+        </section>
+
         <!-- ADMIN (só aparece pro admin) -->
         <section id="tab-admin" class="tab-panel">
           <div class="panel">
@@ -441,6 +488,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
