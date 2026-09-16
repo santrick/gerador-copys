@@ -164,7 +164,16 @@ function configurarLogin() {
     overlay.classList.add('hidden');
     shell.hidden = false;
 
-    await upsertFuncionario(user);
+    const ativo = await upsertFuncionario(user);
+    if (!ativo && !souAdmin) {
+      overlay.classList.remove('hidden');
+      shell.hidden = true;
+      msg.textContent = 'Sua conta foi desativada. Fale com o administrador.';
+      msg.style.color = 'var(--red)';
+      await auth.signOut();
+      return;
+    }
+
     registrarAtividade('Entrou no sistema', '');
     if (souAdmin) { iniciarFeedAdmin(); iniciarFeedFuncionarios(); }
   });
@@ -179,10 +188,16 @@ async function upsertFuncionario(user) {
       email: user.email,
       ultimoAcesso: firebase.firestore.FieldValue.serverTimestamp()
     };
-    if (!snap.exists) dados.cargo = souAdmin ? 'Administrador' : 'Funcionário';
+    if (!snap.exists) {
+      dados.cargo = souAdmin ? 'Administrador' : 'Funcionário';
+      dados.ativo = true;
+    }
     await ref.set(dados, { merge: true });
+    const atual = snap.exists ? snap.data() : dados;
+    return atual.ativo !== false;
   } catch (err) {
     console.error('[funcionarios]', err);
+    return true;
   }
 }
 
@@ -211,10 +226,12 @@ function iniciarFeedFuncionarios() {
         const uid = doc.id;
         const acesso = d.ultimoAcesso ? d.ultimoAcesso.toDate().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—';
         const cargo = d.cargo || 'Funcionário';
-        return `<div class="funcionario-item">
+        const ativo = d.ativo !== false;
+        const ehVoceMesmo = usuarioAtual && uid === usuarioAtual.uid;
+        return `<div class="funcionario-item ${ativo ? '' : 'funcionario-inativo'}">
           <div class="funcionario-avatar" style="background:${corAvatar(d.nome || d.email || uid)}">${esc(iniciais(d.nome))}</div>
           <div class="funcionario-info">
-            <div class="funcionario-nome">${esc(d.nome || '—')} <span class="funcionario-cargo-badge">${esc(cargo)}</span></div>
+            <div class="funcionario-nome">${esc(d.nome || '—')} <span class="funcionario-cargo-badge">${esc(cargo)}</span>${ativo ? '' : ' <span class="funcionario-cargo-badge funcionario-badge-inativo">Desativado</span>'}</div>
             <div class="funcionario-email">${esc(d.email || '')}</div>
           </div>
           <select class="funcionario-cargo-select" data-uid="${escAttr(uid)}">
@@ -222,6 +239,7 @@ function iniciarFeedFuncionarios() {
             <option value="Sênior" ${cargo === 'Sênior' ? 'selected' : ''}>Sênior</option>
             <option value="Administrador" ${cargo === 'Administrador' ? 'selected' : ''}>Administrador</option>
           </select>
+          ${ehVoceMesmo ? '' : `<button class="btn btn-sm ${ativo ? 'btn-secondary' : 'btn-primary'} funcionario-toggle-ativo" data-uid="${escAttr(uid)}" data-ativo="${ativo}">${ativo ? 'Desativar' : 'Ativar'}</button>`}
           <div class="funcionario-meta">Último acesso<br>${esc(acesso)}</div>
         </div>`;
       }).join('');
@@ -229,6 +247,16 @@ function iniciarFeedFuncionarios() {
         sel.addEventListener('change', () => {
           db.collection('funcionarios').doc(sel.dataset.uid).update({ cargo: sel.value })
             .then(() => toast('Cargo atualizado.'))
+            .catch((err) => toast('Erro: ' + err.message));
+        });
+      });
+      container.querySelectorAll('.funcionario-toggle-ativo').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const estavaAtivo = btn.dataset.ativo === 'true';
+          const nomeItem = btn.closest('.funcionario-item').querySelector('.funcionario-nome').textContent.trim();
+          if (estavaAtivo && !confirm(`Desativar o acesso de "${nomeItem}"? A pessoa não vai mais conseguir entrar.`)) return;
+          db.collection('funcionarios').doc(btn.dataset.uid).update({ ativo: !estavaAtivo })
+            .then(() => toast(estavaAtivo ? 'Acesso desativado.' : 'Acesso reativado.'))
             .catch((err) => toast('Erro: ' + err.message));
         });
       });

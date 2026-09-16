@@ -637,6 +637,8 @@ select {
   border-radius: 12px;
   flex-wrap: wrap;
 }
+.funcionario-item.funcionario-inativo { opacity: 0.5; }
+.funcionario-badge-inativo { background: rgba(248,113,113,0.15); color: var(--red); }
 .funcionario-avatar {
   width: 38px; height: 38px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
