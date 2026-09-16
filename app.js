@@ -89,6 +89,8 @@ const db = firebase.firestore();
 let usuarioAtual = null;
 let souAdmin = false;
 let feedAdminAtivo = false;
+let unsubAtividade = null;
+let unsubFuncionarios = null;
 
 function configurarLogin() {
   const overlay = document.getElementById('loginOverlay');
@@ -128,8 +130,22 @@ function configurarLogin() {
 
   auth.onAuthStateChanged(async (user) => {
     usuarioAtual = user;
+
+    // Limpa qualquer estado/listener da sessão anterior (evita vazar dado de uma conta pra outra na mesma aba)
+    if (unsubAtividade) { unsubAtividade(); unsubAtividade = null; }
+    if (unsubFuncionarios) { unsubFuncionarios(); unsubFuncionarios = null; }
+    feedAdminAtivo = false;
+    feedFuncionariosAtivo = false;
+    const listaFunc = document.getElementById('listaFuncionarios');
+    const listaAtiv = document.getElementById('atividadeEquipe');
+    if (listaFunc) listaFunc.innerHTML = '';
+    if (listaAtiv) listaAtiv.innerHTML = '';
+    irParaTab('dashboard', { semHash: true });
+
     if (!user) {
       souAdmin = false;
+      document.getElementById('navAdmin').classList.add('hidden');
+      document.getElementById('painelNotificacoes').classList.add('hidden');
       overlay.classList.remove('hidden');
       shell.hidden = true;
       document.getElementById('loginEmail').value = '';
@@ -187,7 +203,7 @@ let feedFuncionariosAtivo = false;
 function iniciarFeedFuncionarios() {
   if (feedFuncionariosAtivo) return;
   feedFuncionariosAtivo = true;
-  db.collection('funcionarios').orderBy('nome')
+  unsubFuncionarios = db.collection('funcionarios').orderBy('nome')
     .onSnapshot((snap) => {
       const container = document.getElementById('listaFuncionarios');
       if (!container) return;
@@ -235,7 +251,7 @@ function registrarAtividade(acao, detalhe) {
 function iniciarFeedAdmin() {
   if (feedAdminAtivo) return;
   feedAdminAtivo = true;
-  db.collection('atividade').orderBy('timestamp', 'desc').limit(50)
+  unsubAtividade = db.collection('atividade').orderBy('timestamp', 'desc').limit(50)
     .onSnapshot((snap) => {
       const container = document.getElementById('atividadeEquipe');
       if (!container) return;
@@ -513,6 +529,7 @@ const ESTILOS_REESCRITA = {
 
 function irParaTab(tab, opts) {
   if (!PAGE_INFO[tab]) return;
+  if (tab === 'admin' && !souAdmin) tab = 'dashboard';
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
   document.getElementById('pageTitle').textContent = PAGE_INFO[tab].title;
