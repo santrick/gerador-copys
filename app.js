@@ -144,6 +144,7 @@ function configurarLogin() {
 
     souAdmin = user.email === ADMIN_EMAIL;
     document.getElementById('navAdmin').classList.toggle('hidden', !souAdmin);
+    document.getElementById('painelNotificacoes').classList.toggle('hidden', !souAdmin);
     document.getElementById('usuarioLogado').textContent = '👤 ' + (user.displayName || user.email);
 
     overlay.classList.add('hidden');
