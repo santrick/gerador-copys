@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=15" />
+  <link rel="stylesheet" href="styles.css?v=16" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -82,6 +82,9 @@
         </button>
         <button class="nav-item" data-tab="gerador">
           <span class="nav-ico">✨</span> Gerador
+        </button>
+        <button class="nav-item" data-tab="treinar">
+          <span class="nav-ico">🧠</span> Treinar IA
         </button>
         <button class="nav-item hidden" data-tab="admin" id="navAdmin">
           <span class="nav-ico">👑</span> Admin
@@ -176,6 +179,38 @@
                 <span class="panel-sub">últimas mineradas</span>
               </div>
               <div id="atividadeRecente" class="activity-list"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h2>📈 Métricas de IA</h2>
+                <span class="panel-sub">geral da equipe</span>
+              </div>
+              <div class="kpi-grid kpi-grid-mini">
+                <div class="kpi-card">
+                  <span class="kpi-label">Copys Geradas</span>
+                  <span class="kpi-value" id="kpiCopysGeradas">0</span>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">Copys Copiadas</span>
+                  <span class="kpi-value" id="kpiCopysCopiadas">0</span>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">Taxa de Uso</span>
+                  <span class="kpi-value" id="kpiTaxaUso">0%</span>
+                </div>
+                <div class="kpi-card">
+                  <span class="kpi-label">Melhor Horário</span>
+                  <span class="kpi-value" id="kpiMelhorHorario">—</span>
+                </div>
+              </div>
+              <div class="feedback-equipe">
+                <div class="feedback-bar"><div class="feedback-bar-boa" id="feedbackBarBoa"></div></div>
+                <div class="feedback-legenda">
+                  <span>👍 <b id="feedbackPctBoa">0%</b> boas</span>
+                  <span>👎 <b id="feedbackPctRuim">0%</b> ruins</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -302,6 +337,22 @@
                   <button class="estilo-btn ativo" data-emoji="2">2</button>
                 </div>
               </label>
+              <label class="field">
+                <span>Tom</span>
+                <div class="comprimento-row" id="tomRow">
+                  <button class="estilo-btn ativo" data-tom="natural">Natural</button>
+                  <button class="estilo-btn" data-tom="provocante">Provocante</button>
+                  <button class="estilo-btn" data-tom="carinhosa">Carinhosa</button>
+                  <button class="estilo-btn" data-tom="direta">Direta</button>
+                </div>
+              </label>
+              <label class="field">
+                <span>Abreviações (vc, pq, tb...)</span>
+                <div class="comprimento-row" id="abreviacoesRow">
+                  <button class="estilo-btn ativo" data-abrev="sim">Sim</button>
+                  <button class="estilo-btn" data-abrev="nao">Não</button>
+                </div>
+              </label>
             </div>
           </div>
 
@@ -320,6 +371,7 @@
                 <span class="btn-premium-text">✨ Gerar com IA</span>
                 <span class="btn-premium-icon">➜</span>
               </button>
+              <button id="btnCompletarGradeIA" class="btn btn-secondary">✨ Completar com IA</button>
             </div>
           </div>
 
@@ -347,7 +399,7 @@
             <p class="panel-desc">Gera uma copy avulsa ou um script (sequência) pronto pra qualquer momento — sem precisar passar pela Grade do Dia.</p>
 
             <label class="field">
-              <span>Tipo de copy</span>
+              <span>Objetivo do disparo</span>
               <select id="geradorTipo">
                 <option value="Saudacao">👋 Saudação / Primeiro contato</option>
                 <option value="Aquecimento">🔥 Aquecimento</option>
@@ -362,13 +414,53 @@
               </select>
             </label>
 
+            <div class="persona-row">
+              <label class="field">
+                <span>Momento</span>
+                <select id="geradorMomento">
+                  <option value="">Sem preferência</option>
+                  <option value="manha">🌅 Manhã</option>
+                  <option value="tarde">☀️ Tarde</option>
+                  <option value="noite">🌙 Noite</option>
+                  <option value="madrugada">🌌 Madrugada</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Público</span>
+                <select id="geradorPublico">
+                  <option value="">Todos</option>
+                  <option value="assinantes">Assinantes</option>
+                  <option value="inativos">Inativos (7d)</option>
+                  <option value="vip">VIP</option>
+                </select>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Estilo da copy</span>
+              <div class="estilo-slider-wrap">
+                <span class="estilo-slider-label">Mais suave</span>
+                <input type="range" id="geradorEstilo" min="0" max="100" value="50" />
+                <span class="estilo-slider-label">Mais provocante</span>
+              </div>
+            </label>
+
             <label class="field">
               <span>Formato</span>
               <div class="comprimento-row" id="geradorFormato">
-                <button class="estilo-btn ativo" data-formato="unica">Copy única</button>
-                <button class="estilo-btn" data-formato="script">Script (3 mensagens)</button>
+                <button class="estilo-btn ativo" data-formato="1">1 mensagem</button>
+                <button class="estilo-btn" data-formato="3">3 mensagens</button>
+                <button class="estilo-btn" data-formato="5">5 mensagens</button>
+                <button class="estilo-btn" data-formato="seq">Sequência completa</button>
               </div>
             </label>
+
+            <div class="checkbox-grid">
+              <label class="checkbox-field"><input type="checkbox" id="geradorCTA" /> Incluir CTA</label>
+              <label class="checkbox-field"><input type="checkbox" id="geradorPergunta" /> Pergunta no final</label>
+              <label class="checkbox-field"><input type="checkbox" id="geradorQuebradas" /> Mensagens quebradas</label>
+              <label class="checkbox-field"><input type="checkbox" id="geradorVariacoes" /> Variações de abertura</label>
+            </div>
 
             <label class="field">
               <span>Contexto extra (opcional)</span>
@@ -380,7 +472,35 @@
               <span class="btn-premium-icon">➜</span>
             </button>
 
+            <div id="geradorTabsCategorias" class="gerador-tabs-categorias hidden"></div>
             <div id="geradorResultado" class="gerador-resultado"></div>
+          </div>
+        </section>
+
+        <!-- TREINAR IA -->
+        <section id="tab-treinar" class="tab-panel">
+          <div class="panel">
+            <div class="panel-head"><h2>🧠 O que a IA já aprendeu</h2></div>
+            <p class="panel-desc">Regras compartilhadas com toda a equipe — entram em toda copy gerada, na Grade e no Gerador.</p>
+            <div id="listaRegrasIA" class="regras-list"></div>
+            <button id="btnNovaRegraIA" class="btn btn-secondary" style="margin-top:12px;">+ Nova regra</button>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h2>✏️ Ensinar por correção</h2></div>
+            <p class="panel-desc">Mostra pra IA como ela errou e como deveria ter escrito — ela passa a seguir isso a partir de agora.</p>
+            <label class="field">
+              <span>❌ A IA escreveu</span>
+              <textarea id="correcaoIaEscreveu" rows="2" placeholder="Cole aqui o que a IA gerou..."></textarea>
+            </label>
+            <label class="field">
+              <span>✅ Eu escreveria assim</span>
+              <textarea id="correcaoEuEscreveria" rows="2" placeholder="Como você (ou a equipe) escreveria de verdade..."></textarea>
+            </label>
+            <button id="btnEnsinarCorrecao" class="btn-premium">
+              <span class="btn-premium-text">🧠 Ensinar esta correção</span>
+              <span class="btn-premium-icon">➜</span>
+            </button>
           </div>
         </section>
 
@@ -444,6 +564,7 @@
           <div class="panel">
             <div class="panel-head"><h2>👥 Funcionários</h2></div>
             <p class="panel-desc">Todo mundo com acesso ao sistema.</p>
+            <input type="text" id="buscaFuncionarios" placeholder="Buscar atendente..." style="margin-bottom:14px;" />
             <div id="listaFuncionarios" class="funcionarios-list"></div>
           </div>
 
@@ -488,6 +609,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=19"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>

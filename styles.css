@@ -443,6 +443,15 @@ a { color: inherit; }
 .kpi-tag.amber { background: rgba(251,191,36,0.15); color: var(--amber); }
 .kpi-tag.green { background: rgba(52,211,153,0.15); color: var(--green); }
 
+.kpi-grid-mini { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-bottom: 16px; }
+.kpi-grid-mini .kpi-card { padding: 12px 14px; }
+.kpi-grid-mini .kpi-value { font-size: 22px; }
+
+.feedback-equipe { display: flex; flex-direction: column; gap: 8px; }
+.feedback-bar { height: 10px; border-radius: 6px; background: var(--red, #ef4444); opacity: 0.35; overflow: hidden; }
+.feedback-bar-boa { height: 100%; background: var(--green); transition: width 0.4s ease; }
+.feedback-legenda { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); }
+
 .dash-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -706,8 +715,41 @@ select {
   align-items: center;
   justify-content: center;
 }
-.gerador-card-texto { font-size: 13px; line-height: 1.5; }
+.gerador-card-texto { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
 .gerador-card .btn-shimmer { align-self: flex-start; }
+.gerador-card-topo { display: flex; }
+.gerador-card-tag { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; border: 1px solid; }
+
+.gerador-tabs-categorias { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; margin-bottom: 4px; }
+.gerador-tabs-categorias.hidden { display: none; }
+
+.historico-versoes { font-size: 11.5px; color: var(--text-dimmer); }
+.historico-versoes summary { cursor: pointer; padding: 4px 0; }
+.historico-item { display: flex; gap: 8px; padding: 6px 4px; border-radius: 6px; cursor: pointer; }
+.historico-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.historico-item span:first-child { color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.historico-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gerador-edicao { display: flex; flex-direction: column; gap: 10px; }
+.gerador-edicao-textarea { margin-bottom: 0; }
+.gerador-edicao-refinar { display: flex; gap: 8px; flex-wrap: wrap; }
+.gerador-edicao-acoes { display: flex; gap: 8px; }
+
+.checkbox-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px 14px; margin-bottom: 14px; }
+.checkbox-field { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-dim); cursor: pointer; }
+.checkbox-field input { width: auto; margin: 0; accent-color: var(--accent); }
+
+.estilo-slider-wrap { display: flex; align-items: center; gap: 12px; }
+.estilo-slider-wrap input[type="range"] { flex: 1; accent-color: var(--accent); }
+.estilo-slider-label { font-size: 11px; color: var(--text-dimmer); white-space: nowrap; }
+
+.regras-list { display: flex; flex-direction: column; gap: 8px; }
+.regra-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; font-size: 12.5px; }
+.regra-check { color: var(--green); font-weight: 800; flex-shrink: 0; }
+.regra-texto { flex: 1; line-height: 1.4; }
+.btn-del-regra { flex-shrink: 0; }
+
+.funcionario-stats { font-size: 11px; color: var(--text-dimmer); margin-top: 3px; }
 
 .grade-slot-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 
