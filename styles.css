@@ -600,12 +600,33 @@ select {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background:
-    radial-gradient(600px circle at 15% -5%, rgba(168,85,247,0.18), transparent 60%),
-    radial-gradient(500px circle at 100% 10%, rgba(236,72,153,0.12), transparent 55%),
-    var(--bg);
+  overflow: hidden;
+  background: var(--bg);
+}
+.login-overlay::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  background: url("icon.png") no-repeat center center;
+  background-size: cover;
+  filter: blur(200px) saturate(1);
+  opacity: 0.22;
+  animation: loginBgMov 14s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+@keyframes loginBgMov {
+  0%, 100% { transform: scale(1) rotate(0deg); filter: blur(200px) saturate(1); }
+  50% { transform: scale(1.6) rotate(8deg); filter: blur(200px) saturate(1.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-overlay::before { animation: none; }
 }
 .login-box {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 360px;
   background: var(--bg-card-solid);
