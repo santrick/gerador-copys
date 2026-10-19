@@ -352,13 +352,21 @@ function toggleFavorito(texto, meta) {
     ref.delete().catch((err) => toast('Erro: ' + err.message));
   } else {
     favoritos = favoritos.concat(texto);
-    ref.set({
-      texto: texto.slice(0, 4000),
-      origem: meta?.origem || 'disparo',
-      categoria: meta?.categoria || '',
+    const base = {
       adicionadoPor: usuarioAtual.displayName || usuarioAtual.email,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch((err) => toast('Erro: ' + err.message));
+    };
+    ref.set({ ...base, texto: texto.slice(0, 4000), origem: meta?.origem || 'disparo', categoria: meta?.categoria || '' })
+      // Se as regras do Firestore só aceitarem o formato antigo, salva do jeito antigo em vez de perder o favorito
+      .catch((err) => {
+        console.warn('[favoritos] formato novo recusado, tentando o antigo:', err.message);
+        return ref.set({ ...base, texto: texto.slice(0, 300) });
+      })
+      .catch((err) => {
+        favoritos = favoritos.filter((t) => t !== texto);
+        document.querySelectorAll('.btn-fav').forEach((b) => { if (b.dataset.texto === texto) b.classList.remove('favorito-ativo'); });
+        toast('Não deu pra favoritar: ' + err.message);
+      });
   }
   registrarAtividade(jaEhFavorito ? 'Desfavoritou uma copy' : 'Favoritou uma copy', texto.slice(0, 80));
   return !jaEhFavorito;
