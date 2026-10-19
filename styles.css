@@ -1242,3 +1242,87 @@ input[type="range"] { accent-color: var(--accent); }
   .persona-link { flex-basis: 100%; text-align: left; padding: 0; }
   .grade-toolbar > * { flex: 1 1 100%; justify-content: center; }
 }
+
+/* ===================== REFRESH v19 ===================== */
+
+/* Barra de feedback neutra quando ninguém avaliou ainda */
+.feedback-bar.vazia { background: var(--border-strong); opacity: 1; }
+
+/* Campo de busca genérico (Admin) */
+.input-busca {
+  width: 100%; max-width: 360px; margin-bottom: 14px;
+  padding: 10px 13px; background: var(--bg-input); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 13px; outline: none;
+}
+.input-busca:focus { border-color: var(--accent); }
+
+/* Formulário em duas colunas */
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; margin-bottom: 6px; }
+@media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
+
+/* Login: botão e fundo na mesma linguagem do app */
+.login-box { border-radius: 20px; padding: 36px 30px 28px; }
+.login-box .btn-primary { margin-top: 6px; padding: 12px 16px; }
+.login-overlay::before { opacity: 0.14; }
+
+/* Disparos no celular: grade manual mais compacta */
+@media (max-width: 880px) {
+  .grade-manual .grade-container { gap: 8px; }
+  .grade-manual .grade-slot { padding: 12px 14px; min-height: 0; }
+  .grade-manual .grade-slot-texto { min-height: 0; }
+}
+
+/* Mineradas: barra de filtros alinhada */
+#tab-mineradas .toolbar select { flex: 0 1 220px; }
+
+/* ===================== REFRESH v20: ocupar todo o espaço ===================== */
+
+/* Usa a largura toda da tela */
+.content { max-width: none; }
+
+/* Copys em mosaico: cards de alturas diferentes encaixam sem buraco */
+.grid-copys {
+  display: block;
+  columns: 260px;
+  column-gap: 12px;
+}
+.grid-copys > * { break-inside: avoid; margin-bottom: 12px; }
+.grid-copys > .copy-card { display: block; width: 100%; }
+.grid-copys > .empty-state,
+.grid-copys > .pagination { column-span: all; }
+.grid-copys > .skeleton { display: block; }
+
+/* Horários da grade esticam até a borda (a última linha também) */
+.grade-container { display: flex; flex-wrap: wrap; }
+.grade-container > * { flex: 1 1 240px; min-width: 0; }
+
+/* Telas grandes: painéis lado a lado em vez de um embaixo do outro */
+@media (min-width: 1280px) {
+  #tab-treinar.active, #tab-admin.active {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    align-items: stretch;
+  }
+  #tab-treinar > .panel, #tab-admin > .panel { margin-bottom: 0; }
+}
+
+/* Gerador: as duas colunas com a mesma altura */
+.gerador-layout { align-items: stretch; }
+.gerador-saida { position: static; max-height: none; overflow: visible; }
+
+/* Dashboard no celular: KPIs em duas colunas */
+@media (max-width: 880px) {
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .kpi-card { padding: 14px; }
+  .kpi-value { font-size: 24px; }
+}
+@media (max-width: 880px) { .grid-copys { columns: 1; } }
+
+/* Aba Favoritos */
+#filtroOrigemFav .fav-count {
+  display: inline-block; min-width: 18px; margin-left: 4px; padding: 0 5px;
+  font-size: 10.5px; border-radius: 6px; background: rgba(255,255,255,0.08); text-align: center;
+}
+#filtroOrigemFav .estilo-btn.ativo .fav-count { background: rgba(255,255,255,0.22); }
+#tab-favoritos .toolbar input { flex: 1 1 280px; }

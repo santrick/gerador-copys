@@ -333,27 +333,97 @@ function naoEhRuim(texto) {
 function iniciarFeedFavoritos() {
   if (unsubFavoritos) return;
   unsubFavoritos = db.collection('favoritos').onSnapshot((snap) => {
-    favoritos = snap.docs.map((d) => d.data().texto).filter(Boolean);
+    favoritosDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((d) => d.texto)
+      .sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
+    favoritos = favoritosDocs.map((d) => d.texto);
     renderDisparos();
     renderDashboard();
+    renderFavoritos();
   }, (err) => console.error('[favoritos]', err));
 }
 
-function toggleFavorito(texto) {
-  if (!usuarioAtual) return;
+function toggleFavorito(texto, meta) {
+  if (!usuarioAtual || !texto) return false;
   const id = hashTexto(texto);
   const ref = db.collection('favoritos').doc(id);
   const jaEhFavorito = favoritos.includes(texto);
   if (jaEhFavorito) {
+    favoritos = favoritos.filter((t) => t !== texto);
     ref.delete().catch((err) => toast('Erro: ' + err.message));
   } else {
+    favoritos = favoritos.concat(texto);
     ref.set({
-      texto: texto.slice(0, 300),
+      texto: texto.slice(0, 4000),
+      origem: meta?.origem || 'disparo',
+      categoria: meta?.categoria || '',
       adicionadoPor: usuarioAtual.displayName || usuarioAtual.email,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     }).catch((err) => toast('Erro: ' + err.message));
   }
   registrarAtividade(jaEhFavorito ? 'Desfavoritou uma copy' : 'Favoritou uma copy', texto.slice(0, 80));
+  return !jaEhFavorito;
+}
+
+// Um handler só pra toda ⭐ do app (cards, Gerador, Grade do Dia, aba Favoritos)
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-fav');
+  if (!btn) return;
+  const texto = btn.dataset.texto;
+  const ativo = toggleFavorito(texto, { origem: btn.dataset.origem, categoria: btn.dataset.cat });
+  document.querySelectorAll('.btn-fav').forEach((b) => { if (b.dataset.texto === texto) b.classList.toggle('favorito-ativo', ativo); });
+  toast(ativo ? '⭐ Salva nos favoritos' : 'Removida dos favoritos');
+});
+
+function botaoFavHtml(texto, origem, categoria) {
+  const ativo = favoritos.includes(texto);
+  return `<button class="icon-btn btn-fav ${ativo ? 'favorito-ativo' : ''}" title="${ativo ? 'Remover dos favoritos' : 'Favoritar'}" data-texto="${escAttr(texto)}" data-origem="${escAttr(origem || '')}" data-cat="${escAttr(categoria || '')}">⭐</button>`;
+}
+
+// ═══════════════════════════════════════════════ ABA FAVORITOS ═══
+
+const ORIGEM_FAV = {
+  disparo: { nome: 'Banco', icone: '➤' },
+  minerada: { nome: 'Mineradas', icone: '▤' },
+  ia: { nome: 'IA', icone: '✨' }
+};
+let filtroOrigemFav = 'todas';
+
+function renderFavoritos() {
+  const container = document.getElementById('listaFavoritos');
+  if (!container) return;
+  const termo = (document.getElementById('buscaFavoritos').value || '').toLowerCase().trim();
+  const contagem = { todas: favoritosDocs.length, disparo: 0, minerada: 0, ia: 0 };
+  favoritosDocs.forEach((d) => { const o = ORIGEM_FAV[d.origem] ? d.origem : 'disparo'; contagem[o]++; });
+  document.querySelectorAll('#filtroOrigemFav [data-origem]').forEach((b) => {
+    b.classList.toggle('ativo', b.dataset.origem === filtroOrigemFav);
+    b.querySelector('.fav-count').textContent = contagem[b.dataset.origem] || 0;
+  });
+
+  const lista = favoritosDocs.filter((d) => {
+    const o = ORIGEM_FAV[d.origem] ? d.origem : 'disparo';
+    return (filtroOrigemFav === 'todas' || o === filtroOrigemFav) && (!termo || d.texto.toLowerCase().includes(termo) || (d.categoria || '').toLowerCase().includes(termo));
+  });
+  if (!lista.length) {
+    container.innerHTML = `<div class="empty-state"><span class="empty-ico">⭐</span><p>${favoritosDocs.length ? 'Nenhum favorito com esse filtro.' : 'Nenhuma copy favoritada ainda. Toque na ⭐ de qualquer copy (banco, mineradas ou gerada pela IA) pra guardar aqui.'}</p></div>`;
+    return;
+  }
+  container.innerHTML = lista.map((d) => {
+    const o = ORIGEM_FAV[d.origem] ? d.origem : 'disparo';
+    return cardCopyHtml({
+      texto: d.texto, categoria: d.categoria || ORIGEM_FAV[o].nome, icone: ORIGEM_FAV[o].icone, comIA: true,
+      origem: 'favorito', origemFav: o,
+      data: d.adicionadoPor ? 'por ' + d.adicionadoPor : ''
+    });
+  }).join('');
+  ligarEventosCard(container);
+}
+
+function configurarFavoritos() {
+  document.getElementById('buscaFavoritos').addEventListener('input', renderFavoritos);
+  document.querySelectorAll('#filtroOrigemFav [data-origem]').forEach((b) => b.addEventListener('click', () => {
+    filtroOrigemFav = b.dataset.origem;
+    renderFavoritos();
+  }));
 }
 
 // ═══════════════════════════════════════════════ FEEDBACK DE COPY (boa/ruim, treina a IA) ═══
@@ -677,6 +747,7 @@ function salvarConfig(cfg) {
 
 const PAGE_INFO = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
+  favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou — do banco, das mineradas e da IA' },
   mineradas: { title: 'Mineradas', subtitle: 'Copys reais coletadas da planilha' },
   disparos: { title: 'Disparos', subtitle: 'Banco de copys prontas + grade manual do dia' },
   grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA em horários aleatórios do dia' },
@@ -749,6 +820,7 @@ let disparosFiltrados = [];
 let mostrandoFavoritos = false;
 
 let favoritos = []; // agora compartilhado via Firestore (coleção "favoritos"), veja iniciarFeedFavoritos()
+let favoritosDocs = []; // mesmos favoritos com origem/categoria/quem salvou, pra aba Favoritos
 let feedbackCopy = {}; // hash(texto) -> 'boa' | 'ruim', compartilhado via Firestore (coleção "feedback_copy")
 let unsubFavoritos = null;
 let unsubFeedbackCopy = null;
@@ -873,6 +945,7 @@ function irParaTab(tab, opts) {
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'disparos' && !bancoDisparos) carregarBancoDisparos();
   if (tab === 'grade' || tab === 'gerador') atualizarResumoPersona();
+  if (tab === 'favoritos') renderFavoritos();
   if (tab === 'grade' && !gradeGerada) { gradeSlots = gerarSlotsAleatorios(); gradeGerada = {}; renderGradeGerada(gradeGerada); }
 }
 
@@ -955,8 +1028,8 @@ function mostrarMsgConfig(texto, tipo) {
 function configurarMineradas() {
   document.getElementById('btnRecarregarMineradas').addEventListener('click', carregarMineradas);
   document.getElementById('buscaMineradas').addEventListener('input', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
-  document.getElementById('filtroModeloMineradas').addEventListener('change', carregarMineradas);
-  document.getElementById('filtroTipoMineradas').addEventListener('change', carregarMineradas);
+  document.getElementById('filtroModeloMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
+  document.getElementById('filtroTipoMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
 }
 
 async function carregarMineradas() {
@@ -969,53 +1042,66 @@ async function carregarMineradas() {
   const btn = document.getElementById('btnRecarregarMineradas');
   btn.disabled = true;
   const textoOriginal = btn.textContent;
-  btn.textContent = 'Carregando…';
-  setStatus('Buscando copys da planilha…', 'aviso');
+  btn.textContent = 'Atualizando…';
+  if (!todasMineradas.length) renderMineradas();
+  setStatus(todasMineradas.length ? `${todasMineradas.length} copys (versão salva) — atualizando a planilha…` : 'Buscando copys da planilha…', 'aviso');
 
   try {
-    const url = new URL(cfg.sheetsUrl);
-    const modelo = document.getElementById('filtroModeloMineradas').value;
-    const tipo = document.getElementById('filtroTipoMineradas').value;
-    if (modelo) url.searchParams.set('modelo', modelo);
-    if (tipo) url.searchParams.set('tipo', tipo);
-
-    const resp = await fetch(url.toString(), { redirect: 'follow' });
+    const resp = await fetch(cfg.sheetsUrl, { redirect: 'follow' });
     if (!resp.ok) throw new Error('Servidor retornou erro ' + resp.status);
     const data = await resp.json();
     if (data.status === 'erro') throw new Error(data.msg || data.mensagem);
 
-    todasMineradas = data.copys || [];
-    paginaMineradas = 1;
-
-    const selectModelo = document.getElementById('filtroModeloMineradas');
-    const valorAtual = selectModelo.value;
-    const modelos = data.modelos || [...new Set(todasMineradas.map((c) => c.modelo))].sort();
-    selectModelo.innerHTML = '<option value="">Todas as modelos</option>';
-    modelos.forEach((m) => {
-      const opt = document.createElement('option');
-      opt.value = m; opt.textContent = m;
-      if (m === valorAtual) opt.selected = true;
-      selectModelo.appendChild(opt);
-    });
-
-    const pill = document.getElementById('pillCopys');
-    pill.textContent = `${todasMineradas.length} copys · ${modelos.length} modelos`;
-    pill.hidden = false;
+    aplicarDadosMineradas(data.copys || [], data.modelos);
+    try { localStorage.setItem('gerador_mineradas_cache', JSON.stringify({ ts: Date.now(), copys: todasMineradas, modelos: data.modelos || null })); } catch (e) { /* cota cheia: segue sem cache */ }
     setStatus(`${todasMineradas.length} copys carregadas da planilha`, 'ok');
-    aplicarFiltroMineradas();
-    renderDashboard();
   } catch (err) {
-    setStatus('Erro: ' + err.message, 'erro');
-    document.getElementById('listaMineradas').innerHTML = `<div class="empty-state"><p>Erro ao carregar: ${esc(err.message)}</p></div>`;
+    if (todasMineradas.length) {
+      setStatus('Não deu pra atualizar a planilha agora (' + err.message + '). Mostrando a última versão salva.', 'aviso');
+    } else {
+      setStatus('Erro: ' + err.message, 'erro');
+      document.getElementById('listaMineradas').innerHTML = `<div class="empty-state"><p>Erro ao carregar: ${esc(err.message)}</p></div>`;
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = textoOriginal;
   }
 }
 
+function aplicarDadosMineradas(copys, modelosServidor) {
+  todasMineradas = copys;
+  const modelos = modelosServidor || [...new Set(todasMineradas.map((c) => c.modelo).filter(Boolean))].sort();
+  preencherSelect('filtroModeloMineradas', 'Todas as modelos', modelos);
+  preencherSelect('filtroTipoMineradas', 'Todos os tipos', [...new Set(todasMineradas.map((c) => c.tipo).filter(Boolean))].sort());
+  const pill = document.getElementById('pillCopys');
+  pill.textContent = `${todasMineradas.length} copys · ${modelos.length} modelos`;
+  pill.hidden = false;
+  aplicarFiltroMineradas();
+  renderDashboard();
+}
+
+// Repopula um <select> mantendo o valor escolhido, se ainda existir
+function preencherSelect(id, rotuloTodos, valores) {
+  const sel = document.getElementById(id);
+  const atual = sel.value;
+  sel.innerHTML = `<option value="">${esc(rotuloTodos)}</option>` + valores.map((v) => `<option value="${escAttr(v)}">${esc(v)}</option>`).join('');
+  sel.value = valores.includes(atual) ? atual : '';
+}
+
+// Mostra na hora a última versão salva da planilha; a atualização vem por trás
+function carregarMineradasDoCache() {
+  const cache = safeParse('gerador_mineradas_cache', null);
+  if (!cache || !Array.isArray(cache.copys) || !cache.copys.length) return false;
+  aplicarDadosMineradas(cache.copys, cache.modelos);
+  return true;
+}
+
 function aplicarFiltroMineradas() {
   const termo = (document.getElementById('buscaMineradas').value || '').toLowerCase().trim();
-  mineradasFiltradas = todasMineradas.filter((c) => naoEhRuim(c.mensagem) && (!termo ||
+  const modelo = document.getElementById('filtroModeloMineradas').value;
+  const tipo = document.getElementById('filtroTipoMineradas').value;
+  mineradasFiltradas = todasMineradas.filter((c) => naoEhRuim(c.mensagem) &&
+    (!modelo || c.modelo === modelo) && (!tipo || c.tipo === tipo) && (!termo ||
     (c.mensagem && c.mensagem.toLowerCase().includes(termo)) ||
     (c.modelo && c.modelo.toLowerCase().includes(termo)) ||
     (c.tipo && c.tipo.toLowerCase().includes(termo))
@@ -1028,7 +1114,9 @@ function renderMineradas() {
   if (!mineradasFiltradas.length) {
     container.innerHTML = todasMineradas.length
       ? '<div class="empty-state"><p>Nenhuma copy encontrada com esses filtros.</p></div>'
-      : '<div class="empty-state"><span class="empty-ico">▤</span><p>Clique em <strong>“Carregar Copys”</strong> pra trazer os exemplos da planilha.</p></div>';
+      : (document.getElementById('btnRecarregarMineradas').disabled
+        ? '<div class="grid-copys">' + '<div class="skeleton"></div>'.repeat(6) + '</div>'
+        : '<div class="empty-state"><span class="empty-ico">▤</span><p>Clique em <strong>“Carregar copys”</strong> pra trazer os exemplos da planilha.</p></div>');
     return;
   }
 
@@ -1055,7 +1143,7 @@ function renderMineradas() {
 
 // ═══════════════════════════════════════════════ CARD DE COPY (REUTILIZÁVEL) ═══
 
-function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA, origem, favorito, custom }) {
+function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA, origem, origemFav, custom }) {
   const cor = COR_TIPO[tag] || 'var(--accent)';
   const idFeedback = hashTexto(texto);
   const avaliacao = feedbackCopy[idFeedback];
@@ -1071,7 +1159,7 @@ function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA
         ${custom ? `<button class="icon-btn btn-del-custom" title="Apagar" data-texto="${escAttr(texto)}">🗑</button>` : ''}
         ${comIA ? `<button class="icon-btn btn-avaliar ${avaliacao === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
         <button class="icon-btn btn-avaliar ${avaliacao === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>` : ''}
-        ${origem === 'disparo' ? `<button class="icon-btn btn-favoritar ${favorito ? 'favorito-ativo' : ''}" title="Favoritar" data-texto="${escAttr(texto)}">⭐</button>` : ''}
+        ${botaoFavHtml(texto, origemFav || origem, categoria || tag)}
         ${origem !== 'gerada' ? `<div class="grade-add-wrap" title="Adicionar na grade">
           <span class="icon-btn">➕</span>
           <select class="select-add-grade" data-texto="${escAttr(texto)}">
@@ -1102,9 +1190,6 @@ function ligarEventosCard(container) {
   container.querySelectorAll('.btn-copiar').forEach((btn) => btn.addEventListener('click', () => {
     copiarTexto(btn.dataset.texto).then(() => { toast('Copy copiada!'); btn.textContent = '✅'; setTimeout(() => (btn.textContent = '📋'), 1400); });
   }));
-  container.querySelectorAll('.btn-favoritar').forEach((btn) => btn.addEventListener('click', () => {
-    toggleFavorito(btn.dataset.texto);
-  }));
   container.querySelectorAll('.btn-avaliar').forEach((btn) => btn.addEventListener('click', () => {
     avaliarCopy(btn.dataset.texto, btn.dataset.avaliacao);
     if (btn.dataset.avaliacao === 'ruim') {
@@ -1118,7 +1203,8 @@ function ligarEventosCard(container) {
     renderDisparos();
   }));
   container.querySelectorAll('.select-add-grade').forEach((sel) => sel.addEventListener('change', () => {
-    if (sel.value) { setGradeManualSlot(sel.value, sel.dataset.texto); sel.value = ''; toast(`Adicionado no horário ${sel.value || ''}`.trim()); }
+    const horario = sel.value;
+    if (horario) { setGradeManualSlot(horario, sel.dataset.texto); sel.value = ''; toast('Adicionado no horário ' + horario); }
   }));
   container.querySelectorAll('.btn-reescrever').forEach((btn) => btn.addEventListener('click', () => reescreverCopy(btn.dataset.texto, 'safada', btn)));
   container.querySelectorAll('.select-estilo-ia').forEach((sel) => sel.addEventListener('change', () => {
@@ -1599,6 +1685,7 @@ function renderGradeGerada(grade) {
       ${texto ? `<div class="grade-slot-actions">
         <button class="icon-btn btn-avaliar ${av === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
         <button class="icon-btn btn-avaliar ${av === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>
+        ${botaoFavHtml(texto, 'ia', slot.tipo)}
         <button class="icon-btn btn-trocar-slot" data-tag="${slot.tag}" title="Trocar por outra">🔀</button>
         <button class="btn-shimmer btn-copiar-slot" data-texto="${escAttr(texto)}" style="flex:1;"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>
       </div>` : `<div class="grade-slot-actions">
@@ -1874,6 +1961,7 @@ function geradorCardHtml(id) {
     <div class="grade-slot-actions">
       <button class="icon-btn btn-avaliar ${av === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
       <button class="icon-btn btn-avaliar ${av === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>
+      ${botaoFavHtml(texto, 'ia', card.tag)}
       <button class="icon-btn btn-editar-gerador" title="Editar" data-id="${escAttr(id)}">✏️</button>
       <button class="icon-btn btn-salvar-biblioteca" title="Salvar na biblioteca" data-id="${escAttr(id)}">💾</button>
       <button class="btn-shimmer btn-copiar-gerador" data-texto="${escAttr(texto)}" style="flex:1;"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>
@@ -2152,6 +2240,7 @@ function renderDashboard() {
   document.getElementById('feedbackPctBoa').textContent = pctBoa + '%';
   document.getElementById('feedbackPctRuim').textContent = (totalFeedback ? 100 - pctBoa : 0) + '%';
   document.getElementById('feedbackBarBoa').style.width = pctBoa + '%';
+  document.getElementById('feedbackBarBoa').parentElement.classList.toggle('vazia', !totalFeedback);
 }
 
 // ═══════════════════════════════════════════════ INIT ═══
@@ -2163,6 +2252,7 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarConfigModal();
   configurarMineradas();
   configurarDisparos();
+  configurarFavoritos();
   configurarGrade();
   configurarGerador();
   configurarPersona();
@@ -2174,6 +2264,7 @@ document.addEventListener('DOMContentLoaded', () => {
   carregarBancoDisparos();
 
   const cfg = getConfig();
+  if (carregarMineradasDoCache()) setStatus(`${todasMineradas.length} copys (versão salva) — atualizando a planilha…`, 'aviso');
   if (cfg.sheetsUrl) carregarMineradas();
   else setStatus('Configure a URL do Apps Script nas Configurações', 'aviso');
 
