@@ -388,14 +388,45 @@ function avaliarCopy(texto, avaliacao) {
   }
 }
 
-async function buscarExemplosBoa(limite) {
-  try {
-    const snap = await db.collection('feedback_copy').where('avaliacao', '==', 'boa').orderBy('timestamp', 'desc').limit(limite).get();
-    return snap.docs.map((d) => d.data().texto).filter(Boolean);
-  } catch (err) {
-    console.error('[buscarExemplosBoa]', err);
-    return [];
+// Busca as últimas 40 avaliadas (cache de 5 min) e sorteia uma amostra, pra IA não ver sempre os mesmos exemplos
+const cacheExemplos = {};
+async function buscarExemplosAvaliados(avaliacao, limite) {
+  const c = cacheExemplos[avaliacao];
+  if (!c || Date.now() - c.ts > 5 * 60 * 1000) {
+    try {
+      const snap = await db.collection('feedback_copy').where('avaliacao', '==', avaliacao).orderBy('timestamp', 'desc').limit(40).get();
+      cacheExemplos[avaliacao] = { ts: Date.now(), textos: snap.docs.map((d) => d.data().texto).filter(Boolean) };
+    } catch (err) {
+      console.error('[buscarExemplosAvaliados]', err);
+      return [];
+    }
   }
+  return amostra(cacheExemplos[avaliacao].textos, limite);
+}
+function buscarExemplosBoa(limite) { return buscarExemplosAvaliados('boa', limite); }
+function buscarExemplosRuins(limite) { return buscarExemplosAvaliados('ruim', limite); }
+
+// Bloco de referências que vai no fim de todo pedido pra IA: boas (imitar), ruins (evitar) e recentes (não repetir)
+async function blocoReferenciasIA(qtdBoa) {
+  const [boas, ruins] = await Promise.all([buscarExemplosBoa(qtdBoa), buscarExemplosRuins(4)]);
+  let bloco = '';
+  if (boas.length) bloco += '\n\nCopys que a equipe marcou como BOAS (siga esse estilo de perto, sem copiar):\n' + boas.map((t) => '- ' + t).join('\n');
+  if (ruins.length) bloco += '\n\nCopys que a equipe marcou como RUINS (NÃO escreva nada parecido com isso):\n' + ruins.map((t) => '- ' + t).join('\n');
+  const recentes = copysGeradasRecentes.slice(-8);
+  if (recentes.length) bloco += '\n\nCopys geradas recentemente (NÃO repita as mesmas aberturas, ganchos nem estrutura):\n' + recentes.map((t) => '- ' + t.slice(0, 120)).join('\n');
+  return bloco;
+}
+
+function amostra(lista, n) {
+  const copia = lista.slice();
+  for (let i = copia.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [copia[i], copia[j]] = [copia[j], copia[i]]; }
+  return copia.slice(0, n);
+}
+
+let copysGeradasRecentes = safeParse('gerador_recentes', []);
+function lembrarGeradas(textos) {
+  copysGeradasRecentes = copysGeradasRecentes.concat(textos.filter(Boolean)).slice(-20);
+  localStorage.setItem('gerador_recentes', JSON.stringify(copysGeradasRecentes));
 }
 
 // ═══════════════════════════════════════════════ REGRAS DA IA (Treinar IA) ═══
@@ -552,7 +583,7 @@ function configurarCriarAtendente() {
 const CONFIG_PADRAO = {
   sheetsUrl: 'https://script.google.com/macros/s/AKfycbwzUh0-1uu7L88v84v5-2JyH7MbRA6sfMBAGbbLs-HUTulUeYiiu1_bm1_XloI0rQ-g6g/exec',
   openrouterKey: '',
-  openrouterModel: 'google/gemini-2.0-flash-001',
+  openrouterModel: 'google/gemini-2.5-flash',
   persona: 'Letícia Vargas, 18 anos, universitária, vocabulário: "vida", "corre lá", "prévia", "amor", "bb"',
   personaTipo: 'universitaria',
   comprimento: 'medio',
@@ -1482,20 +1513,20 @@ async function gerarSlotIA(tag) {
   }
   const slot = gradeSlots.find((s) => s.tag === tag);
   if (!slot) return;
-  let exemplos = poolParaSlot(slot).slice(0, 4).join('\n');
-  const exemplosBoa = await buscarExemplosBoa(4);
-  if (exemplosBoa.length) exemplos += '\n\nCopys que a equipe já marcou como BOAS:\n' + exemplosBoa.join('\n');
+  const exemplos = amostra(poolParaSlot(slot), 4).join('\n');
+  const referencias = await blocoReferenciasIA(4);
 
   const resultado = await chamarOpenRouter([
     { role: 'system', content: montarPromptBase() },
     {
       role: 'user',
-      content: `Crie UMA copy original pro horário ${slot.hora} — ${slot.tipo}. Responda só com a copy pura, sem rótulos.\n\nExemplos de referência (não copie, crie uma nova):\n${exemplos.slice(0, 1200)}`
+      content: `Crie UMA copy original pro horário ${slot.hora} — ${slot.tipo}. Responda só com a copy pura, sem rótulos.\n\nExemplos de referência (não copie, crie uma nova):\n${exemplos.slice(0, 1200)}${referencias}`
     }
   ], { temperature: 0.9, maxTokens: tokensParaComprimento(1) });
 
   if (!gradeGerada) gradeGerada = {};
   gradeGerada[tag] = resultado.trim();
+  lembrarGeradas([gradeGerada[tag]]);
   renderGradeGerada(gradeGerada);
   incrementarContadorFuncionario('copysGeradas', 1);
   incrementarMetricaGlobal('copysGeradas', 1);
@@ -1588,9 +1619,8 @@ async function gerarGradeIA() {
   gradeSlots = gerarSlotsAleatorios();
 
   let exemplos = '';
-  if (bancoDisparos) bancoDisparos.categorias.forEach((cat) => { exemplos += cat.nome + ':\n' + cat.copys.filter(naoEhRuim).slice(0, 3).join('\n') + '\n\n'; });
-  const exemplosBoa = await buscarExemplosBoa(6);
-  if (exemplosBoa.length) exemplos += 'Copys que a equipe já marcou como BOAS (siga esse estilo de perto):\n' + exemplosBoa.join('\n') + '\n\n';
+  if (bancoDisparos) bancoDisparos.categorias.forEach((cat) => { exemplos += cat.nome + ':\n' + amostra(cat.copys.filter(naoEhRuim), 3).join('\n') + '\n\n'; });
+  const referencias = await blocoReferenciasIA(6);
 
   try {
     const resultado = await chamarOpenRouter([
@@ -1601,10 +1631,12 @@ async function gerarGradeIA() {
           + 'Responda EXATAMENTE nesse formato, só a copy pura depois de cada tag, sem rótulos:\n\n'
           + gradeSlots.map((s) => `[${s.tag}] (copy pro horário ${s.hora}, tema: ${s.tipo})`).join('\n')
           + '\n\nExemplos reais de referência (não copie, crie novas):\n' + exemplos.slice(0, 1500)
+          + referencias
       }
     ], { temperature: 0.9, maxTokens: tokensParaComprimento(gradeSlots.length) });
     const grade = parsearGrade(resultado);
     gradeGerada = grade;
+    lembrarGeradas(Object.values(grade));
     renderGradeGerada(grade);
     setStatus('Grade gerada pela IA! Clique de novo pra gerar outros horários.', 'ok');
     registrarAtividade('Gerou a grade do dia com IA', '');
@@ -1728,8 +1760,7 @@ async function gerarCopyAvulsa() {
   }
   if (extras.length) instrucao += '\n\nDetalhes adicionais pra considerar:\n- ' + extras.join('\n- ');
   if (contexto) instrucao += `\n\nContexto extra pra considerar: ${contexto}`;
-  const exemplosBoa = await buscarExemplosBoa(5);
-  if (exemplosBoa.length) instrucao += '\n\nCopys que a equipe já marcou como BOAS (siga esse estilo de perto):\n' + exemplosBoa.join('\n');
+  instrucao += await blocoReferenciasIA(5);
 
   const resultadoEl = document.getElementById('geradorResultado');
   resultadoEl.innerHTML = '<p class="empty-hint">Gerando…</p>';
@@ -1752,6 +1783,7 @@ async function gerarCopyAvulsa() {
       mensagens = [resultado.trim()];
     }
 
+    lembrarGeradas(mensagens);
     geradorCards = {};
     geradorFiltroTag = 'Todas';
     mensagens.forEach((texto, i) => {
@@ -1985,6 +2017,7 @@ function montarPromptBase() {
     + '- Nunca marcar encontro presencial, nunca pedir pagamento direto (use sempre lógica de "mimo"), nunca dar dados pessoais reais.\n'
     + '- Proibido usar: "imperdível", "última chance", "não perca", "primo", superlativos exagerados.\n'
     + '- Proibido incluir rótulos, títulos, aspas ou comentários antes/depois da copy — responda só com a mensagem pura.\n'
+    + '- A persona é sempre uma mulher adulta (18+). Nunca sugira que ela ou o lead seja menor de idade.\n'
     + '- Toda copy deve terminar gerando curiosidade.';
 
   if (regrasIA.length) {
@@ -2019,6 +2052,9 @@ async function chamarOpenRouter(mensagens, opts) {
   const data = await resp.json();
   let texto = data.choices?.[0]?.message?.content || '';
   texto = texto.replace(/^(ABERTURA\s+(ROMÂNTICA|SAFADA|DE CONTROLE)|QUEBRA DE EGO|Bom dia|Conteúdo exclusivo)\s*[—:\-]+\s*/gim, '');
+  // Tira rótulo tipo "Copy:" e aspas em volta da mensagem inteira, que alguns modelos insistem em colocar
+  texto = texto.trim().replace(/^(copy|mensagem|resposta)\s*\d*\s*:\s*/i, '');
+  if (/^["“][\s\S]*["”]$/.test(texto) && !/["“”]/.test(texto.slice(1, -1))) texto = texto.slice(1, -1);
   return texto;
 }
 
