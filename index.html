@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=23" />
+  <link rel="stylesheet" href="styles.css?v=24" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -507,6 +507,24 @@
 
         <!-- TREINAR IA -->
         <section id="tab-treinar" class="tab-panel">
+          <div class="panel panel-wide prompt-base-card">
+            <div class="panel-head">
+              <h2>Prompt base do Gerador</h2>
+              <span class="panel-sub" id="promptBaseInfo">Usando o prompt padrão</span>
+            </div>
+            <p class="panel-desc">É a base de tudo que a IA escreve (Gerador, Grade do Dia e Reescrever). A persona, o tom, o tamanho e as regras aprendidas são somados a ela automaticamente.</p>
+            <textarea id="promptBaseTexto" class="prompt-base-texto" rows="12" spellcheck="false"></textarea>
+            <div class="prompt-base-acoes" id="promptBaseAcoes">
+              <button id="btnSalvarPromptBase" class="btn btn-primary">Salvar pra equipe</button>
+              <button id="btnRestaurarPromptBase" class="btn btn-secondary">Restaurar padrão</button>
+            </div>
+            <details class="prompt-completo">
+              <summary>Ver o prompt completo que a IA recebe</summary>
+              <pre id="promptCompletoPrevia" class="prompt-completo-previa"></pre>
+              <button id="btnCopiarPromptCompleto" class="btn btn-secondary btn-sm">📋 Copiar prompt completo</button>
+            </details>
+          </div>
+
           <div class="panel">
             <div class="panel-head"><h2>O que a IA já aprendeu</h2></div>
             <p class="panel-desc">Regras compartilhadas com toda a equipe — entram em toda copy gerada, na Grade e no Gerador.</p>
@@ -644,6 +662,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=27"></script>
+  <script src="app.js?v=28"></script>
 </body>
 </html>

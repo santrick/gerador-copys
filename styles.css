@@ -1500,3 +1500,27 @@ body::before {
 }
 
 .nav-glider::before { background: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
+
+/* ===================== v24: prompt base ===================== */
+.prompt-base-texto {
+  width: 100%; min-height: 240px; resize: vertical;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+  padding: 14px 16px; border-radius: 12px;
+  background: var(--bg-input); color: var(--text); border: 1px solid var(--border);
+}
+.prompt-base-texto:focus { border-color: var(--accent); outline: none; }
+.prompt-base-texto[readonly] { opacity: 0.85; cursor: default; }
+.prompt-base-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
+.prompt-completo { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.prompt-completo > summary {
+  cursor: pointer; list-style: none; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent-text);
+}
+.prompt-completo > summary::-webkit-details-marker { display: none; }
+.prompt-completo > summary::before { content: '+ '; }
+.prompt-completo[open] > summary::before { content: '− '; }
+.prompt-completo-previa {
+  white-space: pre-wrap; margin: 12px 0; padding: 14px 16px; max-height: 420px; overflow: auto;
+  font-family: var(--mono); font-size: 12px; line-height: 1.6; color: var(--text-dim);
+  background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 12px;
+}

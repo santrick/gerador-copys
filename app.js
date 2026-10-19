@@ -134,6 +134,7 @@ function configurarLogin() {
     if (unsubFavoritos) { unsubFavoritos(); unsubFavoritos = null; }
     if (unsubFeedbackCopy) { unsubFeedbackCopy(); unsubFeedbackCopy = null; }
     if (unsubRegrasIA) { unsubRegrasIA(); unsubRegrasIA = null; }
+    if (unsubPromptBase) { unsubPromptBase(); unsubPromptBase = null; }
     if (unsubMetricas) { unsubMetricas(); unsubMetricas = null; }
     feedAdminAtivo = false;
     feedFuncionariosAtivo = false;
@@ -184,6 +185,7 @@ function configurarLogin() {
     iniciarFeedFavoritos();
     iniciarFeedFeedbackCopy();
     iniciarFeedRegrasIA();
+    iniciarFeedPromptBase(false);
     iniciarFeedMetricas();
     if (souAdmin) { iniciarFeedAdmin(); iniciarFeedFuncionarios(); }
   });
@@ -573,6 +575,7 @@ function iniciarFeedRegrasIA() {
   unsubRegrasIA = db.collection('regras_ia').orderBy('timestamp', 'desc').onSnapshot((snap) => {
     regrasIA = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderRegrasIA();
+    atualizarPreviaPrompt();
   }, (err) => console.error('[regras_ia]', err));
 }
 
@@ -1021,6 +1024,7 @@ function irParaTab(tab, opts) {
   if (tab === 'disparos' && !bancoDisparos) carregarBancoDisparos();
   if (tab === 'grade' || tab === 'gerador') atualizarResumoPersona();
   if (tab === 'favoritos') renderFavoritos();
+  if (tab === 'treinar') renderPromptBase();
   if (tab === 'grade' && !gradeGerada) { gradeSlots = gerarSlotsAleatorios(); gradeGerada = {}; renderGradeGerada(gradeGerada); }
 }
 
@@ -2197,6 +2201,22 @@ function mostrarResultadoIA(btnEl, original, resultado) {
 
 // ═══════════════════════════════════════════════ OPENROUTER ═══
 
+// Parte editável do prompt (aba Treinar IA). O resto (persona, configurações, regras aprendidas) é montado em volta.
+const PROMPT_BASE_PADRAO = 'Você é uma chatter profissional que escreve copys de disparo e mensagens pra atrair, engajar e converter leads em compradores de conteúdo exclusivo.\n\n'
+  + 'REGRAS DE ESTILO:\n'
+  + '- Escreva como pessoa real mandando mensagem, nunca como robô/marketing.\n'
+  + '- Linguagem informal brasileira.\n'
+  + '- Nunca marcar encontro presencial, nunca pedir pagamento direto (use sempre lógica de "mimo"), nunca dar dados pessoais reais.\n'
+  + '- Proibido usar: "imperdível", "última chance", "não perca", "primo", superlativos exagerados.\n'
+  + '- Proibido incluir rótulos, títulos, aspas ou comentários antes/depois da copy — responda só com a mensagem pura.\n'
+  + '- Toda copy deve terminar gerando curiosidade.';
+
+let promptBaseEquipe = null; // { texto, atualizadoPor, timestamp } vindo do Firestore; null = usa o padrão
+
+function promptBaseAtual() {
+  return (promptBaseEquipe && promptBaseEquipe.texto && promptBaseEquipe.texto.trim()) || PROMPT_BASE_PADRAO;
+}
+
 function montarPromptBase() {
   const cfg = getConfig();
   const persona = (cfg.persona || '').trim();
@@ -2206,7 +2226,7 @@ function montarPromptBase() {
   const tom = TOM_DESC[cfg.tom] || TOM_DESC.natural;
   const abrev = ABREV_DESC[cfg.abreviacoes] || ABREV_DESC.sim;
 
-  let bloco = 'Você é uma chatter profissional que escreve copys de disparo e mensagens pra atrair, engajar e converter leads em compradores de conteúdo exclusivo.\n\n';
+  let bloco = promptBaseAtual() + '\n\n';
 
   if (persona || arquetipo) {
     bloco += 'PERSONA:\n';
@@ -2215,17 +2235,12 @@ function montarPromptBase() {
     bloco += '\n';
   }
 
-  bloco += 'REGRAS OBRIGATÓRIAS:\n'
+  bloco += 'CONFIGURAÇÃO DESTA COPY (obrigatório):\n'
     + '- ' + comprimento + '\n'
     + '- ' + tom + '\n'
     + '- ' + abrev + '\n'
-    + '- Escreva como pessoa real mandando mensagem, nunca como robô/marketing.\n'
-    + '- Linguagem informal brasileira. ' + emoji + '\n'
-    + '- Nunca marcar encontro presencial, nunca pedir pagamento direto (use sempre lógica de "mimo"), nunca dar dados pessoais reais.\n'
-    + '- Proibido usar: "imperdível", "última chance", "não perca", "primo", superlativos exagerados.\n'
-    + '- Proibido incluir rótulos, títulos, aspas ou comentários antes/depois da copy — responda só com a mensagem pura.\n'
-    + '- A persona é sempre uma mulher adulta (18+). Nunca sugira que ela ou o lead seja menor de idade.\n'
-    + '- Toda copy deve terminar gerando curiosidade.';
+    + '- ' + emoji + '\n'
+    + '- A persona é sempre uma mulher adulta (18+). Nunca sugira que ela ou o lead seja menor de idade.';
 
   if (regrasIA.length) {
     bloco += '\n\nREGRAS APRENDIDAS DA EQUIPE (siga à risca, têm prioridade sobre o estilo genérico acima):\n'
@@ -2233,6 +2248,94 @@ function montarPromptBase() {
   }
 
   return bloco;
+}
+
+// ═══════════════════════════════════════════════ PROMPT BASE (Treinar IA) ═══
+// Fica em config/prompt_base; se as regras do Firestore não liberarem "config", usa metricas/prompt_base.
+
+let refPromptBase = null;
+let unsubPromptBase = null;
+
+function iniciarFeedPromptBase(usarReserva) {
+  if (unsubPromptBase) unsubPromptBase();
+  refPromptBase = usarReserva ? db.collection('metricas').doc('prompt_base') : db.collection('config').doc('prompt_base');
+  unsubPromptBase = refPromptBase.onSnapshot((doc) => {
+    promptBaseEquipe = doc.exists ? doc.data() : null;
+    renderPromptBase();
+  }, (err) => {
+    console.warn('[prompt_base]', err.message);
+    if (!usarReserva) iniciarFeedPromptBase(true);
+  });
+}
+
+function renderPromptBase() {
+  const ta = document.getElementById('promptBaseTexto');
+  if (!ta) return;
+  if (document.activeElement !== ta) ta.value = promptBaseAtual();
+  ta.readOnly = !souAdmin;
+  document.getElementById('promptBaseAcoes').hidden = !souAdmin;
+  const info = document.getElementById('promptBaseInfo');
+  if (promptBaseEquipe && promptBaseEquipe.texto) {
+    const quando = promptBaseEquipe.timestamp?.toDate ? promptBaseEquipe.timestamp.toDate().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'agora';
+    info.textContent = 'Personalizado por ' + (promptBaseEquipe.atualizadoPor || '—') + ' · ' + quando;
+  } else {
+    info.textContent = 'Usando o prompt padrão';
+  }
+  if (!souAdmin) info.textContent += ' · só o admin pode editar';
+  atualizarPreviaPrompt();
+}
+
+function atualizarPreviaPrompt() {
+  const previa = document.getElementById('promptCompletoPrevia');
+  if (previa) previa.textContent = montarPromptBase();
+}
+
+async function salvarPromptBase(texto) {
+  const dados = {
+    texto,
+    atualizadoPor: usuarioAtual?.displayName || usuarioAtual?.email || '—',
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    await refPromptBase.set(dados);
+  } catch (err) {
+    // "config" bloqueado pelas regras: grava na reserva e passa a ouvir ela
+    const reserva = db.collection('metricas').doc('prompt_base');
+    if (refPromptBase.path === reserva.path) throw err;
+    await reserva.set(dados);
+    iniciarFeedPromptBase(true);
+  }
+}
+
+function configurarPromptBase() {
+  document.getElementById('btnSalvarPromptBase').addEventListener('click', async () => {
+    const texto = document.getElementById('promptBaseTexto').value.trim();
+    if (!texto) { toast('O prompt não pode ficar vazio. Use "Restaurar padrão".'); return; }
+    try {
+      await salvarPromptBase(texto);
+      registrarAtividade('Editou o prompt base da IA', texto.slice(0, 80));
+      toast('Prompt salvo pra equipe toda.');
+    } catch (err) { toast('Não deu pra salvar: ' + err.message); }
+  });
+  document.getElementById('btnRestaurarPromptBase').addEventListener('click', async () => {
+    if (!confirm('Voltar pro prompt padrão? O texto personalizado atual será substituído.')) return;
+    try {
+      await salvarPromptBase('');
+      document.getElementById('promptBaseTexto').value = PROMPT_BASE_PADRAO;
+      registrarAtividade('Restaurou o prompt base padrão', '');
+      toast('Prompt padrão restaurado.');
+    } catch (err) { toast('Não deu pra restaurar: ' + err.message); }
+  });
+  document.getElementById('promptBaseTexto').addEventListener('input', () => {
+    // prévia ao vivo enquanto edita (sem salvar)
+    const original = promptBaseEquipe;
+    promptBaseEquipe = { ...(original || {}), texto: document.getElementById('promptBaseTexto').value };
+    atualizarPreviaPrompt();
+    promptBaseEquipe = original;
+  });
+  document.getElementById('btnCopiarPromptCompleto').addEventListener('click', () => {
+    navigator.clipboard?.writeText(montarPromptBase()).then(() => toast('Prompt completo copiado.'), () => toast('Não deu pra copiar.'));
+  });
 }
 
 async function chamarOpenRouter(mensagens, opts) {
@@ -2347,6 +2450,7 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarGerador();
   configurarPersona();
   configurarTreinarIA();
+  configurarPromptBase();
   configurarNotificacoes();
 
   renderGradeManual();
