@@ -1326,3 +1326,43 @@ input[type="range"] { accent-color: var(--accent); }
 }
 #filtroOrigemFav .estilo-btn.ativo .fav-count { background: rgba(255,255,255,0.22); }
 #tab-favoritos .toolbar input { flex: 1 1 280px; }
+
+/* ===================== v21: copys novas ===================== */
+.nav-badge {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px; background: var(--accent); color: #fff;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 3px rgba(162,89,240,0.18);
+}
+.tag-nova {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 6px;
+  background: rgba(52,211,153,0.14); color: var(--green);
+  border: 1px solid rgba(52,211,153,0.35);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+}
+.copy-card-header .tag-nova { margin-right: 6px; }
+.copy-card-nova { border-color: rgba(52,211,153,0.35); box-shadow: inset 3px 0 0 var(--green); }
+.categoria-header .tag-nova { margin-left: 8px; }
+
+.chip-novas {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 10px; cursor: pointer;
+  background: rgba(52,211,153,0.10); color: var(--green);
+  border: 1px solid rgba(52,211,153,0.35);
+  font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
+  transition: background 0.15s;
+}
+.chip-novas:hover { background: rgba(52,211,153,0.16); }
+.chip-novas.ativo { background: var(--green); color: #052e1f; }
+.chip-novas-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulsoNova 1.6s ease-in-out infinite; }
+.chip-novas-ok {
+  margin-left: 2px; padding: 2px 8px; border-radius: 6px;
+  background: rgba(255,255,255,0.08); color: inherit; font-size: 11.5px;
+}
+.chip-novas-ok:hover { background: rgba(255,255,255,0.18); }
+@keyframes pulsoNova { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .chip-novas-dot { animation: none; } }
+
+.kpi-novas { font-size: 12px; font-weight: 700; color: var(--green); }

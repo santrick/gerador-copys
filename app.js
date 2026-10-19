@@ -387,6 +387,52 @@ function botaoFavHtml(texto, origem, categoria) {
   return `<button class="icon-btn btn-fav ${ativo ? 'favorito-ativo' : ''}" title="${ativo ? 'Remover dos favoritos' : 'Favoritar'}" data-texto="${escAttr(texto)}" data-origem="${escAttr(origem || '')}" data-cat="${escAttr(categoria || '')}">⭐</button>`;
 }
 
+// ═══════════════════════════════════════════════ COPYS NOVAS (desde a última visita) ═══
+// Guarda no navegador os ids das copys já vistas. Na 1ª vez marca tudo como visto, pra não acender 1.500 "novas".
+
+const novidades = { mineradas: new Set(), disparos: new Set() };
+const somenteNovas = { mineradas: false, disparos: false };
+
+function idMinerada(c) { return hashTexto((c.modelo || '') + '|' + (c.mensagem || '')); }
+
+function calcularNovidades(tipo, ids) {
+  const chave = 'gerador_vistos_' + tipo;
+  const vistos = safeParse(chave, null);
+  if (!Array.isArray(vistos)) {
+    localStorage.setItem(chave, JSON.stringify(ids));
+    novidades[tipo] = new Set();
+  } else {
+    const jaVistos = new Set(vistos);
+    novidades[tipo] = new Set(ids.filter((id) => !jaVistos.has(id)));
+  }
+  atualizarSinalNovidades(tipo);
+}
+
+function marcarComoVistas(tipo) {
+  if (!novidades[tipo].size) return;
+  const chave = 'gerador_vistos_' + tipo;
+  const vistos = new Set(safeParse(chave, []));
+  novidades[tipo].forEach((id) => vistos.add(id));
+  try { localStorage.setItem(chave, JSON.stringify([...vistos])); } catch (e) { /* cota cheia */ }
+  novidades[tipo] = new Set();
+  somenteNovas[tipo] = false;
+  atualizarSinalNovidades(tipo);
+}
+
+function atualizarSinalNovidades(tipo) {
+  const qtd = novidades[tipo].size;
+  const badge = document.querySelector(`.nav-item[data-tab="${tipo}"] .nav-badge`);
+  if (badge) { badge.textContent = qtd > 99 ? '99+' : qtd; badge.hidden = !qtd; }
+  const chip = document.getElementById('chipNovas-' + tipo);
+  if (chip) {
+    chip.hidden = !qtd;
+    chip.classList.toggle('ativo', somenteNovas[tipo]);
+    chip.querySelector('.chip-novas-qtd').textContent = qtd;
+  }
+  const kpi = document.getElementById('kpiNovasMineradas');
+  if (kpi && tipo === 'mineradas') { kpi.textContent = '+' + qtd + ' novas'; kpi.hidden = !qtd; }
+}
+
 // ═══════════════════════════════════════════════ ABA FAVORITOS ═══
 
 const ORIGEM_FAV = {
@@ -424,6 +470,19 @@ function renderFavoritos() {
     });
   }).join('');
   ligarEventosCard(container);
+}
+
+function configurarNovidades() {
+  ['mineradas', 'disparos'].forEach((tipo) => {
+    const chip = document.getElementById('chipNovas-' + tipo);
+    chip.addEventListener('click', (e) => {
+      if (e.target.closest('.chip-novas-ok')) { marcarComoVistas(tipo); }
+      else { somenteNovas[tipo] = !somenteNovas[tipo]; atualizarSinalNovidades(tipo); }
+      if (tipo === 'mineradas') { paginaMineradas = 1; aplicarFiltroMineradas(); } else renderDisparos();
+    });
+  });
+  // Fechou o app com a aba aberta = viu
+  window.addEventListener('pagehide', () => { if (novidades[abaAtual]) marcarComoVistas(abaAtual); });
 }
 
 function configurarFavoritos() {
@@ -938,9 +997,12 @@ function atualizarNavGlider() {
 }
 window.addEventListener('resize', atualizarNavGlider);
 
+let abaAtual = 'dashboard';
 function irParaTab(tab, opts) {
   if (!PAGE_INFO[tab]) return;
   if (tab === 'admin' && !souAdmin) tab = 'dashboard';
+  if (abaAtual !== tab && novidades[abaAtual]) marcarComoVistas(abaAtual);
+  abaAtual = tab;
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
   atualizarNavGlider();
@@ -1062,7 +1124,8 @@ async function carregarMineradas() {
 
     aplicarDadosMineradas(data.copys || [], data.modelos);
     try { localStorage.setItem('gerador_mineradas_cache', JSON.stringify({ ts: Date.now(), copys: todasMineradas, modelos: data.modelos || null })); } catch (e) { /* cota cheia: segue sem cache */ }
-    setStatus(`${todasMineradas.length} copys carregadas da planilha`, 'ok');
+    const qtdNovas = novidades.mineradas.size;
+    setStatus(`${todasMineradas.length} copys carregadas da planilha` + (qtdNovas ? ` · ${qtdNovas} nova${qtdNovas > 1 ? 's' : ''} desde sua última visita` : ' · nenhuma nova desde sua última visita'), 'ok');
   } catch (err) {
     if (todasMineradas.length) {
       setStatus('Não deu pra atualizar a planilha agora (' + err.message + '). Mostrando a última versão salva.', 'aviso');
@@ -1078,6 +1141,7 @@ async function carregarMineradas() {
 
 function aplicarDadosMineradas(copys, modelosServidor) {
   todasMineradas = copys;
+  calcularNovidades('mineradas', todasMineradas.map(idMinerada));
   const modelos = modelosServidor || [...new Set(todasMineradas.map((c) => c.modelo).filter(Boolean))].sort();
   preencherSelect('filtroModeloMineradas', 'Todas as modelos', modelos);
   preencherSelect('filtroTipoMineradas', 'Todos os tipos', [...new Set(todasMineradas.map((c) => c.tipo).filter(Boolean))].sort());
@@ -1109,11 +1173,15 @@ function aplicarFiltroMineradas() {
   const modelo = document.getElementById('filtroModeloMineradas').value;
   const tipo = document.getElementById('filtroTipoMineradas').value;
   mineradasFiltradas = todasMineradas.filter((c) => naoEhRuim(c.mensagem) &&
+    (!somenteNovas.mineradas || novidades.mineradas.has(idMinerada(c))) &&
     (!modelo || c.modelo === modelo) && (!tipo || c.tipo === tipo) && (!termo ||
     (c.mensagem && c.mensagem.toLowerCase().includes(termo)) ||
     (c.modelo && c.modelo.toLowerCase().includes(termo)) ||
     (c.tipo && c.tipo.toLowerCase().includes(termo))
   ));
+  if (novidades.mineradas.size) {
+    mineradasFiltradas.sort((a, b) => novidades.mineradas.has(idMinerada(b)) - novidades.mineradas.has(idMinerada(a)));
+  }
   renderMineradas();
 }
 
@@ -1133,7 +1201,8 @@ function renderMineradas() {
   const totalPaginas = Math.ceil(mineradasFiltradas.length / POR_PAGINA);
 
   container.innerHTML = pagina.map((c) => cardCopyHtml({
-    texto: c.mensagem, tag: c.tipo, modelo: c.modelo, data: formatarData(c.data), preco: c.preco, comIA: true, origem: 'minerada'
+    texto: c.mensagem, tag: c.tipo, modelo: c.modelo, data: formatarData(c.data), preco: c.preco, comIA: true, origem: 'minerada',
+    nova: novidades.mineradas.has(idMinerada(c))
   })).join('');
 
   ligarEventosCard(container);
@@ -1151,12 +1220,13 @@ function renderMineradas() {
 
 // ═══════════════════════════════════════════════ CARD DE COPY (REUTILIZÁVEL) ═══
 
-function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA, origem, origemFav, custom }) {
+function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA, origem, origemFav, custom, nova }) {
   const cor = COR_TIPO[tag] || 'var(--accent)';
   const idFeedback = hashTexto(texto);
   const avaliacao = feedbackCopy[idFeedback];
-  return `<div class="copy-card" data-origem="${origem}">
+  return `<div class="copy-card ${nova ? 'copy-card-nova' : ''}" data-origem="${origem}">
     <div class="copy-card-header">
+      ${nova ? '<span class="tag-nova">Nova</span>' : ''}
       ${modelo ? `<span class="copy-card-modelo">${esc(modelo)}</span>` : `<span class="copy-card-cat">${icone || ''} ${esc(categoria || '')}</span>`}
       ${tag ? `<span class="copy-card-tag" style="background:${cor}22;color:${cor};border-color:${cor}44">${esc(tag)}</span>` : ''}
     </div>
@@ -1226,6 +1296,7 @@ async function carregarBancoDisparos() {
   try {
     const resp = await fetch('banco-disparos.json');
     bancoDisparos = await resp.json();
+    calcularNovidades('disparos', todasCopysDoBanco().map((d) => hashTexto(d.texto)));
     const select = document.getElementById('filtroCategoriaDisparos');
     select.innerHTML = '<option value="">Todas as categorias</option>';
     bancoDisparos.categorias.forEach((cat) => {
@@ -1267,6 +1338,9 @@ function configurarDisparos() {
     if (!texto) { toast('Escreva o texto da copy.'); return; }
     if (!categoria) { toast('Escolha uma categoria.'); return; }
     copysCustom.push({ texto, categoria });
+    // copy que a própria pessoa criou não conta como "nova" pra ela
+    const vistosDisp = safeParse('gerador_vistos_disparos', null);
+    if (Array.isArray(vistosDisp)) localStorage.setItem('gerador_vistos_disparos', JSON.stringify(vistosDisp.concat(hashTexto(texto))));
     localStorage.setItem('gerador_copys_custom', JSON.stringify(copysCustom));
     document.getElementById('novaCopyTexto').value = '';
     document.getElementById('formAddCopy').classList.add('hidden');
@@ -1338,6 +1412,7 @@ function renderDisparos() {
   if (categoriaFiltro) lista = lista.filter((d) => d.categoria === categoriaFiltro);
   if (termo) lista = lista.filter((d) => d.texto.toLowerCase().includes(termo));
   if (mostrandoFavoritos) lista = lista.filter((d) => favoritos.includes(d.texto));
+  if (somenteNovas.disparos) lista = lista.filter((d) => novidades.disparos.has(hashTexto(d.texto)));
 
   disparosFiltrados = lista;
 
@@ -1352,16 +1427,17 @@ function renderDisparos() {
     agrupado[d.categoria].itens.push(d);
   });
 
-  const comFiltro = Boolean(categoriaFiltro || termo || mostrandoFavoritos);
+  const comFiltro = Boolean(categoriaFiltro || termo || mostrandoFavoritos || somenteNovas.disparos);
   let html = '';
   Object.keys(agrupado).forEach((catNome, i) => {
     const grupo = agrupado[catNome];
     const aberta = comFiltro || i === 0 || categoriasAbertas.has(catNome);
     html += `<details class="categoria-bloco" data-categoria="${escAttr(catNome)}" ${aberta ? 'open' : ''}>`;
-    html += `<summary class="categoria-header"><span>${grupo.icone}</span> ${esc(catNome)} <span class="categoria-count">${grupo.itens.length}</span><span class="categoria-seta" aria-hidden="true"></span></summary>`;
+    const novasCat = grupo.itens.filter((d) => novidades.disparos.has(hashTexto(d.texto))).length;
+    html += `<summary class="categoria-header"><span>${grupo.icone}</span> ${esc(catNome)}${novasCat ? ` <span class="tag-nova">${novasCat} nova${novasCat > 1 ? 's' : ''}</span>` : ''} <span class="categoria-count">${grupo.itens.length}</span><span class="categoria-seta" aria-hidden="true"></span></summary>`;
     html += `<div class="grid-copys">${grupo.itens.map((d) => cardCopyHtml({
       texto: d.texto, categoria: d.categoria, icone: d.icone, comIA: true, origem: 'disparo',
-      favorito: favoritos.includes(d.texto), custom: d.custom
+      custom: d.custom, nova: novidades.disparos.has(hashTexto(d.texto))
     })).join('')}</div></details>`;
   });
 
@@ -2261,6 +2337,7 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarMineradas();
   configurarDisparos();
   configurarFavoritos();
+  configurarNovidades();
   configurarGrade();
   configurarGerador();
   configurarPersona();
