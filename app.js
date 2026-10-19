@@ -1006,7 +1006,12 @@ function irParaTab(tab, opts) {
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
   atualizarNavGlider();
-  document.getElementById('pageTitle').textContent = PAGE_INFO[tab].title;
+  // Título no estilo da referência: etiqueta "0N / SEÇÃO" + última palavra em destaque
+  const ordem = [...document.querySelectorAll('.nav-item')].map((b) => b.dataset.tab);
+  const titulo = PAGE_INFO[tab].title.split(' ');
+  const ultima = titulo.pop();
+  document.getElementById('pageEyebrow').textContent = String(ordem.indexOf(tab) + 1).padStart(2, '0') + ' / ' + PAGE_INFO[tab].title;
+  document.getElementById('pageTitle').innerHTML = titulo.length ? esc(titulo.join(' ')) + ' <span class="titulo-destaque">' + esc(ultima) + '</span>' : esc(ultima);
   document.getElementById('pageSubtitle').textContent = PAGE_INFO[tab].subtitle;
   fecharSidebarMobile();
   if (!opts || !opts.semHash) {
