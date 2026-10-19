@@ -18,8 +18,8 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=18" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -69,25 +69,25 @@
       <nav class="nav" id="nav">
         <div class="nav-glider" id="navGlider"></div>
         <button class="nav-item active" data-tab="dashboard">
-          <span class="nav-ico">◧</span> Dashboard
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Dashboard
         </button>
         <button class="nav-item" data-tab="mineradas">
-          <span class="nav-ico">▤</span> Mineradas
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Mineradas
         </button>
         <button class="nav-item" data-tab="disparos">
-          <span class="nav-ico">➤</span> Disparos
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5L4 12z"/></svg></span> Disparos
         </button>
         <button class="nav-item" data-tab="grade">
-          <span class="nav-ico">◔</span> Grade do Dia
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span> Grade do Dia
         </button>
         <button class="nav-item" data-tab="gerador">
-          <span class="nav-ico">✨</span> Gerador
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg></span> Gerador
         </button>
         <button class="nav-item" data-tab="treinar">
-          <span class="nav-ico">🧠</span> Treinar IA
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg></span> Treinar IA
         </button>
         <button class="nav-item hidden" data-tab="admin" id="navAdmin">
-          <span class="nav-ico">👑</span> Admin
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16M5 15l-1-8 5 4 3-6 3 6 5-4-1 8z"/></svg></span> Admin
         </button>
       </nav>
 
@@ -113,7 +113,7 @@
           <p id="pageSubtitle">Visão geral do seu banco de copys</p>
         </div>
         <div class="topbar-actions">
-          <span class="pill" id="pillCopys">— copys</span>
+          <span class="pill" id="pillCopys" hidden></span>
         </div>
       </header>
 
@@ -151,7 +151,7 @@
           <div class="dash-grid">
             <div class="panel">
               <div class="panel-head">
-                <h2>Copys por Tipo</h2>
+                <h2>Copys por tipo</h2>
                 <span class="panel-sub">mineradas</span>
               </div>
               <div id="chartTipos" class="bar-chart"></div>
@@ -159,7 +159,7 @@
 
             <div class="panel">
               <div class="panel-head">
-                <h2>Top Modelos</h2>
+                <h2>Top modelos</h2>
                 <span class="panel-sub">volume de copys</span>
               </div>
               <div id="topModelos" class="rank-list"></div>
@@ -167,7 +167,7 @@
 
             <div class="panel">
               <div class="panel-head">
-                <h2>Mais Copiadas</h2>
+                <h2>Mais copiadas</h2>
                 <span class="panel-sub">nesta sessão / navegador</span>
               </div>
               <div id="maisCopiadas" class="rank-list"></div>
@@ -175,15 +175,15 @@
 
             <div class="panel">
               <div class="panel-head">
-                <h2>Atividade Recente</h2>
+                <h2>Atividade recente</h2>
                 <span class="panel-sub">últimas mineradas</span>
               </div>
               <div id="atividadeRecente" class="activity-list"></div>
             </div>
 
-            <div class="panel">
+            <div class="panel panel-wide">
               <div class="panel-head">
-                <h2>📈 Métricas de IA</h2>
+                <h2>Métricas de IA</h2>
                 <span class="panel-sub">geral da equipe</span>
               </div>
               <div class="kpi-grid kpi-grid-mini">
@@ -248,7 +248,7 @@
 
           <div class="panel grade-manual" id="gradeManualPanel">
             <div class="panel-head">
-              <h2>◔ Grade do dia (manual)</h2>
+              <h2>Grade do dia (manual)</h2>
               <button id="btnLimparGradeManual" class="link-btn">Limpar</button>
             </div>
             <div class="grade-container" id="gradeManualSlots"></div>
@@ -282,8 +282,30 @@
         <!-- GRADE DO DIA -->
         <section id="tab-grade" class="tab-panel">
 
-          <div class="panel persona-card">
-            <div class="panel-head"><h2>🎭 Persona da IA</h2></div>
+          <div class="panel">
+            <div class="panel-head"><h2>Grade do dia</h2></div>
+            <p class="panel-desc">Sorteia entre 5 e 8 copys em horários aleatórios do dia — sem horário fixo, a partir do banco de disparos + copys mineradas.</p>
+            <div class="grade-toolbar">
+              <button id="btnSortearGrade" class="btn btn-primary">🎲 Sortear Grade do Dia</button>
+              <button id="btnGerarGradeIA" class="btn-premium">
+                <span class="btn-premium-text">✨ Gerar com IA</span>
+                <span class="btn-premium-icon">➜</span>
+              </button>
+              <button id="btnCompletarGradeIA" class="btn btn-secondary">✨ Completar com IA</button>
+            </div>
+          </div>
+
+          <div id="gradeContainer" class="grade-container"></div>
+          <button id="btnCopiarGradeGerada" class="btn btn-secondary hidden" style="margin-bottom:20px;">Copiar grade completa</button>
+
+          <details class="panel persona-card" id="personaCard">
+            <summary class="panel-head persona-summary">
+              <div>
+                <h2>Persona da IA</h2>
+                <span class="persona-resumo" id="personaResumo"></span>
+              </div>
+              <span class="persona-toggle"><span class="t-abrir">Ajustar</span><span class="t-fechar">Fechar</span></span>
+            </summary>
             <p class="panel-desc">Define como a IA escreve em "Gerar com IA" e "Reescrever com IA" (em qualquer aba).</p>
 
             <label class="field">
@@ -354,26 +376,10 @@
                 </div>
               </label>
             </div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-head"><h2>◔ Sortear grade do dia</h2></div>
-            <p class="panel-desc">Sorteia entre 5 e 8 copys em horários aleatórios do dia — sem horário fixo, a partir do banco de disparos + copys mineradas.</p>
-            <div class="grade-toolbar">
-              <button id="btnSortearGrade" class="btn btn-primary">🎲 Sortear Grade do Dia</button>
-              <button id="btnGerarGradeIA" class="btn-premium">
-                <span class="btn-premium-text">✨ Gerar com IA</span>
-                <span class="btn-premium-icon">➜</span>
-              </button>
-              <button id="btnCompletarGradeIA" class="btn btn-secondary">✨ Completar com IA</button>
-            </div>
-          </div>
-
-          <div id="gradeContainer" class="grade-container"></div>
-          <button id="btnCopiarGradeGerada" class="btn btn-secondary hidden" style="margin-bottom:20px;">Copiar grade completa</button>
+          </details>
 
           <div class="panel reescrita-card">
-            <div class="panel-head"><h2>Reescrever Copy com IA</h2></div>
+            <div class="panel-head"><h2>Reescrever copy com IA</h2></div>
             <textarea id="textoReescrever" rows="3" placeholder="Cole ou escreva uma copy para reescrever..."></textarea>
             <div class="estilos-row" id="estilosReescrita">
               <button class="estilo-btn" data-estilo="romantica">Romântica</button>
@@ -388,8 +394,9 @@
 
         <!-- GERADOR DE COPY AVULSA -->
         <section id="tab-gerador" class="tab-panel">
+          <div class="gerador-layout">
           <div class="panel">
-            <div class="panel-head"><h2>✨ Gerador de Copy</h2></div>
+            <div class="panel-head"><h2>Gerador de copy</h2><button type="button" class="link-btn persona-link" data-ir-tab="grade" id="geradorPersonaInfo"></button></div>
             <p class="panel-desc">Gera uma copy avulsa ou um script (sequência) pronto pra qualquer momento — sem precisar passar pela Grade do Dia.</p>
 
             <label class="field">
@@ -466,22 +473,28 @@
               <span class="btn-premium-icon">➜</span>
             </button>
 
+          </div>
+          <div class="panel gerador-saida">
+            <div class="panel-head"><h2>Resultado</h2></div>
             <div id="geradorTabsCategorias" class="gerador-tabs-categorias hidden"></div>
-            <div id="geradorResultado" class="gerador-resultado"></div>
+            <div id="geradorResultado" class="gerador-resultado">
+              <p class="empty-hint">Escolha o objetivo e clique em Gerar. As copys aparecem aqui.</p>
+            </div>
+          </div>
           </div>
         </section>
 
         <!-- TREINAR IA -->
         <section id="tab-treinar" class="tab-panel">
           <div class="panel">
-            <div class="panel-head"><h2>🧠 O que a IA já aprendeu</h2></div>
+            <div class="panel-head"><h2>O que a IA já aprendeu</h2></div>
             <p class="panel-desc">Regras compartilhadas com toda a equipe — entram em toda copy gerada, na Grade e no Gerador.</p>
             <div id="listaRegrasIA" class="regras-list"></div>
             <button id="btnNovaRegraIA" class="btn btn-secondary" style="margin-top:12px;">+ Nova regra</button>
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h2>✏️ Ensinar por correção</h2></div>
+            <div class="panel-head"><h2>Ensinar por correção</h2></div>
             <p class="panel-desc">Mostra pra IA como ela errou e como deveria ter escrito — ela passa a seguir isso a partir de agora.</p>
             <label class="field">
               <span>❌ A IA escreveu</span>
@@ -501,7 +514,7 @@
         <!-- ADMIN (só aparece pro admin) -->
         <section id="tab-admin" class="tab-panel">
           <div class="panel">
-            <div class="panel-head"><h2>🔔 Notificações no Navegador</h2></div>
+            <div class="panel-head"><h2>Notificações no navegador</h2></div>
             <p class="panel-desc">Avisa nos horários da grade direto pelo navegador, com o ícone da Synora. <strong>Precisa manter essa aba aberta</strong> (pode minimizar, mas não fechar) pra continuar recebendo.</p>
             <ol class="notif-steps">
               <li><strong>iPhone:</strong> no Safari, toque em compartilhar (□↑) → <strong>Adicionar à Tela de Início</strong> — abre um app "Synora" próprio, sem barra do navegador</li>
@@ -528,7 +541,7 @@
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h2>➕ Criar Login de Atendente</h2></div>
+            <div class="panel-head"><h2>Criar login de atendente</h2></div>
             <p class="panel-desc">Cria um acesso novo sem precisar ir no Firebase.</p>
             <label class="field">
               <span>Nome do atendente</span>
@@ -555,14 +568,14 @@
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h2>👥 Funcionários</h2></div>
+            <div class="panel-head"><h2>Funcionários</h2></div>
             <p class="panel-desc">Todo mundo com acesso ao sistema.</p>
             <input type="text" id="buscaFuncionarios" placeholder="Buscar atendente..." style="margin-bottom:14px;" />
             <div id="listaFuncionarios" class="funcionarios-list"></div>
           </div>
 
           <div class="panel">
-            <div class="panel-head"><h2>👑 Atividade da Equipe</h2></div>
+            <div class="panel-head"><h2>Atividade da equipe</h2></div>
             <p class="panel-desc">O que cada atendente fez, em tempo real. Só você vê essa aba.</p>
             <div id="atividadeEquipe" class="activity-list"></div>
           </div>

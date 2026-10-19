@@ -872,6 +872,7 @@ function irParaTab(tab, opts) {
   }
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'disparos' && !bancoDisparos) carregarBancoDisparos();
+  if (tab === 'grade' || tab === 'gerador') atualizarResumoPersona();
   if (tab === 'grade' && !gradeGerada) { gradeSlots = gerarSlotsAleatorios(); gradeGerada = {}; renderGradeGerada(gradeGerada); }
 }
 
@@ -885,6 +886,12 @@ function fecharSidebarMobile() { document.getElementById('sidebar').classList.re
 
 function configurarNav() {
   document.querySelectorAll('.nav-item').forEach((btn) => btn.addEventListener('click', () => irParaTab(btn.dataset.tab)));
+  document.querySelectorAll('[data-ir-tab]').forEach((btn) => btn.addEventListener('click', () => {
+    irParaTab(btn.dataset.irTab);
+    if (btn.dataset.irTab === 'grade') { const card = document.getElementById('personaCard'); card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  }));
+  document.getElementById('personaCard').addEventListener('click', (e) => { if (e.target.closest('button')) setTimeout(atualizarResumoPersona, 0); });
+  document.getElementById('personaCard').addEventListener('change', () => setTimeout(atualizarResumoPersona, 0));
   document.getElementById('menuBtn').addEventListener('click', abrirSidebarMobile);
   document.getElementById('sidebarClose').addEventListener('click', fecharSidebarMobile);
   document.getElementById('scrim').addEventListener('click', fecharSidebarMobile);
@@ -991,7 +998,9 @@ async function carregarMineradas() {
       selectModelo.appendChild(opt);
     });
 
-    document.getElementById('pillCopys').textContent = `${todasMineradas.length} copys · ${modelos.length} modelos`;
+    const pill = document.getElementById('pillCopys');
+    pill.textContent = `${todasMineradas.length} copys · ${modelos.length} modelos`;
+    pill.hidden = false;
     setStatus(`${todasMineradas.length} copys carregadas da planilha`, 'ok');
     aplicarFiltroMineradas();
     renderDashboard();
@@ -1249,25 +1258,46 @@ function renderDisparos() {
     agrupado[d.categoria].itens.push(d);
   });
 
+  const comFiltro = Boolean(categoriaFiltro || termo || mostrandoFavoritos);
   let html = '';
-  Object.keys(agrupado).forEach((catNome) => {
+  Object.keys(agrupado).forEach((catNome, i) => {
     const grupo = agrupado[catNome];
-    html += `<div class="categoria-header"><span>${grupo.icone}</span> ${esc(catNome)} <span class="categoria-count">${grupo.itens.length}</span></div>`;
+    const aberta = comFiltro || i === 0 || categoriasAbertas.has(catNome);
+    html += `<details class="categoria-bloco" data-categoria="${escAttr(catNome)}" ${aberta ? 'open' : ''}>`;
+    html += `<summary class="categoria-header"><span>${grupo.icone}</span> ${esc(catNome)} <span class="categoria-count">${grupo.itens.length}</span><span class="categoria-seta" aria-hidden="true"></span></summary>`;
     html += `<div class="grid-copys">${grupo.itens.map((d) => cardCopyHtml({
       texto: d.texto, categoria: d.categoria, icone: d.icone, comIA: true, origem: 'disparo',
       favorito: favoritos.includes(d.texto), custom: d.custom
-    })).join('')}</div>`;
+    })).join('')}</div></details>`;
   });
 
   container.innerHTML = html;
+  container.querySelectorAll('.categoria-bloco').forEach((det) => det.addEventListener('toggle', () => {
+    if (det.open) categoriasAbertas.add(det.dataset.categoria); else categoriasAbertas.delete(det.dataset.categoria);
+  }));
   ligarEventosCard(container);
+}
+const categoriasAbertas = new Set();
+
+// Resumo da persona ativa (no cabeçalho recolhido da Grade e no Gerador)
+function atualizarResumoPersona() {
+  const cfg = getConfig();
+  const sel = document.getElementById('personaSelect');
+  const nome = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : 'Persona';
+  const tipoSel = document.getElementById('personaTipo');
+  const tipo = tipoSel && tipoSel.selectedOptions[0] ? tipoSel.selectedOptions[0].textContent.replace(/^\S+\s/, '') : '';
+  const resumo = [nome, tipo, 'tom ' + (cfg.tom || 'natural'), cfg.comprimento || 'medio'].filter(Boolean).join(' · ');
+  const r = document.getElementById('personaResumo');
+  if (r) r.textContent = resumo;
+  const g = document.getElementById('geradorPersonaInfo');
+  if (g) g.textContent = 'Escrevendo como ' + nome + ' →';
 }
 
 function sortearCopyAleatoria() {
   if (!disparosFiltrados.length) { toast('Nenhuma copy disponível com esse filtro.'); return; }
   const sorteada = disparosFiltrados[Math.floor(Math.random() * disparosFiltrados.length)];
   const container = document.getElementById('copyAleatoria');
-  container.innerHTML = `<div class="panel" style="margin-bottom:14px;"><div class="panel-head"><h2>🎲 Copy sorteada</h2></div>${cardCopyHtml({
+  container.innerHTML = `<div class="panel" style="margin-bottom:14px;"><div class="panel-head"><h2>Copy sorteada</h2></div>${cardCopyHtml({
     texto: sorteada.texto, categoria: sorteada.categoria, icone: sorteada.icone, comIA: true, origem: 'disparo', favorito: favoritos.includes(sorteada.texto)
   })}</div>`;
   ligarEventosCard(container);
