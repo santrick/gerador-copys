@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=45" />
+  <link rel="stylesheet" href="styles.css?v=46" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -136,21 +136,21 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
               <input type="search" id="buscaMineradas" placeholder="Buscar no texto das copys…" autocomplete="off" />
             </label>
-            <button type="button" class="cp-icone cp-filtros-btn" id="btnFiltrosCopys" aria-expanded="false" aria-controls="periodoCopys" title="Filtros">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><i class="cp-filtros-dot" hidden></i>
-            </button>
-            <div class="segmentado" id="periodoCopys" role="group" aria-label="Período">
-              <button type="button" data-periodo="tudo" class="ativo">Tudo</button>
-              <button type="button" data-periodo="hoje">Hoje</button>
-              <button type="button" data-periodo="7">7 dias</button>
-              <button type="button" data-periodo="30">30 dias</button>
-            </div>
             <div class="cp-cal-wrap">
               <button type="button" id="btnCalendario" class="cp-cal-btn" aria-haspopup="dialog" aria-expanded="false">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
-                <span id="calRotulo">Datas</span>
+                <span class="cp-cal-pre">Período:</span> <span id="calRotulo">Tudo</span>
+                <svg class="cp-cal-seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>
               </button>
-              <div class="cp-cal" id="calendarioCopys" role="dialog" aria-label="Escolher datas" hidden></div>
+              <div class="cp-cal" id="popPeriodo" role="dialog" aria-label="Escolher período" hidden>
+                <div class="segmentado cp-per-rapido" id="periodoCopys" role="group" aria-label="Período">
+                  <button type="button" data-periodo="tudo" class="ativo">Tudo</button>
+                  <button type="button" data-periodo="hoje">Hoje</button>
+                  <button type="button" data-periodo="7">7 dias</button>
+                  <button type="button" data-periodo="30">30 dias</button>
+                </div>
+                <div id="calendarioCopys"></div>
+              </div>
             </div>
             <select id="ordemCopys" class="cp-select" aria-label="Ordenar">
               <option value="recentes">Mais recentes</option>
@@ -161,7 +161,6 @@
               <button type="button" data-vista="lista" title="Lista" aria-label="Lista"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
               <button type="button" data-vista="cartoes" title="Cartões" aria-label="Cartões"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></button>
             </div>
-            <button id="btnRecarregarMineradas" class="cp-icone" title="Atualizar do Google Docs" aria-label="Atualizar">↻</button>
             <button type="button" class="chip-novas" id="chipNovas-mineradas" hidden><span class="chip-novas-dot"></span><span>Só novas (<span class="chip-novas-qtd">0</span>)</span><span class="chip-novas-ok" title="Marcar todas como vistas">✓ vistas</span></button>
             <select id="filtroModeloMineradas" hidden><option value="">Todas as modelos</option></select>
             <select id="filtroTipoMineradas" hidden><option value="">Todas</option></select>
@@ -169,7 +168,10 @@
 
           <div class="cp-cats">
             <nav class="cp-tabs" id="abasCategorias" aria-label="Categorias"></nav>
-            <p class="copys-resumo" id="copysResumo" aria-live="polite"></p>
+            <div class="cp-resumo-wrap">
+              <p class="copys-resumo" id="copysResumo" aria-live="polite"></p>
+              <button id="btnRecarregarMineradas" class="cp-icone cp-recarregar" title="Atualizar do Google Docs" aria-label="Atualizar">↻</button>
+            </div>
           </div>
 
           <div id="listaMineradas" class="lista-copys">
@@ -177,6 +179,13 @@
               <span class="empty-ico">▤</span>
               <p>Carregando copys do Google Docs…</p>
             </div>
+          </div>
+
+          <div class="sel-barra" id="selBarra" role="region" aria-label="Copys selecionadas" hidden>
+            <span class="sel-qtd"><b id="selQtd">0</b> <span id="selRotulo">selecionadas</span></span>
+            <button type="button" class="sel-link" id="selTodas"></button>
+            <button type="button" class="sel-link" id="selLimpar">Limpar</button>
+            <button type="button" class="sel-copiar" id="selCopiar"><span aria-hidden="true">⧉</span> Copiar pro disparo</button>
           </div>
         </section>
 
@@ -344,6 +353,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=55"></script>
+  <script src="app.js?v=56"></script>
 </body>
 </html>

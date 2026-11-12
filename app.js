@@ -712,11 +712,7 @@ function configurarMineradas() {
   document.getElementById('filtroTipoMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('buscaModelos').addEventListener('input', renderAbasCopys);
   configurarCalendario();
-  document.getElementById('btnFiltrosCopys').addEventListener('click', (e) => {
-    const bar = e.currentTarget.closest('.cp-toolbar');
-    const aberto = bar.classList.toggle('filtros-abertos');
-    e.currentTarget.setAttribute('aria-expanded', aberto);
-  });
+  configurarSelecao();
   document.getElementById('ordemCopys').addEventListener('change', (e) => { ordemCopys = e.target.value; aplicarFiltroMineradas(); });
   const marcarVista = () => document.querySelectorAll('#vistaCopys button').forEach((b) => { const on = b.dataset.vista === vistaCopys; b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', on); });
   marcarVista();
@@ -732,6 +728,8 @@ function configurarMineradas() {
     periodoCopys = btn.dataset.periodo;
     calIni = calFim = null; rotuloCalendario();
     document.querySelectorAll('#periodoCopys button').forEach((b) => b.classList.toggle('ativo', b === btn));
+    document.getElementById('popPeriodo').hidden = true;
+    document.getElementById('btnCalendario').setAttribute('aria-expanded', 'false');
     aplicarFiltroMineradas();
   });
   ['abasModelos', 'abasCategorias'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => {
@@ -928,7 +926,11 @@ function rotuloCalendario() {
   const el = document.getElementById('calRotulo');
   const btn = document.getElementById('btnCalendario');
   const f = (ts) => new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
-  if (!calIni) { el.textContent = 'Datas'; btn.classList.remove('ativo'); return; }
+  if (!calIni) {
+    el.textContent = { hoje: 'Hoje', 7: 'Últimos 7 dias', 30: 'Últimos 30 dias' }[periodoCopys] || 'Tudo';
+    btn.classList.toggle('ativo', periodoCopys !== 'tudo');
+    return;
+  }
   el.textContent = calFim && calFim !== calIni ? `${f(calIni)} – ${f(calFim)}` : f(calIni);
   btn.classList.add('ativo');
 }
@@ -974,7 +976,7 @@ function renderCalendario() {
 
 function configurarCalendario() {
   const btn = document.getElementById('btnCalendario');
-  const box = document.getElementById('calendarioCopys');
+  const box = document.getElementById('popPeriodo');
   const fechar = () => { box.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -994,8 +996,7 @@ function configurarCalendario() {
     else calFim = ts;
     aplicarCalendario();
     renderCalendario();
-    if (calFim) setTimeout(fechar, 250);
-  });
+    if (calFim) setTimeout(fechar, 250);  });
   document.addEventListener('click', fechar);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fechar(); });
 }
@@ -1067,8 +1068,6 @@ function aplicarFiltroMineradas() {
   else mineradasFiltradas.sort(porData);
 
   limiteCopys = PASSO_COPYS;
-  const dot = document.querySelector('.cp-filtros-dot');
-  if (dot) dot.hidden = periodoCopys === 'tudo' && ordemCopys === 'recentes';
   renderMineradas();
 }
 
@@ -1103,9 +1102,11 @@ function renderMineradas() {
   if (ordemCopys !== 'preco') mineradasFiltradas.forEach((c) => { const d = tsCopy(c) ? inicioDoDia(tsCopy(c)) : 0; totalPorDia[d] = (totalPorDia[d] || 0) + 1; });
 
   const mostrarModelo = !document.getElementById('filtroModeloMineradas').value;
+  const reBusca = regexBusca(document.getElementById('buscaMineradas').value);
+  copysNaTela = new Map(visiveis.map((c) => [chaveCopy(c), c]));
   container.innerHTML = grupos.map((g) => `<section class="copys-grupo">
       ${g.titulo ? `<h3 class="copys-dia"><span>${esc(g.titulo)}${g.dia && /^(Hoje|Ontem)$/.test(g.titulo) ? `<em>${new Date(g.dia).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</em>` : ''}</span><span class="copys-dia-qtd">${totalPorDia[g.dia]} ${totalPorDia[g.dia] === 1 ? 'copy' : 'copys'}</span></h3>` : ''}
-      <div class="grid-copys copys-grid">${g.itens.map((c) => cardCopyModeloHtml(c, mostrarModelo)).join('')}</div>
+      <div class="grid-copys copys-grid">${g.itens.map((c) => cardCopyModeloHtml(c, mostrarModelo, reBusca)).join('')}</div>
     </section>`).join('')
     + (total > limiteCopys ? `<div class="copys-mais"><button type="button" class="btn btn-secondary" id="btnMaisCopys">Mostrar mais ${Math.min(PASSO_COPYS, total - limiteCopys)} <span>de ${total - limiteCopys} restantes</span></button></div>` : '');
 
@@ -1113,6 +1114,88 @@ function renderMineradas() {
   ligarEventosCopyItem(container);
   const mais = document.getElementById('btnMaisCopys');
   if (mais) mais.addEventListener('click', () => { limiteCopys += PASSO_COPYS; renderMineradas(); });
+  atualizarSelBarra();
+}
+
+// ── busca destacada no texto (ignora acento e maiúscula) ──
+const VARIANTES_BUSCA = { a: 'aáàâãä', e: 'eéèêë', i: 'iíìîï', o: 'oóòôõö', u: 'uúùûü', c: 'cç', n: 'nñ' };
+function regexBusca(termo) {
+  const t = normTexto(termo);
+  if (!t) return null;
+  const src = [...t].map((ch) => VARIANTES_BUSCA[ch] ? `[${VARIANTES_BUSCA[ch]}]` : /\s/.test(ch) ? '\\s+' : ch.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&')).join('');
+  try { return new RegExp(src, 'giu'); } catch (e) { return null; }
+}
+function marcarBusca(texto, re) {
+  if (!re) return esc(texto);
+  let out = '', ultimo = 0;
+  for (const m of texto.matchAll(re)) {
+    if (!m[0]) continue;
+    out += esc(texto.slice(ultimo, m.index)) + '<mark>' + esc(m[0]) + '</mark>';
+    ultimo = m.index + m[0].length;
+  }
+  return out + esc(texto.slice(ultimo));
+}
+
+// ── seleção de várias copys pra colar no ✏️ Mensagens do disparo ──
+const selCopys = new Map();      // chave -> { texto, modelo } (na ordem em que foram marcadas)
+let copysNaTela = new Map();
+function chaveCopy(c) { return c.modelo + '|' + normTexto(c.mensagem); }
+function podeSelecionar(c) { return !temaProibido(c.mensagem || ''); }
+
+function marcarCardSel(card, on) {
+  card.classList.toggle('is-sel', on);
+  const b = card.querySelector('.copy-item-sel');
+  if (b) b.setAttribute('aria-checked', on);
+}
+function alternarSelecao(card) {
+  const k = card.dataset.chave;
+  const c = copysNaTela.get(k);
+  if (!c || !podeSelecionar(c)) return;
+  if (selCopys.has(k)) selCopys.delete(k);
+  else selCopys.set(k, { texto: c.mensagem, modelo: c.modelo });
+  marcarCardSel(card, selCopys.has(k));
+  atualizarSelBarra();
+}
+function atualizarSelBarra() {
+  const barra = document.getElementById('selBarra');
+  if (!barra) return;
+  const n = selCopys.size;
+  document.body.classList.toggle('com-selecao', n > 0);
+  barra.hidden = n === 0;
+  if (!n) return;
+  document.getElementById('selQtd').textContent = n;
+  document.getElementById('selRotulo').textContent = n === 1 ? 'selecionada' : 'selecionadas';
+  const faltam = mineradasFiltradas.filter((c) => podeSelecionar(c) && !selCopys.has(chaveCopy(c))).length;
+  const todas = document.getElementById('selTodas');
+  todas.hidden = !faltam;
+  todas.innerHTML = `+ Marcar as outras ${faltam}<span class="sel-extra"> do filtro</span>`;
+}
+function configurarSelecao() {
+  document.getElementById('selLimpar').addEventListener('click', () => {
+    selCopys.clear();
+    document.querySelectorAll('#listaMineradas .copy-item.is-sel').forEach((c) => marcarCardSel(c, false));
+    atualizarSelBarra();
+  });
+  document.getElementById('selTodas').addEventListener('click', () => {
+    mineradasFiltradas.forEach((c) => { const k = chaveCopy(c); if (podeSelecionar(c) && !selCopys.has(k)) selCopys.set(k, { texto: c.mensagem, modelo: c.modelo }); });
+    document.querySelectorAll('#listaMineradas .copy-item[data-chave]').forEach((c) => marcarCardSel(c, selCopys.has(c.dataset.chave)));
+    atualizarSelBarra();
+  });
+  document.getElementById('selCopiar').addEventListener('click', (e) => {
+    const lista = [...selCopys.values()];
+    if (!lista.length) return;
+    const btn = e.currentTarget;
+    copiarTexto(lista.map((x) => blocoCopy(x.texto)).join('\n\n')).then(() => {
+      toast(`${lista.length} ${lista.length === 1 ? 'copy copiada' : 'copys copiadas'} no formato do disparo`);
+      const modelos = [...new Set(lista.map((x) => nomeModelo(x.modelo)))];
+      registrarAtividade('Copiou selecionadas', `${modelos.length > 2 ? modelos.length + ' modelos' : modelos.join(', ')} · ${lista.length} copys`);
+      btn.classList.add('ok'); btn.innerHTML = '✓ Copiadas';
+      setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = '<span aria-hidden="true">⧉</span> Copiar pro disparo'; }, 1600);
+    });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && selCopys.size && document.getElementById('popPeriodo').hidden && document.getElementById('tab-mineradas').classList.contains('active')) document.getElementById('selLimpar').click();
+  });
 }
 
 // ═══════════════════════════════════════════════ CARTÃO DA ABA COPYS ═══
@@ -1139,7 +1222,7 @@ function precoCopy(v) {
   return n > 0 ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
 }
 
-function cardCopyModeloHtml(c, mostrarModelo) {
+function cardCopyModeloHtml(c, mostrarModelo, reBusca) {
   const texto = c.mensagem || '';
   const cor = COR_CATEGORIA[c.tipo] || 'var(--accent)';
   const foto = avataresModelos[c.modelo];
@@ -1147,15 +1230,24 @@ function cardCopyModeloHtml(c, mostrarModelo) {
   const preco = precoCopy(c.preco);
   const linhas = (texto.match(/\n/g) || []).length;
   const longa = vistaCopys === 'lista' ? (texto.length > 230 || linhas > 3) : (texto.length > 300 || linhas > 6);
-  return `<article class="copy-item ${nova ? 'is-nova' : ''}" style="--cat:${cor}">
+  const aberta = longa && reBusca && texto.search(reBusca) > 160;
+  if (reBusca) reBusca.lastIndex = 0;
+  const chave = chaveCopy(c);
+  const fora = !podeSelecionar(c);
+  const sel = !fora && selCopys.has(chave);
+  return `<article class="copy-item ${nova ? 'is-nova' : ''} ${sel ? 'is-sel' : ''}" style="--cat:${cor}" data-chave="${escAttr(chave)}">
     <header class="copy-item-top">
+      ${fora
+        ? '<span class="copy-item-sel is-off" title="Essa copy não entra na seleção" aria-hidden="true"></span>'
+        : `<button type="button" class="copy-item-sel" role="checkbox" aria-checked="${sel}" aria-label="Selecionar pro disparo" title="Selecionar pro disparo"></button>`}
       ${mostrarModelo ? `<span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(c.modelo || '')}">${esc(iniciais(c.modelo))}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>${esc(nomeModelo(c.modelo).split(/\s+/)[0])}</span>` : ''}
       <span class="copy-item-cat">${esc(c.tipo || '')}</span>
       ${nova ? '<span class="copy-item-nova">nova</span>' : ''}
+      ${fora ? '<span class="copy-item-fora" title="Tema que pode parecer de menor de idade (escola, novinha, virgem…). O Gerador, o Extrair e a seleção não usam essa copy.">fora do gerador</span>' : ''}
       ${preco ? `<span class="copy-item-preco">${preco}</span>` : ''}
     </header>
-    <p class="copy-item-texto ${longa ? 'is-longa' : ''}" title="Clique pra copiar">${esc(texto)}</p>
-    ${longa ? '<button type="button" class="copy-item-mais">ver tudo</button>' : ''}
+    <p class="copy-item-texto ${longa ? 'is-longa' : ''} ${aberta ? 'is-aberta' : ''}" title="Clique pra copiar">${marcarBusca(texto, reBusca)}</p>
+    ${longa ? `<button type="button" class="copy-item-mais">${aberta ? 'mostrar menos' : 'ver tudo'}</button>` : ''}
     <footer class="copy-item-bottom">
       <span class="copy-item-data">${esc(c.hora || dataCurtaCopy(c.data))}${c.vezes > 1 ? `<span class="copy-item-vezes" title="Mandou essa mesma copy ${c.vezes} vezes">enviada ${c.vezes}×</span>` : ''}</span>
       <div class="copy-item-acoes">
@@ -1174,9 +1266,12 @@ function ligarEventosCopyItem(container) {
     setTimeout(() => { botao.classList.remove('ok'); botao.innerHTML = '<span aria-hidden="true">⧉</span> Copiar'; }, 1400);
   });
   container.querySelectorAll('.copy-item-copiar').forEach((btn) => btn.addEventListener('click', () => copiar(btn.dataset.texto, btn)));
+  container.querySelectorAll('.copy-item-sel:not(.is-off)').forEach((b) => b.addEventListener('click', () => alternarSelecao(b.closest('.copy-item'))));
   container.querySelectorAll('.copy-item-texto').forEach((p) => p.addEventListener('click', () => {
     if (window.getSelection && String(window.getSelection()).length) return; // deixa selecionar trecho
     const card = p.closest('.copy-item');
+    // selecionando várias: clicar no texto marca/desmarca em vez de copiar
+    if (selCopys.size && card.querySelector('.copy-item-sel:not(.is-off)')) return alternarSelecao(card);
     copiar(card.querySelector('.copy-item-copiar').dataset.texto, card.querySelector('.copy-item-copiar'));
   }));
   container.querySelectorAll('.copy-item-mais').forEach((btn) => btn.addEventListener('click', () => {
