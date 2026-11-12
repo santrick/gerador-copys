@@ -1626,6 +1626,31 @@ body::before {
 .copy-item-copiar:hover { background: var(--accent); border-color: transparent; color: #fff; }
 .copy-item-copiar.ok { background: #34d399; border-color: transparent; color: #052e1f; }
 
+/* calendário */
+.cp-cal-wrap { position: relative; }
+.cp-cal-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 13px; border-radius: 12px; border: 1px solid var(--cp-line); background: var(--cp-surface); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s; }
+.cp-cal-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; opacity: .8; }
+.cp-cal-btn:hover { border-color: rgba(168,85,247,.6); }
+.cp-cal-btn.ativo { background: rgba(168,85,247,.16); border-color: rgba(168,85,247,.45); color: #fff; }
+.cp-cal { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; width: 300px; padding: 14px; border-radius: 16px; background: #14111d; border: 1px solid rgba(255,255,255,.1); box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 13.5px; }
+.cal-nav { width: 30px; height: 30px; border-radius: 9px; border: 0; background: transparent; color: var(--text-dim); font-size: 20px; cursor: pointer; }
+.cal-nav:hover { background: rgba(255,255,255,.07); color: #fff; }
+.cal-semana, .cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-semana span { text-align: center; font-size: 10.5px; color: var(--text-dim); padding-bottom: 4px; }
+.cal-dia { position: relative; height: 36px; display: grid; place-items: center; border: 0; border-radius: 9px; background: transparent; color: rgba(255,255,255,.28); font: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums; cursor: pointer; transition: background .12s; }
+.cal-dia i { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 8.5px; line-height: 1; color: #d8b4fe; opacity: .9; }
+.cal-dia.tem { color: var(--text); background: rgba(168,85,247, calc(var(--int) * .22)); }
+.cal-dia:hover { background: rgba(255,255,255,.09); }
+.cal-dia.hoje { box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+.cal-dia.sel { background: rgba(168,85,247,.28); color: #fff; border-radius: 0; }
+.cal-dia.borda { background: var(--accent); color: #fff; border-radius: 9px; }
+.cal-dia.borda i, .cal-dia.sel i { color: #fff; }
+.cal-rodape { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.07); }
+.cal-dica { font-size: 11px; color: var(--text-dim); }
+.cal-limpar { border: 0; background: none; color: #c4b5fd; font: inherit; font-size: 12px; cursor: pointer; }
+.cal-limpar:disabled { opacity: .35; cursor: default; }
+
 @media (max-width: 880px) {
   .copys-grid { columns: 1; }
   .copy-item-acoes .icon-btn { opacity: 1; }
@@ -1637,6 +1662,8 @@ body::before {
   .cp-busca { flex: 1 1 0; order: 0; }
   .cp-icone { order: 1; }
   .segmentado { order: 2; flex: 1 1 100%; } .segmentado button { flex: 1; padding: 0 4px; }
-  .cp-select { order: 3; flex: 1 1 100%; }
+  .cp-cal-wrap { order: 3; flex: 1 1 0; } .cp-cal-btn { width: 100%; justify-content: center; }
+  .cp-cal { left: 0; right: auto; width: min(300px, calc(100vw - 32px)); }
+  .cp-select { order: 4; flex: 1 1 0; }
 }
 @media (prefers-reduced-motion: reduce) { .copy-item, .copy-item-copiar, .copy-item-acoes .icon-btn, .modelo-avatar, .cp-tab::after { transition: none; } .modelos-faixa { scroll-behavior: auto; } .cp-icone.girando { animation: none; } }

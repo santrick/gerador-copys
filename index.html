@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=30" />
+  <link rel="stylesheet" href="styles.css?v=31" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -232,6 +232,13 @@
               <button type="button" data-periodo="hoje">Hoje</button>
               <button type="button" data-periodo="7">7 dias</button>
               <button type="button" data-periodo="30">30 dias</button>
+            </div>
+            <div class="cp-cal-wrap">
+              <button type="button" id="btnCalendario" class="cp-cal-btn" aria-haspopup="dialog" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+                <span id="calRotulo">Datas</span>
+              </button>
+              <div class="cp-cal" id="calendarioCopys" role="dialog" aria-label="Escolher datas" hidden></div>
             </div>
             <select id="ordemCopys" class="cp-select" aria-label="Ordenar">
               <option value="recentes">Mais recentes</option>
@@ -682,6 +689,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=37"></script>
+  <script src="app.js?v=38"></script>
 </body>
 </html>

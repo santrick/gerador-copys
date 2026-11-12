@@ -1151,11 +1151,13 @@ function configurarMineradas() {
   document.getElementById('filtroModeloMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('filtroTipoMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('buscaModelos').addEventListener('input', renderAbasCopys);
+  configurarCalendario();
   document.getElementById('ordemCopys').addEventListener('change', (e) => { ordemCopys = e.target.value; aplicarFiltroMineradas(); });
   document.getElementById('periodoCopys').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-periodo]');
     if (!btn) return;
     periodoCopys = btn.dataset.periodo;
+    calIni = calFim = null; rotuloCalendario();
     document.querySelectorAll('#periodoCopys button').forEach((b) => b.classList.toggle('ativo', b === btn));
     aplicarFiltroMineradas();
   });
@@ -1282,6 +1284,109 @@ function carregarMineradasDoCache() {
 let ordemCopys = 'recentes';
 let periodoCopys = 'tudo';
 let limiteCopys = 60;
+let calIni = null, calFim = null;          // dias escolhidos no calendário (início do dia, ms)
+let calMes = null;                          // mês mostrado (Date no dia 1)
+
+function diasComCopy() {
+  const modelo = document.getElementById('filtroModeloMineradas').value;
+  const tipo = document.getElementById('filtroTipoMineradas').value;
+  const porDia = {}; const vistos = new Set();
+  todasMineradas.forEach((c) => {
+    if ((modelo && c.modelo !== modelo) || (tipo && c.tipo !== tipo) || !tsCopy(c)) return;
+    const k = c.modelo + '|' + normTexto(c.mensagem) + '|' + inicioDoDia(tsCopy(c));
+    if (vistos.has(k)) return; vistos.add(k);
+    const d = inicioDoDia(tsCopy(c)); porDia[d] = (porDia[d] || 0) + 1;
+  });
+  return porDia;
+}
+
+function rotuloCalendario() {
+  const el = document.getElementById('calRotulo');
+  const btn = document.getElementById('btnCalendario');
+  const f = (ts) => new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
+  if (!calIni) { el.textContent = 'Datas'; btn.classList.remove('ativo'); return; }
+  el.textContent = calFim && calFim !== calIni ? `${f(calIni)} – ${f(calFim)}` : f(calIni);
+  btn.classList.add('ativo');
+}
+
+function renderCalendario() {
+  const box = document.getElementById('calendarioCopys');
+  const porDia = diasComCopy();
+  const max = Math.max(1, ...Object.values(porDia));
+  if (!calMes) {
+    const ultimo = Math.max(0, ...Object.keys(porDia).map(Number));
+    const base = ultimo ? new Date(ultimo) : new Date();
+    calMes = new Date(base.getFullYear(), base.getMonth(), 1);
+  }
+  const ano = calMes.getFullYear(), mes = calMes.getMonth();
+  const primeiroSemana = new Date(ano, mes, 1).getDay();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const hoje = inicioDoDia(Date.now());
+  const titulo = calMes.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  let celulas = '';
+  for (let i = 0; i < primeiroSemana; i++) celulas += '<span></span>';
+  for (let d = 1; d <= diasNoMes; d++) {
+    const ts = new Date(ano, mes, d).getTime();
+    const n = porDia[ts] || 0;
+    const fim = calFim || calIni;
+    const sel = calIni && ts >= calIni && ts <= fim;
+    const borda = calIni && (ts === calIni || ts === fim);
+    celulas += `<button type="button" class="cal-dia ${n ? 'tem' : ''} ${sel ? 'sel' : ''} ${borda ? 'borda' : ''} ${ts === hoje ? 'hoje' : ''}" data-ts="${ts}"
+      style="--int:${(0.18 + 0.82 * n / max).toFixed(2)}" ${n ? `title="${n} ${n === 1 ? 'copy' : 'copys'}"` : 'title="Sem copys"'}>
+      <span>${d}</span>${n ? `<i>${n}</i>` : ''}</button>`;
+  }
+  box.innerHTML = `<div class="cal-head">
+      <button type="button" class="cal-nav" data-nav="-1" aria-label="Mês anterior">‹</button>
+      <strong>${esc(titulo.charAt(0).toUpperCase() + titulo.slice(1))}</strong>
+      <button type="button" class="cal-nav" data-nav="1" aria-label="Próximo mês">›</button>
+    </div>
+    <div class="cal-semana">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((x) => `<span>${x}</span>`).join('')}</div>
+    <div class="cal-grade">${celulas}</div>
+    <div class="cal-rodape">
+      <span class="cal-dica">${calIni && !calFim ? 'Clique em outro dia pra fazer um período' : 'Clique num dia, ou em dois pra um período'}</span>
+      <button type="button" class="cal-limpar" ${calIni ? '' : 'disabled'}>Limpar</button>
+    </div>`;
+}
+
+function configurarCalendario() {
+  const btn = document.getElementById('btnCalendario');
+  const box = document.getElementById('calendarioCopys');
+  const fechar = () => { box.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!box.hidden) return fechar();
+    renderCalendario(); box.hidden = false; btn.setAttribute('aria-expanded', 'true');
+  });
+  box.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const nav = e.target.closest('[data-nav]');
+    if (nav) { calMes = new Date(calMes.getFullYear(), calMes.getMonth() + Number(nav.dataset.nav), 1); return renderCalendario(); }
+    if (e.target.closest('.cal-limpar')) { calIni = calFim = null; aplicarCalendario(); return renderCalendario(); }
+    const dia = e.target.closest('.cal-dia');
+    if (!dia) return;
+    const ts = Number(dia.dataset.ts);
+    if (!calIni || calFim) { calIni = ts; calFim = null; }
+    else if (ts < calIni) { calFim = calIni; calIni = ts; }
+    else calFim = ts;
+    aplicarCalendario();
+    renderCalendario();
+    if (calFim) setTimeout(fechar, 250);
+  });
+  document.addEventListener('click', fechar);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fechar(); });
+}
+
+function aplicarCalendario() {
+  if (calIni) {
+    periodoCopys = 'calendario';
+    document.querySelectorAll('#periodoCopys button').forEach((b) => b.classList.remove('ativo'));
+  } else if (periodoCopys === 'calendario') {
+    periodoCopys = 'tudo';
+    document.querySelector('#periodoCopys [data-periodo="tudo"]').classList.add('ativo');
+  }
+  rotuloCalendario();
+  aplicarFiltroMineradas();
+}
 const PASSO_COPYS = 60;
 
 // "qua., 11/11/2026" (+ hora opcional "14:10") -> timestamp; sem data = 0
@@ -1310,7 +1415,8 @@ function aplicarFiltroMineradas() {
   const modelo = document.getElementById('filtroModeloMineradas').value;
   const tipo = document.getElementById('filtroTipoMineradas').value;
   const hoje = inicioDoDia(Date.now());
-  const corte = periodoCopys === 'hoje' ? hoje : periodoCopys === 'tudo' ? 0 : hoje - (Number(periodoCopys) - 1) * 86400000;
+  const corte = periodoCopys === 'calendario' ? calIni : periodoCopys === 'hoje' ? hoje : periodoCopys === 'tudo' ? 0 : hoje - (Number(periodoCopys) - 1) * 86400000;
+  const teto = periodoCopys === 'calendario' ? (calFim || calIni) + 86400000 : Infinity;
 
   // junta a mesma copy repetida (mesma modelo + mesmo texto): fica a mais recente, com contador
   const porChave = new Map();
@@ -1319,7 +1425,7 @@ function aplicarFiltroMineradas() {
     if (!naoEhRuim(c.mensagem)) return;
     if (somenteNovas.mineradas && !novidades.mineradas.has(idMinerada(c))) return;
     if ((modelo && c.modelo !== modelo) || (tipo && c.tipo !== tipo)) return;
-    if (corte && tsCopy(c) < corte) return;
+    if ((corte && tsCopy(c) < corte) || tsCopy(c) >= teto) return;
     if (termo && !(normTexto(c.mensagem).includes(termo) || normTexto(c.modelo).includes(termo) || normTexto(c.tipo).includes(termo))) return;
     const chave = c.modelo + '|' + normTexto(c.mensagem);
     const atual = porChave.get(chave);
