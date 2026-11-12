@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=43" />
+  <link rel="stylesheet" href="styles.css?v=45" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -71,8 +71,11 @@
         <button class="nav-item active" data-tab="mineradas">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Copys <span class="nav-badge" hidden></span>
         </button>
-        <button class="nav-item" data-tab="disparo">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg></span> Disparo
+        <button class="nav-item" data-tab="gerador">
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r=".9" fill="currentColor"/><circle cx="15" cy="15" r=".9" fill="currentColor"/><circle cx="15" cy="9" r=".9" fill="currentColor"/><circle cx="9" cy="15" r=".9" fill="currentColor"/></svg></span> Gerador
+        </button>
+        <button class="nav-item" data-tab="extrair">
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19h14"/></svg></span> Extrair
         </button>
         <button class="nav-item" data-tab="favoritos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> Favoritos
@@ -154,6 +157,10 @@
               <option value="antigas">Mais antigas</option>
               <option value="preco">Maior preço</option>
             </select>
+            <div class="cp-vista" id="vistaCopys" role="group" aria-label="Ver como">
+              <button type="button" data-vista="lista" title="Lista" aria-label="Lista"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+              <button type="button" data-vista="cartoes" title="Cartões" aria-label="Cartões"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></button>
+            </div>
             <button id="btnRecarregarMineradas" class="cp-icone" title="Atualizar do Google Docs" aria-label="Atualizar">↻</button>
             <button type="button" class="chip-novas" id="chipNovas-mineradas" hidden><span class="chip-novas-dot"></span><span>Só novas (<span class="chip-novas-qtd">0</span>)</span><span class="chip-novas-ok" title="Marcar todas como vistas">✓ vistas</span></button>
             <select id="filtroModeloMineradas" hidden><option value="">Todas as modelos</option></select>
@@ -175,9 +182,9 @@
 
         <!-- DISPARO: SORTEAR + TODAS -->
         <section id="tab-disparo" class="tab-panel copys-page">
-          <div class="segmentado dp-modo" id="dpModo" role="group" aria-label="Como pegar as copys">
-            <button type="button" data-modo="sortear" class="ativo"><b>🎲 Sortear</b><span>algumas copys pro disparo</span></button>
-            <button type="button" data-modo="todas"><b>⇩ Todas</b><span>extrair tudo de uma vez</span></button>
+          <div class="segmentado dp-modo" id="dpModo" role="group" aria-label="Como pegar as copys" hidden>
+            <button type="button" data-modo="sortear">Gerador</button>
+            <button type="button" data-modo="todas">Extrair</button>
           </div>
           <div class="dp-painel" id="dpSortear">
           <div class="gr-layout">
@@ -337,6 +344,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=53"></script>
+  <script src="app.js?v=55"></script>
 </body>
 </html>

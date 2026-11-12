@@ -544,7 +544,8 @@ function configurarCriarAtendente() {
 
 const PAGE_INFO = {
   mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto do Google Docs' },
-  disparo: { title: 'Disparo', subtitle: 'Copys prontas pro campo ✏️ Mensagens do disparo' },
+  gerador: { title: 'Gerador', subtitle: 'Sorteia copys da modelo prontas pro campo ✏️ Mensagens' },
+  extrair: { title: 'Extrair', subtitle: 'Todas as copys de uma vez, no formato do disparo' },
   favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou' },
   admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
 };
@@ -666,14 +667,15 @@ window.addEventListener('resize', atualizarNavGlider);
 
 let abaAtual = 'mineradas';
 function irParaTab(tab, opts) {
-  if (tab === 'gerador' || tab === 'extrair') { dpModo = tab === 'gerador' ? 'sortear' : 'todas'; tab = 'disparo'; opts = {}; }
+  if (tab === 'disparo') tab = dpModo === 'todas' ? 'extrair' : 'gerador';
+  if (tab === 'gerador' || tab === 'extrair') dpModo = tab === 'gerador' ? 'sortear' : 'todas';
   if (!PAGE_INFO[tab]) return;
   if (tab === 'admin' && !souAdmin) tab = 'mineradas';
   if (abaAtual !== tab && novidades[abaAtual]) marcarComoVistas(abaAtual);
   abaAtual = tab;
   document.body.classList.toggle('aba-copys', tab === 'mineradas');
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
-  document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
+  document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === (dpAba(tab) ? 'tab-disparo' : `tab-${tab}`)));
   atualizarNavGlider();
   document.getElementById('pageTitle').textContent = PAGE_INFO[tab].title;
   document.getElementById('pageSubtitle').textContent = PAGE_INFO[tab].subtitle;
@@ -682,13 +684,13 @@ function irParaTab(tab, opts) {
     history.replaceState(null, '', '#' + tab);
   }
   if (tab === 'favoritos') renderFavoritos();
-  if (tab === 'disparo') abrirDisparo();
+  if (dpAba(tab)) abrirDisparo();
   renderAbasCopys();
 }
 
 function abrirTabDaHash() {
   const tab = (location.hash || '').replace('#', '');
-  if (PAGE_INFO[tab] || tab === 'gerador' || tab === 'extrair') irParaTab(tab, { semHash: tab !== 'gerador' && tab !== 'extrair' });
+  if (PAGE_INFO[tab] || tab === 'disparo') irParaTab(tab, { semHash: tab !== 'disparo' });
 }
 
 function abrirSidebarMobile() { document.getElementById('sidebar').classList.add('open'); document.getElementById('scrim').classList.add('show'); }
@@ -716,6 +718,14 @@ function configurarMineradas() {
     e.currentTarget.setAttribute('aria-expanded', aberto);
   });
   document.getElementById('ordemCopys').addEventListener('change', (e) => { ordemCopys = e.target.value; aplicarFiltroMineradas(); });
+  const marcarVista = () => document.querySelectorAll('#vistaCopys button').forEach((b) => { const on = b.dataset.vista === vistaCopys; b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', on); });
+  marcarVista();
+  document.getElementById('vistaCopys').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-vista]'); if (!b || b.dataset.vista === vistaCopys) return;
+    vistaCopys = b.dataset.vista;
+    try { localStorage.setItem('copys_vista', vistaCopys); } catch (err) { /* ignora */ }
+    marcarVista(); renderMineradas();
+  });
   document.getElementById('periodoCopys').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-periodo]');
     if (!btn) return;
@@ -824,7 +834,7 @@ function renderHeroCopys(modelo, daModelo, contagem) {
     ${modelo ? `<button type="button" class="cp-hero-gerar" id="cpHeroGerar">🎲 Gerar copys dela</button>` : ''}`;
   hero.querySelectorAll('img').forEach((img) => { img.onerror = () => img.remove(); });
   const btn = document.getElementById('cpHeroGerar');
-  if (btn) btn.addEventListener('click', () => { grModelo = modelo; trocouModeloGerador(); dpModo = 'sortear'; irParaTab('disparo'); });
+  if (btn) btn.addEventListener('click', () => { grModelo = modelo; trocouModeloGerador(); irParaTab('gerador'); });
 }
 
 async function carregarMineradas() {
@@ -895,6 +905,7 @@ function carregarMineradasDoCache() {
 
 // Estado da lista da aba Copys
 let ordemCopys = 'recentes';
+let vistaCopys = (() => { try { return localStorage.getItem('copys_vista') === 'cartoes' ? 'cartoes' : 'lista'; } catch (e) { return 'lista'; } })();
 let periodoCopys = 'tudo';
 let limiteCopys = 60;
 let calIni = null, calFim = null;          // dias escolhidos no calendário (início do dia, ms)
@@ -1075,6 +1086,7 @@ function renderMineradas() {
   }
 
   const total = mineradasFiltradas.length;
+  container.className = 'lista-copys vista-' + vistaCopys;
   const visiveis = mineradasFiltradas.slice(0, limiteCopys);
   resumo.innerHTML = `<strong>${total}</strong> ${total === 1 ? 'copy' : 'copys'}`;
 
@@ -1133,7 +1145,8 @@ function cardCopyModeloHtml(c, mostrarModelo) {
   const foto = avataresModelos[c.modelo];
   const nova = novidades.mineradas.has(idMinerada(c));
   const preco = precoCopy(c.preco);
-  const longa = texto.length > 300 || (texto.match(/\n/g) || []).length > 6;
+  const linhas = (texto.match(/\n/g) || []).length;
+  const longa = vistaCopys === 'lista' ? (texto.length > 230 || linhas > 3) : (texto.length > 300 || linhas > 6);
   return `<article class="copy-item ${nova ? 'is-nova' : ''}" style="--cat:${cor}">
     <header class="copy-item-top">
       ${mostrarModelo ? `<span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(c.modelo || '')}">${esc(iniciais(c.modelo))}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>${esc(nomeModelo(c.modelo).split(/\s+/)[0])}</span>` : ''}
@@ -1693,6 +1706,7 @@ function configurarExtrair() {
 // ═══════════════════════════════════════════════ DISPARO (Sortear / Todas) ═══
 
 let dpModo = (() => { try { return localStorage.getItem('disparo_modo') === 'todas' ? 'todas' : 'sortear'; } catch (e) { return 'sortear'; } })();
+function dpAba(tab) { return tab === 'gerador' || tab === 'extrair'; }
 function abrirDisparo() {
   document.querySelectorAll('#dpModo button').forEach((b) => { const on = b.dataset.modo === dpModo; b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', on); });
   document.getElementById('dpSortear').hidden = dpModo !== 'sortear';
@@ -1702,9 +1716,7 @@ function abrirDisparo() {
 function configurarDisparo() {
   document.getElementById('dpModo').addEventListener('click', (e) => {
     const b = e.target.closest('[data-modo]'); if (!b) return;
-    dpModo = b.dataset.modo;
-    try { localStorage.setItem('disparo_modo', dpModo); } catch (err) { /* ignora */ }
-    abrirDisparo();
+    irParaTab(b.dataset.modo === 'todas' ? 'extrair' : 'gerador');
   });
 }
 
