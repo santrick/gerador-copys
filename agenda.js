@@ -236,6 +236,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     baixar: '<path d="M12 4v11"/><path d="M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19.5h14"/>',
     importar: '<path d="M12 15V4"/><path d="M7.5 8.5L12 4l4.5 4.5"/><path d="M5 19.5h14"/>',
     mensagem: '<path d="M4.5 5.5h15v10h-9l-4.5 3.5v-3.5H4.5z"/>',
+    lapis: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     carregando: '<path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5"/>',
     copiar: '<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/>',
@@ -496,7 +497,8 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     id: '',
     cfg: null,
     carregando: false,
-    aba: 'quando',
+    secao: 'quando',
+    agitAberto: false,
     roteiroAberto: '',
     semPermissao: false,
     avisouPermissao: false,
@@ -771,39 +773,67 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   }
 
   // ═══════════════════════════════════════════════ ESQUELETO ═══
+  // Página organizada pelo que sai e quando: resumo no topo, linha do tempo dos disparos e,
+  // ao lado (ou acima, no celular), as seções de configuração em sanfona.
 
-  const AG_ABAS = [
+  const AG_SECOES = [
     ['quando', 'calendario', 'Quando'],
-    ['agitacao', 'raio', 'Agitação'],
-    ['persona', 'pessoa', 'Persona'],
-    ['copy', 'brilho', 'Copy'],
     ['roteiro', 'lista', 'Roteiro'],
+    ['persona', 'pessoa', 'Persona'],
+    ['estilo', 'brilho', 'Estilo da IA'],
     ['pacotes', 'pacote', 'Pacotes']
   ];
+  const AG_INICIAIS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+  function agPrimeiroNome(m) { return nomeModelo(m || '').split(/\s+/)[0] || ''; }
 
   function agMontarEsqueleto(raiz) {
     ag.iniciado = true;
     raiz.innerHTML = `
       <div class="gr2-modelos-wrap"><div class="gr2-modelos" id="agModelos" role="listbox" aria-label="Escolha a modelo"></div></div>
-      <div class="ag-card ag-plano">
-        <div class="ag-topo">
+      <section class="ag-resumo" aria-label="Resumo do plano">
+        <div class="ag-resumo-tit">
+          <h2 id="agTitulo">Plano</h2>
+          <span class="ag-salvo" id="agSalvo" aria-live="polite"></span>
+        </div>
+        <div class="ag-resumo-ferr">
           <label class="ag-conta" title="O @ da modelo na Privacy. A extensão usa pra conferir se tá logada na conta certa.">
             <span class="ag-conta-arroba">@</span>
-            <input type="text" id="agConta" placeholder="conta na Privacy (opcional)" autocomplete="off" spellcheck="false" maxlength="60" aria-label="Conta da modelo na Privacy">
+            <input type="text" id="agConta" placeholder="conta na Privacy" autocomplete="off" spellcheck="false" maxlength="60" aria-label="Conta da modelo na Privacy (opcional)">
           </label>
-          <span class="ag-salvo" id="agSalvo" aria-live="polite"></span>
-          <div class="ag-topo-acoes">
-            <button type="button" class="ag-ico" data-ag="config" title="IA: chave da OpenRouter e modelo" aria-label="Configurar IA">${ico('engrenagem')}</button>
-            <button type="button" class="ag-ico" data-ag="exportar" title="Baixar backup da agenda (.json)" aria-label="Baixar backup">${ico('baixar')}</button>
-            <button type="button" class="ag-ico" data-ag="importar" title="Importar backup (.json)" aria-label="Importar backup">${ico('importar')}</button>
-            <input type="file" id="agArquivo" accept=".json,application/json" hidden>
-          </div>
+          <button type="button" class="ag-ico" data-ag="config" title="IA: chave da OpenRouter e modelo" aria-label="Configurar IA">${ico('engrenagem')}</button>
+          <button type="button" class="ag-ico" data-ag="exportar" title="Baixar backup da agenda (.json)" aria-label="Baixar backup">${ico('baixar')}</button>
+          <button type="button" class="ag-ico" data-ag="importar" title="Importar backup (.json)" aria-label="Importar backup">${ico('importar')}</button>
+          <input type="file" id="agArquivo" accept=".json,application/json" hidden>
         </div>
-        <div class="ag-aviso ag-aviso-perm" id="agAvisoPerm" hidden>${ico('alerta')}<span>A Agenda ainda não foi liberada no Firebase: o que você mudar aqui não fica salvo.</span></div>
-        <div class="ag-abas" role="tablist" aria-label="Partes da agenda">
-          ${AG_ABAS.map(([id, ic, rot]) => `<button type="button" role="tab" data-ag-aba="${id}" aria-selected="${id === ag.aba}" class="${id === ag.aba ? 'ativo' : ''}">${ico(ic)}<span>${rot}</span></button>`).join('')}
+        <div class="ag-stats" id="agStats"></div>
+        <div class="ag-resumo-acoes">
+          <button type="button" class="ag-btn ag-btn-prim" id="agGerar" data-ag="gerar"></button>
+          <button type="button" class="ag-btn" id="agReais" data-ag="reais" title="Preenche os horários vazios com copys de verdade dessa modelo, que ainda não saíram">${ico('copiar')}<span>Usar copys reais</span></button>
         </div>
-        <div class="ag-corpo" id="agCorpo"></div>
+        <div class="ag-resumo-pe">
+          <button type="button" class="ag-link" id="agRefazer" data-ag="refazer" hidden>${ico('atualizar')}Refazer todas com a IA</button>
+          <p class="ag-dica" id="agHist"></p>
+        </div>
+      </section>
+      <div class="ag-aviso ag-aviso-perm" id="agAvisoPerm" hidden>${ico('alerta')}<span>A Agenda ainda não foi liberada no Firebase: o que você mudar aqui não fica salvo.</span></div>
+      <div class="ag-layout">
+        <aside class="ag-config" id="agConfig" aria-label="Configuração da agenda"></aside>
+        <section class="ag-tl" aria-label="Linha do tempo dos disparos">
+          <header class="ag-tl-topo">
+            <div>
+              <h3>Linha do tempo</h3>
+              <p class="ag-dica">O assunto de um horário vale pra ele em todos os dias.</p>
+            </div>
+            <span class="ag-extra" id="agMsgsInfo"></span>
+          </header>
+          <div id="agTimeline"></div>
+          <details class="ag-detalhes ag-colar" id="agColarBox">
+            <summary>${ico('mensagem')}Colar várias de uma vez</summary>
+            <textarea class="ag-input ag-txt ag-txt-msgs" id="agColar" placeholder="Uma por bloco, separadas por linha em branco. Preenche os horários na ordem, do primeiro ao último."></textarea>
+            <div class="ag-detalhes-acoes"><span class="ag-dica-mini">O que sobrar entra no rodízio.</span><button type="button" class="ag-btn" data-ag="colar">Preencher horários</button></div>
+          </details>
+        </section>
       </div>
       <div class="ag-rodape" id="agRodape">
         <p class="ag-status" id="agStatus" aria-live="polite" hidden></p>
@@ -812,10 +842,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
           <button type="button" class="gr-sortear ag-programar" id="agProgramar"></button>
         </div>
       </div>
-      <div class="ag-card ag-fila">
-        <div class="ag-fila-topo"><span class="gr-rotulo">Fila da extensão</span><span class="ag-fila-dica">A extensão pega daqui e agenda na Privacy</span></div>
+      <section class="ag-fila" aria-label="Fila da extensão">
+        <header class="ag-fila-topo"><h3>Fila da extensão</h3><span class="ag-fila-dica">A extensão pega daqui e agenda na Privacy</span></header>
         <div id="agFila"></div>
-      </div>`;
+      </section>`;
     raiz.addEventListener('click', agClique);
     raiz.addEventListener('input', agDigitou);
     raiz.addEventListener('change', agMudou);
@@ -823,48 +853,46 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   }
 
   function agRenderCorpo() {
-    const corpo = document.getElementById('agCorpo');
-    if (!corpo) return;
-    document.querySelectorAll('#agRaiz [data-ag-aba]').forEach((b) => {
-      const on = b.dataset.agAba === ag.aba;
-      b.classList.toggle('ativo', on);
-      b.setAttribute('aria-selected', on);
-    });
+    const config = document.getElementById('agConfig');
+    if (!config) return;
+    const tit = document.getElementById('agTitulo');
+    tit.textContent = ag.modelo ? `Plano da ${agPrimeiroNome(ag.modelo)}` : 'Plano';
     const conta = document.getElementById('agConta');
-    const plano = document.querySelector('#agRaiz .ag-plano');
+    const teste = document.getElementById('agTeste');
     if (!ag.cfg) {
-      plano.classList.add('ag-sem-cfg');
-      corpo.innerHTML = `<div class="ag-carregando">${ico('carregando', 'ag-gira')}<span>${ag.modelo ? (agUser() ? `Abrindo a agenda de ${esc(nomeModelo(ag.modelo).split(/\s+/)[0])}…` : 'Esperando o login…') : 'Carregando as modelos…'}</span></div>`;
+      const msg = ag.modelo ? (agUser() ? `Abrindo a agenda de ${esc(agPrimeiroNome(ag.modelo))}…` : 'Esperando o login…') : 'Carregando as modelos…';
+      config.innerHTML = `<div class="ag-carregando">${ico('carregando', 'ag-gira')}<span>${msg}</span></div>`;
+      document.getElementById('agTimeline').innerHTML = '';
+      document.getElementById('agStats').innerHTML = '';
+      document.getElementById('agMsgsInfo').textContent = '';
+      ['agGerar', 'agReais'].forEach((id) => { document.getElementById(id).disabled = true; });
+      document.getElementById('agGerar').innerHTML = `${ico('brilho')}<span>Gerar copys com IA</span>`;
+      document.getElementById('agRefazer').hidden = true;
+      document.getElementById('agHist').textContent = '';
       conta.value = '';
       conta.disabled = true;
-      document.getElementById('agTeste').disabled = true;
+      teste.disabled = true;
       agAtualizarRodape();
       agRenderFila();
       return;
     }
-    plano.classList.remove('ag-sem-cfg');
     conta.disabled = false;
     if (document.activeElement !== conta) conta.value = ag.cfg.contaPrivacy || '';
-    document.getElementById('agTeste').disabled = false;
-    document.getElementById('agTeste').checked = !!ag.cfg.teste;
+    teste.disabled = false;
+    teste.checked = !!ag.cfg.teste;
     agMostrarAvisoPermissao();
-    agRenderAba();
+    agRenderTudo();
     agRenderFila();
   }
 
-  function agRenderAba() {
-    const corpo = document.getElementById('agCorpo');
-    if (!corpo || !ag.cfg) return;
-    const html = {
-      quando: agHtmlQuando, agitacao: agHtmlAgitacao, persona: agHtmlPersona,
-      copy: agHtmlCopy, roteiro: agHtmlRoteiro, pacotes: agHtmlPacotes
-    }[ag.aba] || agHtmlQuando;
-    corpo.innerHTML = html();
-    corpo.dataset.aba = ag.aba;
+  function agRenderTudo() {
+    if (!ag.cfg) return;
+    agRenderConfig();
+    agRenderTimeline();
     agAtualizar();
   }
 
-  // Partes que mudam sem redesenhar a aba (não tira o foco de quem está digitando)
+  // Partes que mudam sem redesenhar (não tira o foco de quem está digitando)
   function agAtualizar() {
     agAtualizarRodape();
     if (!ag.cfg) return;
@@ -883,7 +911,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       const t = el.querySelector('[data-agitada-txt]');
       if (t) t.textContent = agitadas.length ? `Agitação ligada: ${agitadas.length} ${agitadas.length === 1 ? 'hora' : 'horas'} com até ${Math.max(...agitadas)} disparos` : '';
     });
-    if (ag.aba === 'copy') agAtualizarCopyInfo();
+    document.querySelectorAll('#agRaiz [data-secao-resumo]').forEach((el) => { el.textContent = agResumoSecao(el.dataset.secaoResumo); });
+    const stats = document.getElementById('agStats');
+    if (stats) stats.innerHTML = agHtmlStats();
+    agAtualizarCopyInfo();
   }
 
   function agAtualizarRodape() {
@@ -910,49 +941,272 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     el.dataset.tipo = ag.statusTipo;
   }
 
-  // ═══════════════════════════════════════════════ ABA QUANDO ═══
+  // ═══════════════════════════════════════════════ RESUMO (topo) ═══
+
+  function agContagemCopys(c) {
+    const slots = agSlotsTexto(c);
+    const mapa = agMsgsMapa(c);
+    let com = 0, proibidas = 0;
+    slots.forEach((s) => { const t = agMsgDoHorario(mapa, s); if (t) { com++; if (temaProibido(t)) proibidas++; } });
+    return { slots, mapa, com, vazios: slots.length - com, proibidas };
+  }
+
+  function agHtmlStats() {
+    const c = ag.cfg;
+    const plano = agMontarPlano(c);
+    const porDia = agHorariosValidos(c.horarios, c.limiteDia).length;
+    const { slots, com, proibidas } = agContagemCopys(c);
+    const pers = agPersonaAtual(c);
+    const chip = (secao, icone, txt, extra) => `<button type="button" class="ag-stat ${extra || ''}" data-ag="ir" data-ir="${secao}">${ico(icone)}<span>${txt}</span></button>`;
+    return [
+      chip('quando', 'calendario', `<b>${c.dias.length}</b> ${c.dias.length === 1 ? 'dia' : 'dias'}`),
+      chip('quando', 'relogio', `<b>${porDia}</b> por dia`),
+      `<span class="ag-stat ag-stat-forte">${ico('raio')}<span><b>${plano.length}</b> ${plano.length === 1 ? 'disparo' : 'disparos'}</span></span>`,
+      slots.length ? `<span class="ag-stat ${com < slots.length ? 'ag-stat-aviso' : 'ag-stat-ok'}">${ico('mensagem')}<span><b>${com}/${slots.length}</b> copys prontas</span></span>` : '',
+      proibidas ? `<span class="ag-stat ag-stat-ruim">${ico('alerta')}<span><b>${proibidas}</b> com tema proibido</span></span>` : '',
+      chip('persona', 'pessoa', pers ? esc(pers.nome || 'Sem nome') : 'Sem persona'),
+      c.teste ? `<span class="ag-stat ag-stat-teste">${ico('frasco')}<span>Modo teste</span></span>` : ''
+    ].join('');
+  }
+
+  function agAtualizarCopyInfo() {
+    const c = ag.cfg;
+    if (!c) return;
+    const { slots, com, vazios, proibidas } = agContagemCopys(c);
+    const info = document.getElementById('agMsgsInfo');
+    if (info) {
+      info.textContent = slots.length ? `${com} de ${slots.length} com texto${proibidas ? ` · ${proibidas} com tema proibido` : ''}` : '';
+      info.classList.toggle('ag-txt-aviso', (!!vazios && com > 0) || !!proibidas);
+    }
+    const btn = document.getElementById('agGerar');
+    if (btn && !ag.gerando) {
+      btn.disabled = false;
+      if (!slots.length) btn.innerHTML = `${ico('brilho')}<span>Gerar copys com IA</span>`;
+      else if (!com) btn.innerHTML = `${ico('brilho')}<span>Gerar ${slots.length} ${slots.length === 1 ? 'copy' : 'copys'} com IA</span>`;
+      else if (vazios) btn.innerHTML = `${ico('brilho')}<span>Gerar ${vazios === 1 ? 'o horário vazio' : `os ${vazios} vazios`} com IA</span>`;
+      else btn.innerHTML = `${ico('atualizar')}<span>Refazer todas com IA (${slots.length})</span>`;
+    }
+    const reais = document.getElementById('agReais');
+    if (reais) reais.disabled = ag.gerando || !vazios;
+    const refazer = document.getElementById('agRefazer');
+    if (refazer) refazer.hidden = !(com && vazios) || ag.gerando;
+    const hist = (c.historicoCopies || []).length;
+    const h = document.getElementById('agHist');
+    if (h) h.innerHTML = hist ? `A IA evita repetir as últimas ${hist} copys que já foram pra fila · <button type="button" class="ag-link" data-ag="hist-limpar">limpar</button>` : '';
+    const pe = document.getElementById('agPromptEstado');
+    if (pe) pe.textContent = c.prompt ? 'Prompt editado' : 'Prompt padrão';
+  }
+
+  // ═══════════════════════════════════════════════ LINHA DO TEMPO ═══
+
+  function agFmtDia(iso, longo) {
+    if (!iso) return 'Sem dia escolhido';
+    const [Y, M, D] = iso.split('-').map(Number);
+    return new Date(Y, M - 1, D).toLocaleDateString('pt-BR', longo ? { weekday: 'long', day: '2-digit', month: '2-digit' } : { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
+  }
+
+  // Todos os disparos (texto e pacote), com o pacote que o rodízio vai usar em cada um
+  function agItensTimeline(c) {
+    const plano = agMontarPlano(c);
+    const itens = plano.length ? plano : agHorariosValidos(c.horarios, c.limiteDia).map(hora => ({ dia: '', hora }));
+    const usados = { pack: 0, video: 0 };
+    return itens.map((it) => {
+      const assunto = agAssuntoDaHora(c, it.hora);
+      let pack = null;
+      if (AG_ACERVO_PROX[assunto]) {
+        const lista = agListaPacotes(c, assunto);
+        if (lista.length) pack = lista[(agProxRodizio(c, assunto) + usados[assunto]++) % lista.length];
+      }
+      return { dia: it.dia, hora: it.hora, assunto, pack };
+    });
+  }
+
+  const agAutoAlturaNativa = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('field-sizing', 'content');
+  function agAutoAltura(ta) {
+    if (agAutoAlturaNativa || !ta.offsetParent) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight + 2, 320) + 'px';
+  }
+
+  function agHtmlSlot(c, s, mapa) {
+    const opcoes = Object.entries(AG_ASSUNTOS).map(([id, [rot]]) => `<option value="${id}" ${id === s.assunto ? 'selected' : ''}>${esc(rot)}</option>`).join('');
+    const seletor = `<span class="ag-assunto" title="Assunto das ${s.hora} (vale pra esse horário em todos os dias)">
+      <i class="ag-ponto"></i><select class="ag-assunto-sel" data-assunto-hora="${s.hora}" aria-label="Assunto das ${s.hora}, em todos os dias">${opcoes}</select>${ico('seta', 'ag-assunto-seta')}</span>`;
+    if (AG_ACERVO_PROX[s.assunto]) {
+      const tipo = s.assunto === 'video' ? 'vídeo' : 'pack';
+      const card = s.pack
+        ? `<div class="ag-pack">${`<span class="ag-pack-ico">${ico(s.assunto === 'video' ? 'video' : 'pacote')}</span>`}
+            <span class="ag-pack-txt"><b>${esc(s.pack.apelido || s.pack.nome || 'pacote')}</b><small>${esc(s.pack.preco ? 'R$ ' + String(s.pack.preco).replace(/^R\$\s*/, '') : 'sem preço')}${s.pack.nome ? ' · ' + esc(s.pack.nome) : ''}</small></span>
+            <span class="ag-pack-nota">texto do próprio pacote</span></div>`
+        : `<div class="ag-pack falta"><span class="ag-pack-ico">${ico('alerta')}</span><span class="ag-pack-txt"><b>Nenhum ${tipo} no rodízio</b><small>Marque pelo menos um em Pacotes</small></span><button type="button" class="ag-link" data-ag="ir" data-ir="pacotes">Abrir Pacotes</button></div>`;
+      return `<div class="ag-slot ag-slot-pack" data-assunto="${s.assunto}">
+        <div class="ag-slot-hora"><b>${s.hora}</b></div>
+        <div class="ag-slot-corpo"><div class="ag-slot-topo">${seletor}</div>${card}</div>
+      </div>`;
+    }
+    const texto = agMsgDoHorario(mapa, s);
+    const ruim = !!texto && temaProibido(texto);
+    return `<div class="ag-slot ag-slot-txt ${ruim ? 'proibida' : ''}" data-assunto="${s.assunto}" data-chave="${escAttr(agChaveMsg(s))}">
+      <div class="ag-slot-hora"><b>${s.hora}</b></div>
+      <div class="ag-slot-corpo">
+        <div class="ag-slot-topo">${seletor}
+          <span class="ag-badge-proibida">${ico('alerta')}Tema proibido · fica fora da fila</span>
+          <button type="button" class="ag-ico ag-ico-p" data-ag="refazer-um" title="Gerar de novo só esta" aria-label="Gerar de novo só a das ${s.hora}">${ico('atualizar')}</button>
+        </div>
+        <textarea class="ag-input ag-txt ag-slot-msg" rows="1" data-msg placeholder="Vazio: repete uma das outras mensagens" aria-label="Mensagem das ${s.hora}">${esc(texto)}</textarea>
+      </div>
+    </div>`;
+  }
+
+  function agRenderTimeline() {
+    const box = document.getElementById('agTimeline');
+    if (!box || !ag.cfg) return;
+    const c = ag.cfg;
+    const horas = agHorariosValidos(c.horarios, c.limiteDia);
+    if (!horas.length) {
+      box.innerHTML = `<div class="ag-tl-vazio">${ico('calendario')}<b>Nenhum horário escolhido</b><p>Marque os dias e horários dos disparos no painel Quando.</p><button type="button" class="ag-btn" data-ag="ir" data-ir="quando">Abrir Quando</button></div>`;
+      document.getElementById('agColarBox').hidden = true;
+      return;
+    }
+    document.getElementById('agColarBox').hidden = false;
+    const itens = agItensTimeline(c);
+    const semDias = !agMontarPlano(c).length;
+    const mapa = agMsgsMapa(c);
+    const grupos = new Map();
+    itens.forEach((s) => { if (!grupos.has(s.dia)) grupos.set(s.dia, []); grupos.get(s.dia).push(s); });
+    box.innerHTML = (semDias
+      ? `<div class="ag-aviso">${ico('calendario')}<span>${c.dias.length ? 'Os dias marcados já passaram (o disparo precisa ser pelo menos 10 min no futuro).' : 'Nenhum dia marcado.'} As mensagens abaixo valem pra esses horários em qualquer dia.</span><button type="button" class="ag-link" data-ag="ir" data-ir="quando">Marcar dias</button></div>`
+      : '')
+      + [...grupos].map(([dia, lista]) => `
+        <div class="ag-tl-dia">
+          <div class="ag-tl-dia-cab"><b>${esc(semDias ? 'Qualquer dia' : agFmtDia(dia, true).replace(/^./, (x) => x.toUpperCase()))}</b><span>${lista.length} ${lista.length === 1 ? 'disparo' : 'disparos'}</span></div>
+          <div class="ag-tl-lista">${lista.map(s => agHtmlSlot(c, s, mapa)).join('')}</div>
+        </div>`).join('');
+    if (!agAutoAlturaNativa) box.querySelectorAll('textarea[data-msg]').forEach(agAutoAltura);
+  }
+
+  // ═══════════════════════════════════════════════ CONFIGURAÇÃO (sanfona) ═══
+
+  function agRotuloSeq(seq) { return seq === 'aquecimento' ? 'Só aquecer' : seq.split(',').map(a => AG_ASSUNTOS[a][0]).join(' → '); }
+
+  function agModeloRoteiroAtivo(c) {
+    const horasDia = agHorariosValidos(c.horarios, c.limiteDia);
+    if (!horasDia.length) return null;
+    const assuntos = horasDia.map(h => agAssuntoDaHora(c, h));
+    return AG_MODELOS_ROTEIRO.find((seq) => {
+      const dist = agDistribuirRoteiro(seq.split(','), horasDia);
+      return horasDia.every((h, i) => dist[h] === assuntos[i]);
+    }) || 'personalizado';
+  }
+
+  function agResumoSecao(id) {
+    const c = ag.cfg;
+    if (!c) return '';
+    if (id === 'quando') return `${c.dias.length} ${c.dias.length === 1 ? 'dia' : 'dias'} · ${agHorariosValidos(c.horarios, c.limiteDia).length}/dia`;
+    if (id === 'roteiro') { const a = agModeloRoteiroAtivo(c); return !a ? '—' : a === 'personalizado' ? 'Personalizado' : agRotuloSeq(a); }
+    if (id === 'persona') { const p = agPersonaAtual(c); return p ? (p.nome || 'Sem nome') : 'Nenhuma'; }
+    if (id === 'estilo') return AG_EMOJI[c.emojiCopy][0] + (c.prompt ? ' · prompt editado' : '');
+    if (id === 'pacotes') { const n = c.pacotesReg.filter(p => p.usar).length; return `${n} no rodízio`; }
+    return '';
+  }
+
+  function agRenderConfig() {
+    const box = document.getElementById('agConfig');
+    if (!box || !ag.cfg) return;
+    const rolagem = box.scrollTop;
+    box.innerHTML = AG_SECOES.map(([id, icone, rot]) => {
+      const aberta = ag.secao === id;
+      return `<section class="ag-secao ${aberta ? 'aberta' : ''}" data-secao="${id}">
+        <button type="button" class="ag-secao-cab" data-ag-secao="${id}" aria-expanded="${aberta}">
+          <span class="ag-secao-ico">${ico(icone)}</span>
+          <span class="ag-secao-nome">${rot}</span>
+          <span class="ag-secao-resumo" data-secao-resumo="${id}">${esc(agResumoSecao(id))}</span>
+          ${ico('seta', 'ag-secao-seta')}
+        </button>
+        ${aberta ? `<div class="ag-secao-corpo">${({ quando: agHtmlQuando, roteiro: agHtmlRoteiro, persona: agHtmlPersona, estilo: agHtmlEstilo, pacotes: agHtmlPacotes })[id]()}</div>` : ''}
+      </section>`;
+    }).join('');
+    box.scrollTop = rolagem;
+  }
+
+  // Abre uma seção (chips do resumo, avisos da linha do tempo); no celular rola até ela
+  function agIrSecao(id) {
+    ag.secao = id;
+    agRenderConfig();
+    agAtualizar();
+    if (id === 'pacotes') agCarregarAcervo(ag.id);
+    const el = document.querySelector(`#agConfig [data-secao="${id}"]`);
+    if (el) {
+      if (window.matchMedia('(min-width: 1100px)').matches) {
+        const box = document.getElementById('agConfig');
+        box.scrollTop = el.offsetTop - box.offsetTop;
+        if (box.getBoundingClientRect().top > window.innerHeight || box.getBoundingClientRect().bottom < 0) box.scrollIntoView({ block: 'start' });
+      } else el.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
+  }
+
+  // ═══════════════════════════════════════════════ QUANDO (+ agitação) ═══
 
   function agHtmlQuando() {
     const c = ag.cfg;
     const hoje = new Date();
-    const dias = [];
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + i);
+    const h0 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+    const fim = new Date(h0.getFullYear(), h0.getMonth(), h0.getDate() + 13);
+    const ini = new Date(h0.getFullYear(), h0.getMonth(), h0.getDate() - h0.getDay());
+    const ultimo = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate() + (6 - fim.getDay()));
+    const cels = [];
+    for (let d = new Date(ini); d <= ultimo; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
       const iso = agDataISO(d);
-      const topo = i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : AG_DIAS_SEMANA[d.getDay()];
+      if (d < h0 || d > fim) { cels.push(`<span class="ag-cal-dia fora" aria-hidden="true">${d.getDate()}</span>`); continue; }
       const on = c.dias.includes(iso);
-      dias.push(`<button type="button" class="ag-dia ${on ? 'on' : ''}" data-dia="${iso}" aria-pressed="${on}" title="${d.getDate()} de ${AG_MESES[d.getMonth()]}"><small>${topo}</small><b>${d.getDate()}</b></button>`);
+      const ehHoje = d.getTime() === h0.getTime();
+      cels.push(`<button type="button" class="ag-cal-dia ${on ? 'on' : ''} ${ehHoje ? 'hoje' : ''}" data-dia="${iso}" aria-pressed="${on}" title="${ehHoje ? 'Hoje, ' : ''}${AG_DIAS_SEMANA[d.getDay()]} ${d.getDate()} de ${AG_MESES[d.getMonth()]}">${d.getDate()}</button>`);
     }
+    const meses = [...new Set([AG_MESES[h0.getMonth()], AG_MESES[fim.getMonth()]])].join(' · ');
     const ativos = agHorariosValidos(c.horarios, 99);
     const porHora = new Map();
     ativos.forEach((h) => { const hh = h.slice(0, 2); if (!porHora.has(hh)) porHora.set(hh, []); porHora.get(hh).push(h); });
     const horas = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map((hh) => {
       const ativa = (porHora.get(hh) || []).sort();
       const lista = ativa.length ? ativa : (c.horasGuardadas?.[hh] || '').split(',').filter(Boolean);
-      const rotulo = lista.length > 1 ? `${hh}h <i>×${lista.length}</i>` : (lista[0] && !lista[0].endsWith(':00') ? lista[0] : hh + 'h');
+      const rotulo = lista.length > 1 ? `${hh}h<i>×${lista.length}</i>` : (lista[0] && !lista[0].endsWith(':00') ? lista[0] : hh + 'h');
       const titulo = ativa.length ? ativa.join(', ') : lista.length ? `Desligado · clique pra voltar: ${lista.join(', ')}` : `Sem disparo às ${hh}h`;
       return `<button type="button" class="ag-hora ${ativa.length ? 'on' : ''} ${!ativa.length && lista.length ? 'guardada' : ''}" data-hora="${hh}" aria-pressed="${!!ativa.length}" title="${escAttr(titulo)}">${rotulo}</button>`;
     }).join('');
+    const a = ag.agit;
     return `
-      <div class="ag-sec">
-        <div class="ag-sec-head"><span class="gr-rotulo">Dias</span>
-          <div class="ag-atalhos">
-            <button type="button" data-atalho="semana" title="Hoje e os próximos 6 dias">Próx. 7 dias</button>
-            <button type="button" data-atalho="uteis" title="Segunda a sexta dos próximos 7 dias">Dias úteis</button>
-            <button type="button" data-atalho="fds" title="Sábado e domingo dos próximos 7 dias">Fim de semana</button>
-            <button type="button" data-atalho="limpar">Limpar</button>
-          </div>
+      <div class="ag-bloco">
+        <div class="ag-bloco-cab"><span class="ag-rot">Dias</span><span class="ag-extra">${esc(meses)}</span></div>
+        <div class="ag-atalhos">
+          <button type="button" data-atalho="semana" title="Hoje e os próximos 6 dias">7 dias</button>
+          <button type="button" data-atalho="uteis" title="Segunda a sexta dos próximos 7 dias">Úteis</button>
+          <button type="button" data-atalho="fds" title="Sábado e domingo dos próximos 7 dias">Sáb e dom</button>
+          <button type="button" data-atalho="limpar">Limpar</button>
         </div>
-        <div class="ag-grade-dias">${dias.join('')}</div>
+        <div class="ag-cal">${AG_INICIAIS_SEMANA.map(l => `<span class="ag-cal-sem" aria-hidden="true">${l}</span>`).join('')}${cels.join('')}</div>
       </div>
-      <div class="ag-sec">
-        <div class="ag-sec-head"><span class="gr-rotulo">Horários</span><span class="ag-extra" id="agHorasInfo"></span></div>
+      <div class="ag-bloco">
+        <div class="ag-bloco-cab"><span class="ag-rot">Horários</span><span class="ag-extra" id="agHorasInfo"></span></div>
         ${agHtmlAgitada(false)}
         <div class="ag-grade-horas">${horas}</div>
         <label class="ag-linha-campo"><span>Máximo de disparos por dia</span>
           <input class="ag-input ag-input-num" type="number" min="1" max="50" inputmode="numeric" data-campo="limiteDia" value="${escAttr(String(c.limiteDia))}">
         </label>
-      </div>`;
+      </div>
+      <details class="ag-sub" data-agit-det ${ag.agitAberto ? 'open' : ''}>
+        <summary>${ico('raio')}<span>Mais de um disparo por hora</span>${ico('seta', 'ag-sub-seta')}</summary>
+        <div class="ag-sub-corpo">
+          <p class="ag-dica">Preenche os horários sozinho: tantos disparos por hora, espalhados dentro de cada hora, no período que você escolher.</p>
+          <div class="ag-grade-3">
+            <label class="ag-campo"><span>Por hora</span><input class="ag-input" type="number" min="1" max="12" inputmode="numeric" data-agit="qtd" value="${escAttr(String(a.qtd))}"></label>
+            <label class="ag-campo"><span>Das</span><input class="ag-input" type="time" data-agit="de" value="${escAttr(a.de)}"></label>
+            <label class="ag-campo"><span>Até</span><input class="ag-input" type="time" data-agit="ate" value="${escAttr(a.ate)}"></label>
+          </div>
+          <button type="button" class="ag-btn" data-ag="agit-aplicar">${ico('raio')}<span>Aplicar nos horários</span></button>
+          <p class="ag-dica ag-agit-status" id="agAgitStatus">${esc(a.status)}</p>
+          ${agHtmlAgitada(true)}
+        </div>
+      </details>`;
   }
 
   function agHtmlAgitada(card) {
@@ -997,32 +1251,13 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     c.dias = novos;
   }
 
-  // ═══════════════════════════════════════════════ ABA AGITAÇÃO ═══
-
-  function agHtmlAgitacao() {
-    const a = ag.agit;
-    return `
-      <div class="ag-sec">
-        <div class="ag-sec-head"><span class="gr-rotulo">Vários disparos por hora</span></div>
-        <p class="ag-dica">Preenche os horários sozinho: tantos disparos por hora, espalhados dentro de cada hora, no período que você escolher.</p>
-        <div class="ag-grade-3">
-          <label class="ag-campo"><span>Por hora</span><input class="ag-input" type="number" min="1" max="12" inputmode="numeric" data-agit="qtd" value="${escAttr(String(a.qtd))}"></label>
-          <label class="ag-campo"><span>Das</span><input class="ag-input" type="time" data-agit="de" value="${escAttr(a.de)}"></label>
-          <label class="ag-campo"><span>Até</span><input class="ag-input" type="time" data-agit="ate" value="${escAttr(a.ate)}"></label>
-        </div>
-        <button type="button" class="ag-btn ag-btn-prim" data-ag="agit-aplicar">${ico('raio')}<span>Aplicar nos horários</span></button>
-        <p class="ag-dica ag-agit-status" id="agAgitStatus">${esc(a.status)}</p>
-        ${agHtmlAgitada(true)}
-      </div>`;
-  }
-
   function agAplicarAgitacao() {
     const c = ag.cfg;
     const a = ag.agit;
     const qtd = Math.min(12, Math.max(1, parseInt(a.qtd) || 1));
     const [h1] = (a.de || '08:00').split(':').map(Number);
     const [h2] = (a.ate || '23:00').split(':').map(Number);
-    if (!(h1 < h2)) { a.status = 'A hora final precisa ser depois da inicial.'; agRenderAba(); return; }
+    if (!(h1 < h2)) { a.status = 'A hora final precisa ser depois da inicial.'; agRenderConfig(); agAtualizar(); return; }
     const gerados = [];
     for (let h = h1; h <= h2; h++) {
       for (let i = 0; i < qtd; i++) gerados.push(`${String(h).padStart(2, '0')}:${String(Math.round(i * 60 / qtd)).padStart(2, '0')}`);
@@ -1031,10 +1266,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     c.horasGuardadas = {};
     c.horarios = agHorariosValidos(gerados.join(', '), 999).join(', ');
     a.status = c.limiteDia < gerados.length
-      ? `${gerados.length} disparos gerados, mas o "Máximo por dia" tá em ${c.limiteDia}: só os ${c.limiteDia} primeiros horários saem. Aumente na aba Quando se quiser todos.`
+      ? `${gerados.length} disparos gerados, mas o "Máximo por dia" tá em ${c.limiteDia}: só os ${c.limiteDia} primeiros horários saem. Aumente ali em cima se quiser todos.`
       : `${gerados.length} disparos gerados, um a cada ${Math.round(60 / qtd)} min dentro de cada hora.`;
     agSalvar();
-    agRenderAba();
+    agRenderTudo();
   }
 
   function agTirarAgitacao(acao) {
@@ -1052,36 +1287,86 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     delete c.antesAgitacao;
     ag.agit.status = '';
     agSalvar();
-    agRenderAba();
+    agRenderTudo();
   }
 
-  // ═══════════════════════════════════════════════ ABA PERSONA ═══
+  // ═══════════════════════════════════════════════ ROTEIRO ═══
+
+  function agHtmlRoteiro() {
+    const c = ag.cfg;
+    const horasDia = agHorariosValidos(c.horarios, c.limiteDia);
+    const assuntos = horasDia.map(h => agAssuntoDaHora(c, h));
+    const ativo = agModeloRoteiroAtivo(c);
+    const contagem = [...new Set(assuntos)].map(a => [a, assuntos.filter(x => x === a).length]);
+    const usamOferta = Object.keys(AG_ASSUNTOS).filter(a => a !== 'aquecimento' && !AG_ACERVO_PROX[a] && assuntos.includes(a));
+    return `
+      <p class="ag-dica">Escolha um roteiro pronto pro dia. Pra trocar o assunto de um horário só, use o seletor dele na linha do tempo.</p>
+      ${horasDia.length ? `
+        <div class="ag-bloco">
+          <div class="ag-faixa">${horasDia.map((h, i) => `<span data-assunto="${assuntos[i]}" title="${escAttr(h + ' · ' + AG_ASSUNTOS[assuntos[i]][0])}"></span>`).join('')}</div>
+          <div class="ag-contagem">${contagem.map(([a, n]) => `<span data-assunto="${a}"><i class="ag-ponto"></i>${n} ${esc(AG_ASSUNTOS[a][0])}</span>`).join('')}
+            ${assuntos.some(a => a !== 'aquecimento') ? `<button type="button" class="ag-link" data-ag="roteiro-limpar" title="Volta todos os horários pra Aquecer">${ico('atualizar')}Limpar</button>` : ''}</div>
+        </div>` : '<p class="ag-vazio">Marque os horários em Quando.</p>'}
+      <div class="ag-lista-op" role="list">${AG_MODELOS_ROTEIRO.map(seq => `
+        <button type="button" class="ag-op ${ativo === seq ? 'on' : ''}" data-roteiro="${seq}" aria-pressed="${ativo === seq}" ${horasDia.length ? '' : 'disabled'}>
+          <span class="ag-op-pontos">${seq.split(',').map(a => `<i class="ag-ponto" data-assunto="${a}"></i>`).join('')}</span>
+          <span class="ag-op-txt">${esc(agRotuloSeq(seq))}</span>${ativo === seq ? ico('check', 'ag-op-check') : ''}
+        </button>`).join('')}</div>
+      ${ativo === 'personalizado' ? '<p class="ag-dica-mini">Roteiro personalizado (escolhido horário por horário).</p>' : ''}
+      <label class="ag-campo" ${usamOferta.length ? '' : 'hidden'}><span>Detalhe da oferta <em>usado em ${esc(usamOferta.map(a => AG_ASSUNTOS[a][0]).join(', '))}</em></span>
+        <input class="ag-input" data-campo="oferta" maxlength="500" placeholder="ex. chamada 10min R$50, 30% off até domingo" value="${escAttr(c.oferta)}">
+      </label>`;
+  }
+
+  // ═══════════════════════════════════════════════ PERSONA ═══
 
   function agHtmlPersona() {
     const c = ag.cfg;
     const atual = agPersonaAtual(c);
-    const conta = c.contaPrivacy;
     const pills = `<button type="button" class="ag-pill ${atual ? '' : 'on'}" data-persona="">Sem persona</button>`
       + c.personas.map(p => `<button type="button" class="ag-pill ${atual === p ? 'on' : ''}" data-persona="${escAttr(p.id)}" title="${escAttr(p.conta ? 'Conta @' + p.conta : 'Sem conta vinculada')}">${esc(p.nome || 'Sem nome')}</button>`).join('')
       + `<button type="button" class="ag-pill ag-pill-add" data-persona="+">${ico('mais')}Nova</button>`;
     let aviso = '';
-    if (atual?.conta && conta && atual.conta !== conta) aviso = `${atual.nome || 'Essa persona'} é da conta @${atual.conta}, mas essa agenda é da @${conta}.`;
-    const campo = (rotulo, html) => `<label class="ag-campo"><span>${rotulo}</span>${html}</label>`;
-    const val = (k) => escAttr(atual?.[k] || '');
+    if (atual?.conta && c.contaPrivacy && atual.conta !== c.contaPrivacy) aviso = `${atual.nome || 'Essa persona'} é da conta @${atual.conta}, mas essa agenda é da @${c.contaPrivacy}.`;
     const proibida = atual && temaProibido([atual.nome, atual.desc, atual.jeito, atual.nunca, atual.exemplos].join('\n'));
+    const nEx = atual ? agSepararMensagens(atual.exemplos).length : 0;
     return `
-      <div class="ag-sec">
-        <div class="ag-sec-head"><span class="gr-rotulo">Persona</span></div>
-        <p class="ag-dica">Quem "escreve" as copies da IA. Pode ter mais de uma pra essa modelo; a escolhida é a que vale.</p>
-        <div class="ag-pills">${pills}</div>
-        ${aviso ? `<div class="ag-aviso">${ico('alerta')}<span>${esc(aviso)}</span></div>` : ''}
-      </div>
       ${atual ? `
-      <div class="ag-sec ag-persona">
+        <div class="ag-persona-card">
+          <span class="ag-persona-av" style="--cor:${corAvatar(atual.nome || 'p')}">${esc((atual.nome || '?').trim().charAt(0).toUpperCase() || '?')}</span>
+          <div class="ag-persona-info">
+            <b>${esc(atual.nome || 'Sem nome')}${atual.idade ? `<small>${esc(atual.idade)} anos</small>` : ''}</b>
+            <p>${atual.desc ? esc(atual.desc) : '<span class="ag-dica-mini">Sem descrição ainda</span>'}</p>
+            <span class="ag-persona-meta">${atual.conta ? `@${esc(atual.conta)}` : 'Sem conta vinculada'} · ${nEx} ${nEx === 1 ? 'exemplo' : 'exemplos'}</span>
+          </div>
+          <button type="button" class="ag-btn ag-btn-p" data-ag="persona-editar">${ico('lapis')}<span>Editar</span></button>
+        </div>
+        ${aviso ? `<div class="ag-aviso">${ico('alerta')}<span>${esc(aviso)}</span></div>` : ''}
+        ${proibida ? `<div class="ag-aviso">${ico('alerta')}<span>Tem tema proibido nessa persona (escola, aluna, novinha…). Tire, senão as copys podem ser descartadas.</span></div>` : ''}`
+      : '<p class="ag-dica">Sem persona: a IA escreve no estilo geral. Crie uma pra ela escrever com o jeito da modelo.</p>'}
+      <div class="ag-pills">${pills}</div>`;
+  }
+
+  function agAbrirPersona() {
+    const c = ag.cfg;
+    const atual = agPersonaAtual(c);
+    if (!atual) return;
+    const conta = c.contaPrivacy;
+    const campo = (rotulo, html) => `<label class="ag-campo"><span>${rotulo}</span>${html}</label>`;
+    const val = (k) => escAttr(atual[k] || '');
+    const proibida = temaProibido([atual.nome, atual.desc, atual.jeito, atual.nunca, atual.exemplos].join('\n'));
+    const html = `
+      <div class="ag-folha-topo">
+        <div>
+          <div class="ag-folha-titulo">${ico('pessoa')}Persona</div>
+          <div class="ag-folha-sub">Quem "escreve" as copys da IA de ${esc(agPrimeiroNome(ag.modelo))}. Salva sozinho.</div>
+        </div>
+        <button type="button" class="ag-ico" data-folha="fechar" title="Fechar" aria-label="Fechar">${ico('fechar')}</button>
+      </div>
+      <div class="ag-folha-corpo ag-persona-edit">
         <div class="ag-persona-linha">
-          ${campo('Nome', `<input class="ag-input" data-pcampo="nome" maxlength="80" placeholder="Nome" value="${val('nome')}">`)}
+          ${campo('Nome', `<input class="ag-input" data-pcampo="nome" maxlength="80" placeholder="Nome" value="${val('nome')}" data-foco>`)}
           ${campo('Idade', `<input class="ag-input" data-pcampo="idade" type="number" min="18" max="99" inputmode="numeric" placeholder="18+" value="${val('idade')}">`)}
-          <button type="button" class="ag-ico ag-perigo" data-ag="persona-apagar" title="Apagar persona" aria-label="Apagar persona">${ico('lixo')}</button>
         </div>
         <p class="ag-erro" id="agIdadeErro" hidden>A idade mínima é 18 anos.</p>
         <div class="ag-persona-conta">${ico('pessoa')}
@@ -1092,21 +1377,25 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
             ${!conta && !atual.conta ? '<span class="ag-dica-mini">Preencha o @ da conta no topo pra vincular</span>' : ''}
           </span>
         </div>
-        <div class="ag-aviso" id="agPersonaProibida" ${proibida ? '' : 'hidden'}>${ico('alerta')}<span>Tem tema proibido nessa persona (escola, aluna, novinha…). Tire, senão as copies podem ser descartadas.</span></div>
+        <div class="ag-aviso" id="agPersonaProibida" ${proibida ? '' : 'hidden'}>${ico('alerta')}<span>Tem tema proibido nessa persona (escola, aluna, novinha…). Tire, senão as copys podem ser descartadas.</span></div>
         ${campo('Quem ela é <em>profissão, rotina, personalidade</em>', `<textarea class="ag-input ag-txt ag-txt-curto" data-pcampo="desc" maxlength="2000" placeholder="ex. personal trainer, mora sozinha, tímida mas curiosa...">${esc(atual.desc || '')}</textarea>`)}
         ${campo('Jeito de falar <em>gírias, tom, como chama o assinante</em>', `<textarea class="ag-input ag-txt ag-txt-curto" data-pcampo="jeito" maxlength="2000" placeholder="ex. escreve tudo minúsculo, fala &quot;mozão&quot;, usa &quot;kkkk&quot;...">${esc(atual.jeito || '')}</textarea>`)}
         ${campo('Nunca diz / nunca faz', `<input class="ag-input" data-pcampo="nunca" maxlength="1000" placeholder="ex. não usa &quot;amor&quot;, não fala de dinheiro direto" value="${val('nunca')}">`)}
         ${campo('Exemplos de como ela escreve <em>um por bloco, linha em branco entre eles</em>', `<textarea class="ag-input ag-txt ag-txt-persona" data-pcampo="exemplos" maxlength="6000" placeholder="Cole 3 ou 4 mensagens reais dela. A IA imita o estilo (não copia).">${esc(atual.exemplos || '')}</textarea>`)}
         <button type="button" class="ag-btn" data-ag="persona-testar">${ico('brilho')}<span>Testar persona (3 mensagens)</span></button>
         <div id="agPersonaTeste"></div>
-      </div>` : '<div class="ag-sec"><p class="ag-vazio">Sem persona: a IA escreve no estilo geral.</p></div>'}`;
+      </div>
+      <div class="ag-folha-rodape">
+        <button type="button" class="ag-btn ag-btn-perigo" data-ag="persona-apagar">${ico('lixo')}<span>Apagar</span></button>
+        <button type="button" class="gr-sortear ag-btn-fila" data-folha="fechar">${ico('check')}<span>Pronto</span></button>
+      </div>`;
+    agAbrirFolha(html, 'ag-folha-lado');
   }
 
   async function agTestarPersona(btn) {
     const c = ag.cfg;
     const atual = agPersonaAtual(c);
-    const box = document.getElementById('agPersonaTeste');
-    if (!atual || !box) return;
+    if (!atual || !document.getElementById('agPersonaTeste')) return;
     const id = ag.id;
     btn.disabled = true;
     btn.innerHTML = `${ico('carregando', 'ag-gira')}<span>Gerando amostra…</span>`;
@@ -1118,316 +1407,83 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       });
       html = r.erro
         ? `<div class="ag-aviso">${ico('alerta')}<span>${esc(r.erro)}</span></div>`
-        : `<p class="gr-rotulo ag-amostra-rot">Amostra (não é salva)</p>${r.copies.map(t => `<div class="ag-amostra">${esc(t)}</div>`).join('')}`
+        : `<p class="ag-rot ag-amostra-rot">Amostra (não é salva)</p>${r.copies.map(t => `<div class="ag-amostra">${esc(t)}</div>`).join('')}`
           + (r.descartadas ? `<p class="ag-dica">${r.descartadas} descartada${r.descartadas === 1 ? '' : 's'} por tema proibido.</p>` : '');
     } catch (e) {
       html = `<div class="ag-aviso">${ico('alerta')}<span>${esc(e.message)}</span></div>`;
     }
     if (ag.id !== id) return;
-    const b2 = document.getElementById('agPersonaTeste');
-    if (b2) b2.innerHTML = html;
+    const box = document.getElementById('agPersonaTeste');
+    if (box) box.innerHTML = html;
     if (btn.isConnected) { btn.disabled = false; btn.innerHTML = `${ico('brilho')}<span>Testar de novo</span>`; }
   }
 
-  // ═══════════════════════════════════════════════ ABA COPY ═══
+  // ═══════════════════════════════════════════════ ESTILO DA IA ═══
 
-  function agFmtDia(iso, longo) {
-    if (!iso) return 'Sem dia escolhido (marque na aba Quando)';
-    const [Y, M, D] = iso.split('-').map(Number);
-    return new Date(Y, M - 1, D).toLocaleDateString('pt-BR', longo ? { weekday: 'long', day: '2-digit', month: '2-digit' } : { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
-  }
-
-  function agHtmlCopy() {
+  function agHtmlEstilo() {
     const c = ag.cfg;
-    const prompt = c.prompt || AG_PROMPT_PADRAO;
     return `
       ${agChave() ? '' : `<div class="ag-aviso">${ico('chave')}<span>Falta a chave da OpenRouter pra IA funcionar.</span><button type="button" class="ag-link" data-ag="config">Configurar</button></div>`}
-      <div class="ag-sec">
-        <div class="ag-sec-head"><span class="gr-rotulo">Copy com IA</span></div>
-        <div class="ag-sub">Jeito de chamar <em>só nos horários de Aquecer</em></div>
+      <div class="ag-bloco">
+        <div class="ag-bloco-cab"><span class="ag-rot">Jeito de chamar</span><span class="ag-extra">só nos horários de Aquecer</span></div>
         <div class="ag-pills">${Object.entries(AG_TIPOS_COPY).map(([id, [rot]]) => `<button type="button" class="ag-pill ${c.tiposCopy.includes(id) ? 'on' : ''}" data-tipo="${id}" aria-pressed="${c.tiposCopy.includes(id)}">${rot}</button>`).join('')}</div>
-        <div class="ag-sub">Emojis</div>
-        <div class="segmentado ag-seg">${Object.entries(AG_EMOJI).map(([id, [rot]]) => `<button type="button" class="${c.emojiCopy === id ? 'ativo' : ''}" data-emoji="${id}">${rot}</button>`).join('')}</div>
-        <label class="ag-campo"><span>Tema (opcional)</span><input class="ag-input" data-campo="briefing" maxlength="500" placeholder="ex. foto nova de lingerie, promo no PPV..." value="${escAttr(c.briefing)}"></label>
-        <div class="ag-gerar-linha">
-          <button type="button" class="ag-btn ag-btn-prim" id="agGerar" data-ag="gerar"></button>
-          <button type="button" class="ag-btn" id="agReais" data-ag="reais" title="Preenche os horários vazios com copys de verdade dessa modelo, que ainda não saíram">${ico('copiar')}<span>Usar copys reais do Synora</span></button>
-        </div>
-        <button type="button" class="ag-link ag-link-centro" id="agRefazer" data-ag="refazer" hidden>Refazer todas</button>
-        <p class="ag-dica" id="agHist"></p>
-        <details class="ag-detalhes">
-          <summary>Prompt da IA <span class="ag-extra" id="agPromptEstado"></span></summary>
-          <textarea class="ag-input ag-txt ag-txt-prompt" data-campo="prompt" spellcheck="false">${esc(prompt)}</textarea>
-          <div class="ag-detalhes-acoes"><span class="ag-dica-mini">A regra de segurança (só adultas 18+) sempre vai junto, mesmo editando.</span><button type="button" class="ag-link" data-ag="prompt-restaurar">${ico('atualizar')}Restaurar padrão</button></div>
-        </details>
       </div>
-      <div class="ag-sec">
-        <div class="ag-sec-head"><span class="gr-rotulo">Mensagens</span><span class="ag-extra" id="agMsgsInfo"></span></div>
-        <p class="ag-dica">Uma mensagem por horário, na ordem em que saem. O botão de girar gera de novo só aquela. Horário vazio repete uma das outras.</p>
-        <div class="ag-msgs" id="agMsgs">${agHtmlMensagens()}</div>
-        <details class="ag-detalhes" id="agColarBox">
-          <summary>Colar várias de uma vez</summary>
-          <textarea class="ag-input ag-txt ag-txt-msgs" id="agColar" placeholder="Uma por bloco, separadas por linha em branco. Preenche os horários na ordem, do primeiro ao último."></textarea>
-          <div class="ag-detalhes-acoes"><span></span><button type="button" class="ag-btn" data-ag="colar">Preencher horários</button></div>
-        </details>
-      </div>`;
+      <div class="ag-bloco">
+        <div class="ag-bloco-cab"><span class="ag-rot">Emojis</span></div>
+        <div class="segmentado ag-seg">${Object.entries(AG_EMOJI).map(([id, [rot]]) => `<button type="button" class="${c.emojiCopy === id ? 'ativo' : ''}" data-emoji="${id}" aria-pressed="${c.emojiCopy === id}">${rot}</button>`).join('')}</div>
+      </div>
+      <label class="ag-campo"><span>Tema <em>opcional</em></span><input class="ag-input" data-campo="briefing" maxlength="500" placeholder="ex. foto nova de lingerie, promo no PPV..." value="${escAttr(c.briefing)}"></label>
+      <button type="button" class="ag-linha-btn" data-ag="prompt-abrir">${ico('mensagem')}<span>Prompt da IA</span><small>${c.prompt ? 'editado' : 'padrão'}</small>${ico('seta', 'ag-linha-seta')}</button>`;
   }
 
-  function agHtmlMensagens() {
+  function agAbrirPrompt() {
     const c = ag.cfg;
-    const slots = agSlotsTexto(c);
-    const mapa = agMsgsMapa(c);
-    if (!slots.length) {
-      return agHorariosValidos(c.horarios, c.limiteDia).length
-        ? '<p class="ag-vazio">Todos os horários são de pack/vídeo: o texto vai o do próprio pacote.</p>'
-        : '<p class="ag-vazio">Marque dias e horários na aba Quando.</p>';
-    }
-    let diaAtual = null;
-    return slots.map((s) => {
-      const cab = s.dia !== diaAtual ? `<div class="ag-msg-dia">${esc(agFmtDia(s.dia))}</div>` : '';
-      diaAtual = s.dia;
-      const texto = agMsgDoHorario(mapa, s);
-      const ruim = !!texto && temaProibido(texto);
-      return cab + `<div class="ag-msg ${ruim ? 'proibida' : ''}" data-assunto="${s.assunto}" data-chave="${escAttr(agChaveMsg(s))}">
-        <div class="ag-msg-meta"><b>${s.hora}</b><span class="ag-tag"><i></i>${esc(AG_ASSUNTOS[s.assunto][0])}</span>
-          <span class="ag-badge-proibida">${ico('alerta')}Tema proibido · fica fora da fila</span>
-          <button type="button" class="ag-ico ag-ico-p" data-ag="refazer-um" title="Gerar de novo só esta" aria-label="Gerar de novo só esta">${ico('atualizar')}</button></div>
-        <textarea class="ag-input ag-txt ag-msg-txt" rows="2" data-msg placeholder="Vazio: vai repetir uma das outras">${esc(texto)}</textarea>
-      </div>`;
-    }).join('');
-  }
-
-  function agRenderMensagens() {
-    const box = document.getElementById('agMsgs');
-    if (box) box.innerHTML = agHtmlMensagens();
-    agAtualizar();
-  }
-
-  function agAtualizarCopyInfo() {
-    const c = ag.cfg;
-    if (!c) return;
-    const slots = agSlotsTexto(c);
-    const mapa = agMsgsMapa(c);
-    const comTexto = slots.filter(s => agMsgDoHorario(mapa, s)).length;
-    const vazios = slots.length - comTexto;
-    const proibidas = slots.filter(s => { const t = agMsgDoHorario(mapa, s); return t && temaProibido(t); }).length;
-    const info = document.getElementById('agMsgsInfo');
-    if (info) {
-      info.textContent = slots.length ? `${comTexto} de ${slots.length} com texto${proibidas ? ` · ${proibidas} com tema proibido` : ''}` : '';
-      info.classList.toggle('ag-txt-aviso', (!!vazios && comTexto > 0) || !!proibidas);
-    }
-    const btn = document.getElementById('agGerar');
-    if (btn && !ag.gerando) {
-      btn.disabled = false;
-      if (!slots.length) btn.innerHTML = `${ico('brilho')}<span>Gerar copies</span>`;
-      else if (!comTexto) btn.innerHTML = `${ico('brilho')}<span>Gerar ${slots.length} ${slots.length === 1 ? 'copy' : 'copies'}</span>`;
-      else if (vazios) btn.innerHTML = `${ico('brilho')}<span>Gerar ${vazios === 1 ? 'o horário vazio' : `os ${vazios} vazios`}</span>`;
-      else btn.innerHTML = `${ico('atualizar')}<span>Refazer todas (${slots.length})</span>`;
-    }
-    const reais = document.getElementById('agReais');
-    if (reais) reais.disabled = ag.gerando || !vazios;
-    const refazer = document.getElementById('agRefazer');
-    if (refazer) refazer.hidden = !(comTexto && vazios) || ag.gerando;
-    const hist = (c.historicoCopies || []).length;
-    const h = document.getElementById('agHist');
-    if (h) h.innerHTML = hist ? `A IA evita repetir as últimas ${hist} copies que já foram pra fila. <button type="button" class="ag-link" data-ag="hist-limpar">Limpar</button>` : '';
-    const pe = document.getElementById('agPromptEstado');
-    if (pe) pe.textContent = c.prompt ? '· editado' : '· padrão';
-  }
-
-  async function agGerar(todas) {
-    const c = ag.cfg;
-    if (!c || ag.gerando) return;
-    const slots = agSlotsTexto(c);
-    if (!slots.length) {
-      return agStatus(agHorariosValidos(c.horarios, c.limiteDia).length
-        ? 'Todos os horários são de pack: o texto vai o do próprio pacote, não precisa gerar.'
-        : 'Marque dias e horários na aba Quando.', 'aviso');
-    }
-    const mapa = agMsgsMapa(c);
-    const nCom = slots.filter(s => agMsgDoHorario(mapa, s)).length;
-    if (todas === undefined) todas = !nCom || nCom === slots.length;
-    if (todas && nCom && !confirm(`Refazer as ${slots.length} mensagens?\nAs ${nCom} que você já tem (inclusive as que editou) vão ser substituídas.`)) return;
-    const alvo = todas ? slots : slots.filter(s => !agMsgDoHorario(mapa, s));
-    const id = ag.id;
-    ag.gerando = true;
-    const rotular = (t) => { const b = document.getElementById('agGerar'); if (b) { b.disabled = true; b.innerHTML = `${ico('carregando', 'ag-gira')}<span>${esc(t)}</span>`; } };
-    rotular(`Gerando ${alvo.length} copies…`);
-    agAtualizarCopyInfo();
-    agStatus('');
-    try {
-      const r = await agPedirCopies(c, alvo, todas ? [] : agMsgsPool(mapa), (feitas, total) => { if (ag.id === id && feitas) rotular(`Gerando copies… ${feitas} de ${total}`); });
-      if (ag.id !== id || ag.cfg !== c) return;
-      if (r.erro) agStatus(r.erro, 'erro');
-      else {
-        if (todas) {
-          const hoje = agDataISO(new Date());
-          for (const k of Object.keys(mapa)) if (k.startsWith('extra') || (/^\d{4}-/.test(k) && k.slice(0, 10) < hoje)) delete mapa[k];
-        }
-        r.copies.forEach((t, i) => { if (alvo[i]) mapa[agChaveMsg(alvo[i])] = t; });
-        c.mensagens = '';
-        const desc = r.descartadas ? ` · ${r.descartadas} descartada${r.descartadas === 1 ? '' : 's'} por tema proibido` : '';
-        agStatus((r.aviso || `${r.copies.length} copies geradas: revise e clique em Programar`) + desc, r.aviso ? 'aviso' : 'ok');
-        agSalvar();
-      }
-    } catch (e) {
-      if (ag.id === id) agStatus(e.message, 'erro');
-    } finally {
-      if (ag.id === id) {
-        ag.gerando = false;
-        if (ag.aba === 'copy') agRenderMensagens();
-        else agAtualizar();
-      }
-    }
-  }
-
-  async function agRefazerUm(btn) {
-    const box = btn.closest('[data-chave]');
-    const c = ag.cfg;
-    const slot = agSlotsTexto(c).find(s => agChaveMsg(s) === box.dataset.chave);
-    if (!slot) return;
-    const id = ag.id;
-    btn.disabled = true;
-    btn.innerHTML = ico('carregando', 'ag-gira');
-    try {
-      const r = await agPedirCopies(c, [slot], agMsgsPool(agMsgsMapa(c)));
-      if (ag.id !== id || ag.cfg !== c) return;
-      if (r.erro) agStatus(r.erro, 'erro');
-      else if (r.copies?.[0]) {
-        agMsgsMapa(c)[box.dataset.chave] = r.copies[0];
-        const ta = box.querySelector('textarea');
-        if (ta) ta.value = r.copies[0];
-        box.classList.toggle('proibida', temaProibido(r.copies[0]));
-        agSalvar();
-      }
-    } catch (e) {
-      agStatus(e.message, 'erro');
-    }
-    if (btn.isConnected) { btn.disabled = false; btn.innerHTML = ico('atualizar'); }
-  }
-
-  function agColar() {
-    const c = ag.cfg;
-    const ta = document.getElementById('agColar');
-    const textos = agSepararMensagens(ta.value);
-    if (!textos.length) return;
-    const slots = agSlotsTexto(c);
-    if (!slots.length) return agStatus('Marque dias e horários na aba Quando.', 'aviso');
-    const mapa = agMsgsMapa(c);
-    slots.forEach((s, i) => { if (textos[i]) mapa[agChaveMsg(s)] = textos[i]; });
-    textos.slice(slots.length).forEach((t, i) => { mapa[`extra ${Date.now()}-${i}`] = t; });
-    const proib = textos.filter(t => temaProibido(t)).length;
-    ta.value = '';
-    agSalvar();
-    agRenderAba();
-    agStatus(`${Math.min(textos.length, slots.length)} horários preenchidos`
-      + (textos.length > slots.length ? ` · ${textos.length - slots.length} sobraram e entram no rodízio` : '')
-      + (proib ? ` · ${proib} com tema proibido (não vão pra fila)` : ''), proib ? 'aviso' : 'ok');
-  }
-
-  // Melhoria do site: preenche os horários vazios com copys reais da modelo (que ainda não saíram)
-  function agUsarReais() {
-    const c = ag.cfg;
-    const slots = agSlotsTexto(c);
-    if (!slots.length) return agStatus('Marque dias e horários na aba Quando.', 'aviso');
-    const mapa = agMsgsMapa(c);
-    const vazios = slots.filter(s => !agMsgDoHorario(mapa, s));
-    if (!vazios.length) return agStatus('Todos os horários já têm texto. Apague algum pra preencher com copy real.', 'aviso');
-    const fora = new Set([...(c.historicoCopies || []), ...agMsgsPool(mapa)].map(t => normTexto(blocoCopy(t))));
-    const vistos = new Set();
-    const reais = embaralhar(copysDaModelo(ag.modelo)
-      .map(x => ({ t: blocoCopy(x.texto || ''), preco: precoCopy(x.preco) }))
-      .filter(x => {
-        const k = normTexto(x.t);
-        if (!x.t || fora.has(k) || vistos.has(k) || temaProibido(x.t)) return false;
-        vistos.add(k);
-        return true;
-      }));
-    const semPreco = reais.filter(x => !x.preco);
-    const comPreco = reais.filter(x => x.preco);
-    let n = 0;
-    for (const s of vazios) {
-      // Aquecer prefere copy sem preço (não é venda); o resto prefere as de venda
-      const ordem = s.assunto === 'aquecimento' ? [semPreco, comPreco] : [comPreco, semPreco];
-      const lista = ordem.find(l => l.length);
-      if (!lista) break;
-      mapa[agChaveMsg(s)] = lista.shift().t;
-      n++;
-    }
-    if (!n) return agStatus('Não sobrou copy real dessa modelo que ainda não saiu. Gere com a IA.', 'aviso');
-    agSalvar();
-    agRenderMensagens();
-    agStatus(`${n} ${n === 1 ? 'horário preenchido' : 'horários preenchidos'} com copys reais${n < vazios.length ? ` · faltaram ${vazios.length - n} (não tem mais copy nova dela)` : ''}`, n < vazios.length ? 'aviso' : 'ok');
-  }
-
-  // ═══════════════════════════════════════════════ ABA ROTEIRO ═══
-
-  const agHoraCurta = (h) => h.endsWith(':00') ? h.slice(0, 2) + 'h' : h;
-  const agRotuloSeq = (seq) => seq.split(',').map(a => AG_ASSUNTOS[a][0]).join(' → ');
-
-  function agHtmlRoteiro() {
-    const c = ag.cfg;
-    const horasDia = agHorariosValidos(c.horarios, c.limiteDia);
-    const assuntos = horasDia.map(h => agAssuntoDaHora(c, h));
-    const semPacote = (a) => !!AG_ACERVO_PROX[a] && !agListaPacotes(c, a).length;
-    const ativo = horasDia.length ? AG_MODELOS_ROTEIRO.find((seq) => {
-      const dist = agDistribuirRoteiro(seq.split(','), horasDia);
-      return horasDia.every((h, i) => dist[h] === assuntos[i]);
-    }) : null;
-    const contagem = [...new Set(assuntos)].map(a => [a, assuntos.filter(x => x === a).length]);
-    const usamOferta = Object.keys(AG_ASSUNTOS).filter(a => a !== 'aquecimento' && !AG_ACERVO_PROX[a] && assuntos.includes(a));
-    return `
-      <div class="ag-sec">
-        <div class="ag-sec-head"><span class="gr-rotulo">Roteiro do dia</span>
-          ${assuntos.some(a => a !== 'aquecimento') ? `<button type="button" class="ag-link" data-ag="roteiro-limpar" title="Volta todos os horários pra Aquecer">${ico('atualizar')}Limpar</button>` : ''}
+    const html = `
+      <div class="ag-folha-topo">
+        <div>
+          <div class="ag-folha-titulo">${ico('mensagem')}Prompt da IA</div>
+          <div class="ag-folha-sub"><span id="agPromptEstado"></span> · cole aqui as instruções do seu GPT. Salva sozinho.</div>
         </div>
-        <div class="ag-sub">Modelos prontos ${horasDia.length && !ativo ? '<em>personalizado</em>' : ''}</div>
-        <div class="ag-pills">${AG_MODELOS_ROTEIRO.map(seq => `<button type="button" class="ag-pill ag-pill-seq ${ativo === seq ? 'on' : ''}" data-roteiro="${seq}">${seq.split(',').map(a => `<i class="ag-ponto" data-assunto="${a}"></i>`).join('')}<span>${seq === 'aquecimento' ? 'Só aquecer' : esc(agRotuloSeq(seq))}</span></button>`).join('')}</div>
-        ${horasDia.length ? `
-          <div class="ag-faixa">${horasDia.map((h, i) => `<span data-assunto="${assuntos[i]}" title="${escAttr(agHoraCurta(h) + ' · ' + AG_ASSUNTOS[assuntos[i]][0])}"></span>`).join('')}</div>
-          <div class="ag-contagem">${contagem.map(([a, n]) => `<span data-assunto="${a}"><i class="ag-ponto"></i>${n} ${esc(AG_ASSUNTOS[a][0])}</span>`).join('')}</div>` : ''}
-        <div class="ag-roteiro">${horasDia.length ? horasDia.map((h, i) => {
-          const atual = assuntos[i];
-          const aberta = h === ag.roteiroAberto;
-          const falta = semPacote(atual);
-          return `<div class="ag-rot-linha ${aberta ? 'aberta' : ''}" data-assunto="${atual}">
-            <span class="ag-rot-hora">${agHoraCurta(h)}</span>
-            <button type="button" class="ag-rot-chip ${falta ? 'falta' : ''}" data-rot-abrir="${h}" aria-expanded="${aberta}" ${falta ? 'title="Nenhum pacote marcado no registro (aba Pacotes)"' : ''}>
-              <i class="ag-ponto"></i><span>${esc(AG_ASSUNTOS[atual][0])}</span>${falta ? ico('alerta') : ''}${ico('seta', 'ag-rot-seta')}
-            </button>
-            ${aberta ? `<div class="ag-rot-opcoes">${Object.entries(AG_ASSUNTOS).map(([id, [rot]]) => `<button type="button" class="ag-rot-op ${id === atual ? 'on' : ''}" data-assunto="${id}" data-rot-h="${h}" data-rot-a="${id}"><i class="ag-ponto"></i>${esc(rot)}</button>`).join('')}</div>` : ''}
-          </div>`;
-        }).join('') : '<p class="ag-vazio">Marque os horários na aba Quando.</p>'}</div>
-        <label class="ag-campo" ${usamOferta.length ? '' : 'hidden'}><span>Detalhe da oferta <em>usado em ${esc(usamOferta.map(a => AG_ASSUNTOS[a][0]).join(', '))}</em></span>
-          <input class="ag-input" data-campo="oferta" maxlength="500" placeholder="ex. chamada 10min R$50, 30% off até domingo" value="${escAttr(c.oferta)}">
-        </label>
+        <button type="button" class="ag-ico" data-folha="fechar" title="Fechar" aria-label="Fechar">${ico('fechar')}</button>
+      </div>
+      <div class="ag-folha-corpo ag-prompt-corpo">
+        <textarea class="ag-input ag-txt ag-txt-prompt" data-campo="prompt" spellcheck="false" aria-label="Prompt da IA" data-foco>${esc(c.prompt || AG_PROMPT_PADRAO)}</textarea>
+        <p class="ag-dica-mini">A regra de segurança (só adultas, 18+) sempre vai junto, mesmo editando.</p>
+      </div>
+      <div class="ag-folha-rodape">
+        <button type="button" class="ag-btn" data-ag="prompt-restaurar">${ico('atualizar')}<span>Restaurar padrão</span></button>
+        <button type="button" class="gr-sortear ag-btn-fila" data-folha="fechar">${ico('check')}<span>Pronto</span></button>
       </div>`;
+    agAbrirFolha(html, 'ag-folha-lado ag-folha-larga');
+    agAtualizarCopyInfo();
   }
 
-  // ═══════════════════════════════════════════════ ABA PACOTES ═══
+  // ═══════════════════════════════════════════════ PACOTES ═══
 
   function agHtmlPacotes() {
     const c = ag.cfg;
-    const nome = esc(nomeModelo(ag.modelo).split(/\s+/)[0]);
+    const nome = esc(agPrimeiroNome(ag.modelo));
     const linhas = c.pacotesReg.map((p, i) => `
       <div class="ag-pacote ${p.usar ? '' : 'desligado'}" data-pi="${i}">
         <label class="ag-pacote-usar" title="Entra no rodízio"><input type="checkbox" class="ag-check" data-pc="usar" ${p.usar ? 'checked' : ''} aria-label="Entra no rodízio"></label>
-        <button type="button" class="ag-tipo" data-ag="pacote-tipo" title="${p.tipo === 'video' ? 'Vídeo único' : 'Pack'} (clique pra trocar)" aria-label="Trocar tipo">${ico(p.tipo === 'video' ? 'video' : 'pacote')}<span>${p.tipo === 'video' ? 'Vídeo' : 'Pack'}</span></button>
         <div class="ag-pacote-campos">
-          <input class="ag-input" data-pc="apelido" maxlength="80" placeholder="Apelido (como aparece na copy)" value="${escAttr(p.apelido)}" aria-label="Apelido">
+          <div class="ag-pacote-linha">
+            <button type="button" class="ag-tipo" data-ag="pacote-tipo" title="${p.tipo === 'video' ? 'Vídeo único' : 'Pack'} (clique pra trocar)" aria-label="${p.tipo === 'video' ? 'Vídeo' : 'Pack'}: trocar tipo">${ico(p.tipo === 'video' ? 'video' : 'pacote')}</button>
+            <input class="ag-input" data-pc="apelido" maxlength="80" placeholder="Apelido (como aparece na copy)" value="${escAttr(p.apelido)}" aria-label="Apelido">
+          </div>
           <div class="ag-pacote-sub">
             <input class="ag-input" data-pc="preco" maxlength="20" placeholder="R$ 39,99" value="${escAttr(p.preco)}" aria-label="Preço">
             <input class="ag-input" data-pc="nome" maxlength="200" placeholder="Nome no Acervo" value="${escAttr(p.nome)}" title="${escAttr('Nome no Acervo: ' + p.nome)}" aria-label="Nome no Acervo">
           </div>
         </div>
-        <button type="button" class="ag-ico ag-perigo" data-ag="pacote-apagar" title="Apagar pacote" aria-label="Apagar pacote">${ico('lixo')}</button>
+        <button type="button" class="ag-ico ag-ico-p ag-perigo" data-ag="pacote-apagar" title="Apagar pacote" aria-label="Apagar pacote">${ico('lixo')}</button>
       </div>`).join('');
     const horasDia = agHorariosValidos(c.horarios, c.limiteDia);
     const assuntos = horasDia.map(h => agAssuntoDaHora(c, h));
     const prox = Object.keys(AG_ACERVO_PROX).filter(a => assuntos.includes(a)).map((a) => {
       const lista = agListaPacotes(c, a);
       return `<div class="ag-prox" data-assunto="${a}"><i class="ag-ponto"></i><span>${lista.length
-        ? `${esc(lista.map(agRotuloPacote).join(' → '))} · próximo: <b>${esc(agRotuloPacote(lista[agProxRodizio(c, a) % lista.length]))}</b>`
+        ? `${a === 'video' ? 'Vídeo' : 'Pack'}: ${esc(lista.map(agRotuloPacote).join(' → '))} · próximo: <b>${esc(agRotuloPacote(lista[agProxRodizio(c, a) % lista.length]))}</b>`
         : `Marque pelo menos um ${a === 'video' ? 'vídeo' : 'pack'} no registro`}</span></div>`;
     }).join('');
     const ac = ag.acervo;
@@ -1437,21 +1493,18 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     else if (!ac || !itensAc.length) acervo = `<div class="ag-acervo off">${ico('pacote')}<span>${ag.acervoMsg ? esc(ag.acervoMsg) : 'Abra a Privacy dessa modelo com o Agendador pra puxar os pacotes do Acervo'}</span></div>`;
     else {
       const em = agDataTs(ac.em);
-      acervo = `<div class="ag-acervo">${ico('pacote')}<span>${itensAc.length} ${itensAc.length === 1 ? 'pacote' : 'pacotes'} no Acervo${em ? ` · lido ${esc(em)}` : ''}</span><button type="button" class="ag-btn" data-ag="acervo">${ico('atualizar')}<span>Atualizar do Acervo</span></button></div>`;
+      acervo = `<div class="ag-acervo">${ico('pacote')}<span>${itensAc.length} ${itensAc.length === 1 ? 'pacote' : 'pacotes'} no Acervo${em ? ` · lido ${esc(em)}` : ''}</span><button type="button" class="ag-btn ag-btn-p" data-ag="acervo">${ico('atualizar')}<span>Atualizar do Acervo</span></button></div>`;
     }
     return `
-      <div class="ag-sec">
-        <div class="ag-sec-head"><span class="gr-rotulo">Registro de pacotes de ${nome}</span></div>
-        <p class="ag-dica">Marque os que entram no rodízio. O nome tem que ser igual ao do Acervo › Pacotes.</p>
-        <div class="ag-pacotes">${linhas || `<p class="ag-vazio">Nenhum pacote de ${nome} ainda. Use os botões abaixo.</p>`}</div>
-        <div class="ag-pills">
-          <button type="button" class="ag-pill ag-pill-add" data-ag="pacote-novo" data-tipo-novo="pack">${ico('mais')}Pack</button>
-          <button type="button" class="ag-pill ag-pill-add" data-ag="pacote-novo" data-tipo-novo="video">${ico('mais')}Vídeo</button>
-        </div>
-        ${prox ? `<div class="ag-proxs">${prox}</div>` : '<p class="ag-dica-mini">Nenhum horário de Pack ou Vídeo no roteiro.</p>'}
+      <p class="ag-dica">Os packs e vídeos de ${nome}. Marque os que entram no rodízio; o nome tem que ser igual ao do Acervo › Pacotes.</p>
+      <div class="ag-pacotes">${linhas || `<p class="ag-vazio">Nenhum pacote de ${nome} ainda.</p>`}</div>
+      <div class="ag-pills">
+        <button type="button" class="ag-pill ag-pill-add" data-ag="pacote-novo" data-tipo-novo="pack">${ico('mais')}Pack</button>
+        <button type="button" class="ag-pill ag-pill-add" data-ag="pacote-novo" data-tipo-novo="video">${ico('mais')}Vídeo</button>
       </div>
-      <div class="ag-sec">
-        <div class="ag-sec-head"><span class="gr-rotulo">Acervo da Privacy</span></div>
+      ${prox ? `<div class="ag-proxs">${prox}</div>` : '<p class="ag-dica-mini">Nenhum horário de Pack ou Vídeo no roteiro.</p>'}
+      <div class="ag-bloco">
+        <div class="ag-bloco-cab"><span class="ag-rot">Acervo da Privacy</span></div>
         ${acervo}
         <p class="ag-dica" id="agAcervoStatus"></p>
       </div>`;
@@ -1478,7 +1531,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     if (ag.id !== id) return;
     const mudou = ag.acervo === undefined || JSON.stringify(dados) !== JSON.stringify(ag.acervo);
     ag.acervo = dados;
-    if (mudou && ag.aba === 'pacotes' && ag.cfg) agRenderAba();
+    if (mudou && ag.secao === 'pacotes' && ag.cfg && !document.querySelector('#agConfig .ag-pacote input:focus')) agRenderConfig();
   }
 
   function agSyncAcervo() {
@@ -1495,11 +1548,141 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       }
     }
     agSalvar();
-    agRenderAba();
+    agRenderTudo();
     const st = document.getElementById('agAcervoStatus');
     if (st) st.textContent = novos || atualizados
       ? `${novos} novo(s) adicionado(s) (desmarcados: revise e marque os que quer no rodízio), ${atualizados} preço(s) atualizado(s).`
       : 'Já estava tudo igual ao Acervo.';
+  }
+
+  // ═══════════════════════════════════════════════ GERAR / PREENCHER COPYS ═══
+
+  async function agGerar(todas) {
+    const c = ag.cfg;
+    if (!c || ag.gerando) return;
+    const slots = agSlotsTexto(c);
+    if (!slots.length) {
+      return agStatus(agHorariosValidos(c.horarios, c.limiteDia).length
+        ? 'Todos os horários são de pack: o texto vai o do próprio pacote, não precisa gerar.'
+        : 'Marque dias e horários em Quando.', 'aviso');
+    }
+    const mapa = agMsgsMapa(c);
+    const nCom = slots.filter(s => agMsgDoHorario(mapa, s)).length;
+    if (todas === undefined) todas = !nCom || nCom === slots.length;
+    if (todas && nCom && !confirm(`Refazer as ${slots.length} mensagens?\nAs ${nCom} que você já tem (inclusive as que editou) vão ser substituídas.`)) return;
+    const alvo = todas ? slots : slots.filter(s => !agMsgDoHorario(mapa, s));
+    const id = ag.id;
+    ag.gerando = true;
+    const rotular = (t) => { const b = document.getElementById('agGerar'); if (b) { b.disabled = true; b.innerHTML = `${ico('carregando', 'ag-gira')}<span>${esc(t)}</span>`; } };
+    rotular(`Gerando ${alvo.length} copys…`);
+    agAtualizarCopyInfo();
+    agStatus('');
+    try {
+      const r = await agPedirCopies(c, alvo, todas ? [] : agMsgsPool(mapa), (feitas, total) => { if (ag.id === id && feitas) rotular(`Gerando copys… ${feitas} de ${total}`); });
+      if (ag.id !== id || ag.cfg !== c) return;
+      if (r.erro) agStatus(r.erro, 'erro');
+      else {
+        if (todas) {
+          const hoje = agDataISO(new Date());
+          for (const k of Object.keys(mapa)) if (k.startsWith('extra') || (/^\d{4}-/.test(k) && k.slice(0, 10) < hoje)) delete mapa[k];
+        }
+        r.copies.forEach((t, i) => { if (alvo[i]) mapa[agChaveMsg(alvo[i])] = t; });
+        c.mensagens = '';
+        const desc = r.descartadas ? ` · ${r.descartadas} descartada${r.descartadas === 1 ? '' : 's'} por tema proibido` : '';
+        agStatus((r.aviso || `${r.copies.length} copys geradas: revise na linha do tempo e programe`) + desc, r.aviso ? 'aviso' : 'ok');
+        agSalvar();
+      }
+    } catch (e) {
+      if (ag.id === id) agStatus(e.message, 'erro');
+    } finally {
+      if (ag.id === id) {
+        ag.gerando = false;
+        agRenderTimeline();
+        agAtualizar();
+      }
+    }
+  }
+
+  async function agRefazerUm(btn) {
+    const box = btn.closest('[data-chave]');
+    const c = ag.cfg;
+    const slot = agSlotsTexto(c).find(s => agChaveMsg(s) === box.dataset.chave);
+    if (!slot) return;
+    const id = ag.id;
+    btn.disabled = true;
+    btn.innerHTML = ico('carregando', 'ag-gira');
+    try {
+      const r = await agPedirCopies(c, [slot], agMsgsPool(agMsgsMapa(c)));
+      if (ag.id !== id || ag.cfg !== c) return;
+      if (r.erro) agStatus(r.erro, 'erro');
+      else if (r.copies?.[0]) {
+        agMsgsMapa(c)[box.dataset.chave] = r.copies[0];
+        const ta = box.querySelector('textarea');
+        if (ta) { ta.value = r.copies[0]; agAutoAltura(ta); }
+        box.classList.toggle('proibida', temaProibido(r.copies[0]));
+        agSalvar();
+      }
+    } catch (e) {
+      agStatus(e.message, 'erro');
+    }
+    if (btn.isConnected) { btn.disabled = false; btn.innerHTML = ico('atualizar'); }
+  }
+
+  function agColar() {
+    const c = ag.cfg;
+    const ta = document.getElementById('agColar');
+    const textos = agSepararMensagens(ta.value);
+    if (!textos.length) return;
+    const slots = agSlotsTexto(c);
+    if (!slots.length) return agStatus('Marque dias e horários em Quando.', 'aviso');
+    const mapa = agMsgsMapa(c);
+    slots.forEach((s, i) => { if (textos[i]) mapa[agChaveMsg(s)] = textos[i]; });
+    textos.slice(slots.length).forEach((t, i) => { mapa[`extra ${Date.now()}-${i}`] = t; });
+    const proib = textos.filter(t => temaProibido(t)).length;
+    ta.value = '';
+    document.getElementById('agColarBox').open = false;
+    agSalvar();
+    agRenderTimeline();
+    agAtualizar();
+    agStatus(`${Math.min(textos.length, slots.length)} horários preenchidos`
+      + (textos.length > slots.length ? ` · ${textos.length - slots.length} sobraram e entram no rodízio` : '')
+      + (proib ? ` · ${proib} com tema proibido (não vão pra fila)` : ''), proib ? 'aviso' : 'ok');
+  }
+
+  // Preenche os horários vazios com copys reais da modelo (que ainda não saíram)
+  function agUsarReais() {
+    const c = ag.cfg;
+    const slots = agSlotsTexto(c);
+    if (!slots.length) return agStatus('Marque dias e horários em Quando.', 'aviso');
+    const mapa = agMsgsMapa(c);
+    const vazios = slots.filter(s => !agMsgDoHorario(mapa, s));
+    if (!vazios.length) return agStatus('Todos os horários já têm texto. Apague algum pra preencher com copy real.', 'aviso');
+    const fora = new Set([...(c.historicoCopies || []), ...agMsgsPool(mapa)].map(t => normTexto(blocoCopy(t))));
+    const vistos = new Set();
+    const reais = embaralhar(copysDaModelo(ag.modelo)
+      .map(x => ({ t: blocoCopy(x.texto || ''), preco: precoCopy(x.preco) }))
+      .filter(x => {
+        const k = normTexto(x.t);
+        if (!x.t || fora.has(k) || vistos.has(k) || temaProibido(x.t)) return false;
+        vistos.add(k);
+        return true;
+      }));
+    const semPreco = reais.filter(x => !x.preco);
+    const comPreco = reais.filter(x => x.preco);
+    let n = 0;
+    for (const s of vazios) {
+      // Aquecer prefere copy sem preço (não é venda); o resto prefere as de venda
+      const ordem = s.assunto === 'aquecimento' ? [semPreco, comPreco] : [comPreco, semPreco];
+      const lista = ordem.find(l => l.length);
+      if (!lista) break;
+      mapa[agChaveMsg(s)] = lista.shift().t;
+      n++;
+    }
+    if (!n) return agStatus('Não sobrou copy real dessa modelo que ainda não saiu. Gere com a IA.', 'aviso');
+    agSalvar();
+    agRenderTimeline();
+    agAtualizar();
+    agStatus(`${n} ${n === 1 ? 'horário preenchido' : 'horários preenchidos'} com copys reais${n < vazios.length ? ` · faltaram ${vazios.length - n} (não tem mais copy nova dela)` : ''}`, n < vazios.length ? 'aviso' : 'ok');
   }
 
   // ═══════════════════════════════════════════════ PRÉVIA + FILA ═══
@@ -1507,12 +1690,14 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   function agAbrirFolha(html, classe) {
     agFecharFolha();
     const fundo = document.createElement('div');
-    fundo.className = 'ag-folha-fundo';
+    fundo.className = 'ag-folha-fundo' + (/ag-folha-lado/.test(classe || '') ? ' lado' : '');
     fundo.id = 'agFolha';
     fundo.innerHTML = `<div class="ag-folha ${classe || ''}" role="dialog" aria-modal="true">${html}</div>`;
     document.body.appendChild(fundo);
     document.body.classList.add('ag-folha-aberta');
     fundo.addEventListener('click', agCliqueFolha);
+    fundo.addEventListener('input', agDigitou);
+    fundo.addEventListener('change', agMudou);
     fundo.addEventListener('mousedown', (e) => { fundo.dataset.fora = e.target === fundo ? '1' : ''; });
     const foco = fundo.querySelector('[data-foco]') || fundo.querySelector('button');
     if (foco) foco.focus();
@@ -1631,7 +1816,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     agFecharFolha();
     toast(c.teste ? 'Teste mandado pra fila' : `${itens.length} ${itens.length === 1 ? 'disparo mandado' : 'disparos mandados'} pra fila`);
     agStatus(`Na fila: a extensão agenda quando abrir a Privacy${c.contaPrivacy ? ` da @${c.contaPrivacy}` : ' dessa modelo'}.`, 'ok');
-    if (ag.aba === 'copy' || ag.aba === 'pacotes') agRenderAba();
+    agRenderTudo();
     agAtualizarRodape();
   }
 
@@ -1781,7 +1966,8 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const fundo = e.currentTarget;
     if (e.target === fundo && fundo.dataset.fora === '1') { agFecharFolha(); return; }
     const b = e.target.closest('[data-folha]');
-    if (!b) return;
+    // Editor de persona e prompt ficam na folha: os outros botões seguem o fluxo normal
+    if (!b) { agClique(e); return; }
     const acao = b.dataset.folha;
     if (acao === 'fechar') agFecharFolha();
     else if (acao === 'mandar') agMandarFila(b);
@@ -1794,7 +1980,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         if (chave) localStorage.setItem(AG_LS_CHAVE, chave); else localStorage.removeItem(AG_LS_CHAVE);
         if (mod) localStorage.setItem(AG_LS_MODELO_IA, mod); else localStorage.removeItem(AG_LS_MODELO_IA);
       } catch (err) { toast('Não deu pra salvar neste navegador'); return; }
-      if (ag.aba === 'copy' && ag.cfg) agRenderAba();
+      if (ag.cfg) agRenderTudo();
       if (chave) agTestarChaveUI();
       else { const st = document.getElementById('agCfgStatus'); st.textContent = 'Salvo (sem chave a IA não funciona).'; }
       toast('IA salva neste navegador');
@@ -1860,19 +2046,22 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const t = e.target;
     const mod = t.closest('[data-ag-modelo]');
     if (mod) { if (mod.dataset.agModelo !== ag.modelo || !ag.cfg) agCarregarModelo(mod.dataset.agModelo); return; }
-    const aba = t.closest('[data-ag-aba]');
-    if (aba) {
-      ag.aba = aba.dataset.agAba; ag.roteiroAberto = ''; agRenderCorpo();
-      // A extensão pode ter lido o Acervo depois que a agenda abriu: olha de novo
-      if (ag.aba === 'pacotes' && ag.cfg) agCarregarAcervo(ag.id);
-      return;
-    }
     if (t.closest('#agProgramar')) { agAbrirPrevia(); return; }
     const c = ag.cfg;
     const acaoEl = t.closest('[data-ag]');
     const acao = acaoEl && acaoEl.dataset.ag;
     if (acao === 'config') { agAbrirConfig(); return; }
     if (!c) return;
+    const secao = t.closest('[data-ag-secao]');
+    if (secao) {
+      const id = secao.dataset.agSecao;
+      ag.secao = ag.secao === id ? '' : id;
+      agRenderConfig(); agAtualizar();
+      // A extensão pode ter lido o Acervo depois que a agenda abriu: olha de novo
+      if (ag.secao === 'pacotes') agCarregarAcervo(ag.id);
+      return;
+    }
+    if (acao === 'ir') { agIrSecao(acaoEl.dataset.ir); return; }
     if (acao === 'exportar') return agExportar();
     if (acao === 'importar') return document.getElementById('agArquivo').click();
 
@@ -1881,14 +2070,14 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     if (dia) {
       const iso = dia.dataset.dia;
       c.dias = c.dias.includes(iso) ? c.dias.filter(d => d !== iso) : c.dias.concat(iso).sort();
-      agSalvar(); agRenderAba(); return;
+      agSalvar(); agRenderTudo(); return;
     }
     const atalho = t.closest('[data-atalho]');
-    if (atalho) { agAtalhoDias(atalho.dataset.atalho); agSalvar(); agRenderAba(); return; }
+    if (atalho) { agAtalhoDias(atalho.dataset.atalho); agSalvar(); agRenderTudo(); return; }
     const hora = t.closest('[data-hora]');
-    if (hora) { agAlternarHora(hora.dataset.hora); agSalvar(); agRenderAba(); return; }
-
-    // Agitação
+    if (hora) { agAlternarHora(hora.dataset.hora); agSalvar(); agRenderTudo(); return; }
+    const agitSum = t.closest('[data-agit-det] > summary');
+    if (agitSum) { ag.agitAberto = !agitSum.parentElement.open; return; }
     if (acao === 'agit-aplicar') return agAplicarAgitacao();
     if (acao === 'agit-desfazer') return agTirarAgitacao('desfazer');
     if (acao === 'agit-um') return agTirarAgitacao('um');
@@ -1903,27 +2092,29 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         c.personas.push(nova);
         c.persona = nova.id;
       } else c.persona = id;
-      agSalvar(); agRenderAba();
-      if (id === '+') { const n = document.querySelector('#agCorpo [data-pcampo="nome"]'); if (n) n.select(); }
+      agSalvar(); agRenderConfig(); agAtualizar();
+      if (id === '+') { agAbrirPersona(); const n = document.querySelector('#agFolha [data-pcampo="nome"]'); if (n) n.select(); }
       return;
     }
+    if (acao === 'persona-editar') return agAbrirPersona();
     if (acao === 'persona-apagar') {
       const atual = agPersonaAtual(c);
       if (!atual || !confirm(`Apagar a persona "${atual.nome || 'sem nome'}"?`)) return;
       c.personas = c.personas.filter(p => p !== atual);
       c.persona = '';
-      agSalvar(); agRenderAba(); return;
+      agFecharFolha();
+      agSalvar(); agRenderConfig(); agAtualizar(); return;
     }
     if (acao === 'persona-vincular' || acao === 'persona-soltar') {
       const atual = agPersonaAtual(c);
       if (!atual) return;
       if (acao === 'persona-vincular') { c.personas.forEach(p => { if (p.conta === c.contaPrivacy) p.conta = ''; }); atual.conta = c.contaPrivacy; }
       else atual.conta = '';
-      agSalvar(); agRenderAba(); return;
+      agSalvar(); agRenderConfig(); agAtualizar(); agAbrirPersona(); return;
     }
     if (acao === 'persona-testar') return agTestarPersona(acaoEl);
 
-    // Copy
+    // Estilo da IA
     const tipo = t.closest('[data-tipo]');
     if (tipo) {
       const id = tipo.dataset.tipo;
@@ -1935,23 +2126,26 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const emo = t.closest('[data-emoji]');
     if (emo) {
       c.emojiCopy = emo.dataset.emoji;
-      emo.parentElement.querySelectorAll('[data-emoji]').forEach(b => b.classList.toggle('ativo', b === emo));
+      emo.parentElement.querySelectorAll('[data-emoji]').forEach(b => { b.classList.toggle('ativo', b === emo); b.setAttribute('aria-pressed', b === emo); });
       agSalvar(); return;
     }
+    if (acao === 'prompt-abrir') return agAbrirPrompt();
+    if (acao === 'prompt-restaurar') {
+      const ta = document.querySelector('#agFolha [data-campo="prompt"]');
+      if (c.prompt && !confirm('Voltar pro prompt padrão? O prompt que você editou vai ser perdido.')) return;
+      c.prompt = '';
+      if (ta) ta.value = AG_PROMPT_PADRAO;
+      agSalvar(); agRenderConfig(); return;
+    }
+
+    // Copys (resumo e linha do tempo)
     if (acao === 'gerar') return agGerar();
     if (acao === 'refazer') return agGerar(true);
     if (acao === 'reais') return agUsarReais();
     if (acao === 'refazer-um') return agRefazerUm(acaoEl);
     if (acao === 'colar') return agColar();
-    if (acao === 'prompt-restaurar') {
-      const ta = document.querySelector('#agCorpo [data-campo="prompt"]');
-      if (c.prompt && !confirm('Voltar pro prompt padrão? O prompt que você editou vai ser perdido.')) return;
-      c.prompt = '';
-      if (ta) ta.value = AG_PROMPT_PADRAO;
-      agSalvar(); return;
-    }
     if (acao === 'hist-limpar') {
-      if (!confirm('Limpar o histórico? A IA vai poder repetir copies que já saíram.')) return;
+      if (!confirm('Limpar o histórico? A IA vai poder repetir copys que já saíram.')) return;
       c.historicoCopies = [];
       agSalvar(); return;
     }
@@ -1960,24 +2154,15 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const rotModelo = t.closest('[data-roteiro]');
     if (rotModelo) {
       c.roteiroHoras = agDistribuirRoteiro(rotModelo.dataset.roteiro.split(','), agHorariosValidos(c.horarios, c.limiteDia));
-      ag.roteiroAberto = '';
-      agSalvar(); agRenderAba(); return;
+      agSalvar(); agRenderTudo(); return;
     }
-    if (acao === 'roteiro-limpar') { c.roteiroHoras = {}; ag.roteiroAberto = ''; agSalvar(); agRenderAba(); return; }
-    const op = t.closest('[data-rot-a]');
-    if (op) {
-      c.roteiroHoras = { ...(c.roteiroHoras || {}), [op.dataset.rotH]: op.dataset.rotA };
-      ag.roteiroAberto = '';
-      agSalvar(); agRenderAba(); return;
-    }
-    const chip = t.closest('[data-rot-abrir]');
-    if (chip) { ag.roteiroAberto = ag.roteiroAberto === chip.dataset.rotAbrir ? '' : chip.dataset.rotAbrir; agRenderAba(); return; }
+    if (acao === 'roteiro-limpar') { c.roteiroHoras = {}; agSalvar(); agRenderTudo(); return; }
 
     // Pacotes
     if (acao === 'pacote-novo') {
       c.pacotesReg.push({ tipo: acaoEl.dataset.tipoNovo === 'video' ? 'video' : 'pack', apelido: '', preco: '', nome: '', usar: true });
-      agSalvar(); agRenderAba();
-      const ultimos = document.querySelectorAll('#agCorpo [data-pc="apelido"]');
+      agSalvar(); agRenderTudo();
+      const ultimos = document.querySelectorAll('#agConfig [data-pc="apelido"]');
       if (ultimos.length) ultimos[ultimos.length - 1].focus();
       return;
     }
@@ -1990,7 +2175,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         if (!confirm(`Apagar o pacote "${p.apelido || p.nome || p.preco || 'sem nome'}"?`)) return;
         c.pacotesReg = c.pacotesReg.filter(x => x !== p);
       }
-      agSalvar(); agRenderAba(); return;
+      agSalvar(); agRenderTudo(); return;
     }
     if (acao === 'acervo') return agSyncAcervo();
 
@@ -2007,7 +2192,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     if (campo === 'limiteDia') {
       if (t.value === '') return;
       c.limiteDia = Math.min(50, Math.max(1, parseInt(t.value) || 1));
-      agSalvar(); return;
+      agSalvar(); agRenderTimeline(); return;
     }
     if (campo === 'briefing' || campo === 'oferta') { c[campo] = t.value; agSalvar(); return; }
     if (campo === 'prompt') { c.prompt = t.value.trim() === AG_PROMPT_PADRAO.trim() ? '' : t.value; agSalvar(); return; }
@@ -2028,16 +2213,18 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       } else {
         atual[pc] = t.value;
       }
-      if (pc === 'nome') { const pill = document.querySelector(`#agCorpo [data-persona="${CSS.escape(atual.id)}"]`); if (pill) pill.textContent = atual.nome || 'Sem nome'; }
       const aviso = document.getElementById('agPersonaProibida');
       if (aviso) aviso.hidden = !temaProibido([atual.nome, atual.desc, atual.jeito, atual.nunca, atual.exemplos].join('\n'));
-      agSalvar(); return;
+      agSalvar();
+      if (ag.secao === 'persona') agRenderConfig();
+      return;
     }
     if (t.hasAttribute('data-msg')) {
       const box = t.closest('[data-chave]');
       const mapa = agMsgsMapa(c);
       if (t.value.trim()) mapa[box.dataset.chave] = t.value; else delete mapa[box.dataset.chave];
       box.classList.toggle('proibida', !!t.value.trim() && temaProibido(t.value));
+      agAutoAltura(t);
       agSalvar(); return;
     }
     const pcp = t.dataset.pc;
@@ -2046,7 +2233,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       const p = c.pacotesReg[Number(linha.dataset.pi)];
       if (!p) return;
       p[pcp] = t.value.trim();
-      agSalvar();
+      agSalvar(); agRenderTimeline();
     }
   }
 
@@ -2055,15 +2242,21 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const c = ag.cfg;
     if (!c) return;
     if (t.id === 'agTeste') { c.teste = t.checked; agSalvar(); return; }
+    if (t.dataset.assuntoHora) {
+      c.roteiroHoras = { ...(c.roteiroHoras || {}), [t.dataset.assuntoHora]: AG_ASSUNTOS[t.value] ? t.value : 'aquecimento' };
+      agSalvar(); agRenderTudo();
+      agStatus(`Assunto das ${t.dataset.assuntoHora} agora é ${AG_ASSUNTOS[t.value][0]} em todos os dias.`, 'ok');
+      return;
+    }
     if (t.dataset.pc === 'usar') {
       const linha = t.closest('[data-pi]');
       const p = c.pacotesReg[Number(linha.dataset.pi)];
       if (!p) return;
       p.usar = t.checked;
       linha.classList.toggle('desligado', !t.checked);
-      agSalvar(); return;
+      agSalvar(); agRenderTimeline(); return;
     }
-    if (t.dataset.campo === 'limiteDia') { t.value = String(c.limiteDia); agRenderAba(); }
+    if (t.dataset.campo === 'limiteDia') { t.value = String(c.limiteDia); agRenderTudo(); }
   }
 
   // ═══════════════════════════════════════════════ INICIALIZAÇÃO ═══
