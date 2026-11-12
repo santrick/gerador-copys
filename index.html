@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=33" />
+  <link rel="stylesheet" href="styles.css?v=34" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -74,23 +74,11 @@
         <button class="nav-item" data-tab="mineradas">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Copys <span class="nav-badge" hidden></span>
         </button>
-        <button class="nav-item aba-oculta" data-tab="disparos">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5L4 12z"/></svg></span> Disparos <span class="nav-badge" hidden></span>
-        </button>
         <button class="nav-item" data-tab="criar">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg></span> Criar com IA
         </button>
         <button class="nav-item" data-tab="favoritos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> Favoritos
-        </button>
-        <button class="nav-item aba-oculta" data-tab="grade">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span> Grade do Dia
-        </button>
-        <button class="nav-item aba-oculta" data-tab="gerador">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg></span> Gerador
-        </button>
-        <button class="nav-item aba-oculta" data-tab="treinar">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg></span> Treinar IA
         </button>
         <button class="nav-item hidden" data-tab="admin" id="navAdmin">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16M5 15l-1-8 5 4 3-6 3 6 5-4-1 8z"/></svg></span> Admin
@@ -138,11 +126,6 @@
               <span class="kpi-value" id="kpiMineradas">0</span>
               <span class="kpi-novas" id="kpiNovasMineradas" hidden></span>
               <span class="kpi-tag accent">Google Docs</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-label">Banco de Disparos</span>
-              <span class="kpi-value" id="kpiDisparos">0</span>
-              <span class="kpi-tag pink">categorias fixas</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-label">Favoritadas</span>
@@ -279,43 +262,6 @@
           </div>
         </section>
 
-        <!-- DISPAROS -->
-        <section id="tab-disparos" class="tab-panel aba-oculta">
-
-          <div class="panel grade-manual" id="gradeManualPanel">
-            <div class="panel-head">
-              <h2>Grade do dia (manual)</h2>
-              <button id="btnLimparGradeManual" class="link-btn">Limpar</button>
-            </div>
-            <div class="grade-container" id="gradeManualSlots"></div>
-            <button id="btnCopiarGradeManual" class="btn btn-secondary btn-block" disabled>Copiar grade completa</button>
-          </div>
-
-          <div class="panel form-add-copy hidden" id="formAddCopy">
-            <div class="panel-head">
-              <h2>Nova copy</h2>
-              <button class="icon-btn" id="btnFecharAdd">✕</button>
-            </div>
-            <textarea id="novaCopyTexto" rows="3" placeholder="Cole ou escreva a copy aqui..."></textarea>
-            <div class="form-add-rodape">
-              <select id="novaCopyCategoria"><option value="">Escolha a categoria</option></select>
-              <button id="btnAdicionarCopy" class="btn btn-primary">Salvar</button>
-            </div>
-          </div>
-
-          <div class="toolbar">
-            <input type="text" id="buscaDisparos" placeholder="Buscar copy..." />
-            <select id="filtroCategoriaDisparos"><option value="">Todas as categorias</option></select>
-            <button id="btnAddCopy" class="btn btn-secondary" title="Adicionar copy">✚ Nova</button>
-            <button id="btnMostrarFavoritas" class="btn btn-secondary">⭐ Favoritas</button>
-            <button id="btnSortearAleatorio" class="btn btn-secondary">🎲 Sortear</button>
-            <button type="button" class="chip-novas" id="chipNovas-disparos" hidden><span class="chip-novas-dot"></span><span>Só novas (<span class="chip-novas-qtd">0</span>)</span><span class="chip-novas-ok" title="Marcar todas como vistas">✓ vistas</span></button>
-          </div>
-
-          <div id="copyAleatoria"></div>
-          <div id="listaDisparos"></div>
-        </section>
-
         <!-- CRIAR COM IA -->
         <section id="tab-criar" class="tab-panel copys-page">
           <div class="ci-layout">
@@ -375,293 +321,15 @@
             <input type="search" id="buscaFavoritos" placeholder="Buscar nos favoritos..." />
             <div class="comprimento-row" id="filtroOrigemFav">
               <button class="estilo-btn ativo" data-origem="todas">Todas <span class="fav-count">0</span></button>
-              <button class="estilo-btn" data-origem="disparo">Banco <span class="fav-count">0</span></button>
-              <button class="estilo-btn" data-origem="minerada">Mineradas <span class="fav-count">0</span></button>
+              <button class="estilo-btn" data-origem="minerada">Copys <span class="fav-count">0</span></button>
               <button class="estilo-btn" data-origem="ia">IA <span class="fav-count">0</span></button>
             </div>
           </div>
           <div id="listaFavoritos" class="grid-copys"></div>
         </section>
 
-        <!-- GRADE DO DIA -->
-        <section id="tab-grade" class="tab-panel aba-oculta">
-
-          <div class="panel">
-            <div class="panel-head"><h2>Grade do dia</h2></div>
-            <p class="panel-desc">Sorteia entre 5 e 8 copys em horários aleatórios do dia — sem horário fixo, a partir do banco de disparos.</p>
-            <div class="grade-toolbar">
-              <button id="btnSortearGrade" class="btn btn-primary">🎲 Sortear Grade do Dia</button>
-              <button id="btnGerarGradeIA" class="btn-premium">
-                <span class="btn-premium-text">✨ Gerar com IA</span>
-                <span class="btn-premium-icon">➜</span>
-              </button>
-              <button id="btnCompletarGradeIA" class="btn btn-secondary">✨ Completar com IA</button>
-            </div>
-          </div>
-
-          <div id="gradeContainer" class="grade-container"></div>
-          <button id="btnCopiarGradeGerada" class="btn btn-secondary hidden" style="margin-bottom:20px;">Copiar grade completa</button>
-
-          <details class="panel persona-card" id="personaCard">
-            <summary class="panel-head persona-summary">
-              <div>
-                <h2>Persona da IA</h2>
-                <span class="persona-resumo" id="personaResumo"></span>
-              </div>
-              <span class="persona-toggle"><span class="t-abrir">Ajustar</span><span class="t-fechar">Fechar</span></span>
-            </summary>
-            <p class="panel-desc">Define como a IA escreve em "Gerar com IA" e "Reescrever com IA" (em qualquer aba).</p>
-
-            <label class="field">
-              <span>Persona salva</span>
-              <div class="persona-select-row">
-                <select id="personaSelect"></select>
-                <button id="btnNovaPersona" class="icon-btn" title="Nova persona">➕</button>
-                <button id="btnSalvarPersona" class="icon-btn" title="Salvar alterações nesta persona">💾</button>
-                <button id="btnApagarPersona" class="icon-btn" title="Apagar esta persona">🗑</button>
-              </div>
-            </label>
-
-            <label class="field">
-              <span>Persona (breve)</span>
-              <input type="text" id="personaTexto" placeholder="Ex: Letícia, 18 anos, universitária, patricinha mimada e safadinha" />
-            </label>
-            <div class="persona-row">
-              <label class="field">
-                <span>Tipo de personagem</span>
-                <select id="personaTipo">
-                  <option value="universitaria">🎓 Universitária Patricinha</option>
-                  <option value="novinha">😈 Novinha Traquina</option>
-                  <option value="casada">💍 Casada Discreta</option>
-                  <option value="dominadora">👑 Dominadora</option>
-                  <option value="carente">💗 Carente / Romântica</option>
-                  <option value="vizinha">🏠 Vizinha Gostosa</option>
-                  <option value="coroa">💃 Coroa Confiante</option>
-                  <option value="timida">🙈 Timidinha Descobrindo</option>
-                  <option value="executiva">💼 Executiva Estressada</option>
-                  <option value="professora">📚 Professora Tutora</option>
-                  <option value="proibida">🤫 Proibida</option>
-                  <option value="popstar">✨ Popstar Local</option>
-                  <option value="interiorana">🌾 Interiorana Simples</option>
-                  <option value="sortuda">🍀 Sortuda Eufórica</option>
-                  <option value="custom">✏️ Personalizado (usa só o texto acima)</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>Comprimento da copy</span>
-                <div class="comprimento-row" id="comprimentoRow">
-                  <button class="estilo-btn" data-comprimento="curto">Curto</button>
-                  <button class="estilo-btn ativo" data-comprimento="medio">Médio</button>
-                  <button class="estilo-btn" data-comprimento="longo">Longo</button>
-                </div>
-              </label>
-              <label class="field">
-                <span>Emojis</span>
-                <div class="comprimento-row" id="emojiRow">
-                  <button class="estilo-btn" data-emoji="nenhum">Nenhum</button>
-                  <button class="estilo-btn" data-emoji="1">1</button>
-                  <button class="estilo-btn ativo" data-emoji="2">2</button>
-                </div>
-              </label>
-              <label class="field field-full">
-                <span>Tom</span>
-                <div class="comprimento-row" id="tomRow">
-                  <button class="estilo-btn ativo" data-tom="natural">Natural</button>
-                  <button class="estilo-btn" data-tom="provocante">Provocante</button>
-                  <button class="estilo-btn" data-tom="carinhosa">Carinhosa</button>
-                  <button class="estilo-btn" data-tom="direta">Direta</button>
-                </div>
-              </label>
-              <label class="field field-full">
-                <span>Abreviações (vc, pq, tb...)</span>
-                <div class="comprimento-row" id="abreviacoesRow">
-                  <button class="estilo-btn ativo" data-abrev="sim">Sim</button>
-                  <button class="estilo-btn" data-abrev="nao">Não</button>
-                </div>
-              </label>
-            </div>
-          </details>
-
-          <div class="panel reescrita-card">
-            <div class="panel-head"><h2>Reescrever copy com IA</h2></div>
-            <textarea id="textoReescrever" rows="3" placeholder="Cole ou escreva uma copy para reescrever..."></textarea>
-            <div class="estilos-row" id="estilosReescrita">
-              <button class="estilo-btn" data-estilo="romantica">Romântica</button>
-              <button class="estilo-btn" data-estilo="safada">Safada</button>
-              <button class="estilo-btn" data-estilo="ego">Quebra de Ego</button>
-              <button class="estilo-btn" data-estilo="controle">Controle</button>
-              <button class="estilo-btn" data-estilo="curta">Curta</button>
-            </div>
-            <div id="resultadoReescrita" class="resultado-reescrita hidden"></div>
-          </div>
-        </section>
-
-        <!-- GERADOR DE COPY AVULSA -->
-        <section id="tab-gerador" class="tab-panel aba-oculta">
-          <div class="gerador-layout">
-          <div class="panel">
-            <div class="panel-head"><h2>Gerador de copy</h2><button type="button" class="link-btn persona-link" data-ir-tab="grade" id="geradorPersonaInfo"></button></div>
-            <p class="panel-desc">Gera uma copy avulsa ou um script (sequência) pronto pra qualquer momento — sem precisar passar pela Grade do Dia.</p>
-
-            <label class="field">
-              <span>Objetivo do disparo</span>
-              <select id="geradorTipo">
-                <option value="Saudacao">👋 Saudação / Primeiro contato</option>
-                <option value="Aquecimento">🔥 Aquecimento</option>
-                <option value="Venda" selected>💰 Venda</option>
-                <option value="Chamada">📞 Chamada de vídeo</option>
-                <option value="Pergunta">❓ Pergunta / Engajamento leve</option>
-                <option value="Engajamento">💬 Engajamento</option>
-                <option value="Reengajamento">🔄 Reengajamento (sumiu)</option>
-                <option value="Conteudo">🎬 Conteúdo / Prévia</option>
-                <option value="Upsell">⬆️ Upsell / Oferta maior</option>
-                <option value="Outro">✏️ Outro</option>
-              </select>
-            </label>
-
-            <div class="persona-row">
-              <label class="field">
-                <span>Momento</span>
-                <select id="geradorMomento">
-                  <option value="">Sem preferência</option>
-                  <option value="manha">🌅 Manhã</option>
-                  <option value="tarde">☀️ Tarde</option>
-                  <option value="noite">🌙 Noite</option>
-                  <option value="madrugada">🌌 Madrugada</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>Público</span>
-                <select id="geradorPublico">
-                  <option value="">Todos</option>
-                  <option value="assinantes">Assinantes</option>
-                  <option value="inativos">Inativos (7d)</option>
-                  <option value="vip">VIP</option>
-                </select>
-              </label>
-            </div>
-
-            <label class="field">
-              <span>Estilo da copy</span>
-              <div class="estilo-slider-wrap">
-                <span class="estilo-slider-label">Mais suave</span>
-                <input type="range" id="geradorEstilo" min="0" max="100" value="50" />
-                <span class="estilo-slider-label">Mais provocante</span>
-              </div>
-            </label>
-
-            <label class="field">
-              <span>Formato</span>
-              <div class="comprimento-row" id="geradorFormato">
-                <button class="estilo-btn ativo" data-formato="1">1 mensagem</button>
-                <button class="estilo-btn" data-formato="3">3 mensagens</button>
-                <button class="estilo-btn" data-formato="5">5 mensagens</button>
-                <button class="estilo-btn" data-formato="seq">Sequência completa</button>
-              </div>
-            </label>
-
-            <div class="checkbox-grid">
-              <label class="checkbox-field"><input type="checkbox" id="geradorCTA" /> Incluir CTA</label>
-              <label class="checkbox-field"><input type="checkbox" id="geradorPergunta" /> Pergunta no final</label>
-              <label class="checkbox-field"><input type="checkbox" id="geradorQuebradas" /> Mensagens quebradas</label>
-              <label class="checkbox-field"><input type="checkbox" id="geradorVariacoes" /> Variações de abertura</label>
-            </div>
-
-            <label class="field">
-              <span>Contexto extra (opcional)</span>
-              <textarea id="geradorContexto" rows="2" placeholder="Ex: fã comprou pack ontem, é a primeira mensagem do dia, ele sumiu há 3 dias..."></textarea>
-            </label>
-
-            <button id="btnGerarCopyAvulsa" class="btn-premium">
-              <span class="btn-premium-text">✨ Gerar</span>
-              <span class="btn-premium-icon">➜</span>
-            </button>
-
-          </div>
-          <div class="panel gerador-saida">
-            <div class="panel-head"><h2>Resultado</h2></div>
-            <div id="geradorTabsCategorias" class="gerador-tabs-categorias hidden"></div>
-            <div id="geradorResultado" class="gerador-resultado">
-              <p class="empty-hint">Escolha o objetivo e clique em Gerar. As copys aparecem aqui.</p>
-            </div>
-          </div>
-          </div>
-        </section>
-
-        <!-- TREINAR IA -->
-        <section id="tab-treinar" class="tab-panel aba-oculta">
-          <div class="panel panel-wide prompt-base-card">
-            <div class="panel-head">
-              <h2>Prompt base do Gerador</h2>
-              <span class="panel-sub" id="promptBaseInfo">Usando o prompt padrão</span>
-            </div>
-            <p class="panel-desc">É a base de tudo que a IA escreve (Gerador, Grade do Dia e Reescrever). A persona, o tom, o tamanho e as regras aprendidas são somados a ela automaticamente.</p>
-            <textarea id="promptBaseTexto" class="prompt-base-texto" rows="12" spellcheck="false"></textarea>
-            <div class="prompt-base-acoes" id="promptBaseAcoes">
-              <button id="btnSalvarPromptBase" class="btn btn-primary">Salvar pra equipe</button>
-              <button id="btnRestaurarPromptBase" class="btn btn-secondary">Restaurar padrão</button>
-            </div>
-            <details class="prompt-completo">
-              <summary>Ver o prompt completo que a IA recebe</summary>
-              <pre id="promptCompletoPrevia" class="prompt-completo-previa"></pre>
-              <button id="btnCopiarPromptCompleto" class="btn btn-secondary btn-sm">📋 Copiar prompt completo</button>
-            </details>
-          </div>
-
-          <div class="panel">
-            <div class="panel-head"><h2>O que a IA já aprendeu</h2></div>
-            <p class="panel-desc">Regras compartilhadas com toda a equipe — entram em toda copy gerada, na Grade e no Gerador.</p>
-            <div id="listaRegrasIA" class="regras-list"></div>
-            <button id="btnNovaRegraIA" class="btn btn-secondary" style="margin-top:12px;">+ Nova regra</button>
-          </div>
-
-          <div class="panel">
-            <div class="panel-head"><h2>Ensinar por correção</h2></div>
-            <p class="panel-desc">Mostra pra IA como ela errou e como deveria ter escrito — ela passa a seguir isso a partir de agora.</p>
-            <label class="field">
-              <span>❌ A IA escreveu</span>
-              <textarea id="correcaoIaEscreveu" rows="2" placeholder="Cole aqui o que a IA gerou..."></textarea>
-            </label>
-            <label class="field">
-              <span>✅ Eu escreveria assim</span>
-              <textarea id="correcaoEuEscreveria" rows="2" placeholder="Como você (ou a equipe) escreveria de verdade..."></textarea>
-            </label>
-            <button id="btnEnsinarCorrecao" class="btn-premium">
-              <span class="btn-premium-text">🧠 Ensinar esta correção</span>
-              <span class="btn-premium-icon">➜</span>
-            </button>
-          </div>
-        </section>
-
         <!-- ADMIN (só aparece pro admin) -->
         <section id="tab-admin" class="tab-panel">
-          <div class="panel">
-            <div class="panel-head"><h2>Notificações no navegador</h2></div>
-            <p class="panel-desc">Avisa nos horários da grade direto pelo navegador, com o ícone da Synora. <strong>Precisa manter essa aba aberta</strong> (pode minimizar, mas não fechar) pra continuar recebendo.</p>
-            <ol class="notif-steps">
-              <li><strong>iPhone:</strong> no Safari, toque em compartilhar (□↑) → <strong>Adicionar à Tela de Início</strong> — abre um app "Synora" próprio, sem barra do navegador</li>
-              <li>Abra pelo ícone da tela de início e clique em <strong>Ativar Notificações</strong>, permitindo quando pedir</li>
-              <li>Deixe esse app/aba aberto (pode minimizar, mas não fechar)</li>
-              <li>Nos horários da grade, chega um aviso — toque nele pra abrir direto aqui</li>
-            </ol>
-            <div class="notif-actions">
-              <button id="btnAtivarNotif" class="btn btn-primary">🔔 Ativar Notificações</button>
-              <button id="btnTestarNotif" class="btn btn-secondary">Testar agora</button>
-            </div>
-            <p class="notif-status" id="notifStatus"></p>
-            <div class="notif-horarios">
-              <span class="slot-chip" style="--c:#fbbf24">11h</span>
-              <span class="slot-chip" style="--c:#a855f7">14h</span>
-              <span class="slot-chip" style="--c:#ec4899">19h</span>
-              <span class="notif-sep">·</span>
-              <span class="slot-chip" style="--c:#8e8ea3">12h</span>
-              <span class="slot-chip" style="--c:#8e8ea3">15h</span>
-              <span class="slot-chip" style="--c:#8e8ea3">17h</span>
-              <span class="slot-chip" style="--c:#8e8ea3">20h</span>
-              <span class="slot-chip" style="--c:#8e8ea3">23h</span>
-            </div>
-          </div>
-
           <div class="panel">
             <div class="panel-head"><h2>Criar login de atendente</h2></div>
             <p class="panel-desc">Cria um acesso novo sem precisar ir no Firebase.</p>
@@ -745,6 +413,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=42"></script>
+  <script src="app.js?v=43"></script>
 </body>
 </html>

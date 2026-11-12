@@ -13,75 +13,6 @@
   } catch (e) { /* sem localStorage: nada a limpar */ }
 })();
 
-// ═══════════════════════════════════════════════ NOTIFICAÇÕES (navegador) ═══
-// Só funcionam com essa aba aberta (pode estar minimizada/em 2º plano).
-// Sem servidor: cada dispositivo agenda e dispara localmente, checando o horário de Brasília.
-
-const ICON_URL = location.origin + location.pathname.replace(/[^/]*$/, '') + 'icon.png';
-
-const LEMBRETES_HORARIO = {
-  '11:00': { titulo: '11h - Bom Dia', msg: 'Hora de mandar a copy de Bom Dia pros fãs' },
-  '14:00': { titulo: '14h - Vídeo Exclusivo', msg: 'Hora de disparar a copy de Vídeo Exclusivo' },
-  '19:00': { titulo: '19h - Aquecimento', msg: 'Hora do Aquecimento pra Pack' },
-  '12:00': { titulo: 'Programe a grade de amanhã', msg: 'Já pensou na grade de amanhã? Começa a programar agora, vida' },
-  '15:00': { titulo: 'Programe a grade de amanhã', msg: 'Lembrete: prepara os disparos de amanhã com calma' },
-  '17:00': { titulo: 'Programe a grade de amanhã', msg: 'Faltam poucas horas do dia — deixa a grade de amanhã pronta' },
-  '20:00': { titulo: 'Programe a grade de amanhã', msg: 'Hora de fechar a grade do dia seguinte' },
-  '23:00': { titulo: 'Última call: grade de amanhã', msg: 'É hora de vender! Garante que amanhã já tá tudo programado' }
-};
-
-function horaAgoraBRT() {
-  return new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
-}
-function diaAgoraBRT() {
-  return new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-}
-
-function dispararNotificacao(titulo, msg) {
-  if (Notification.permission !== 'granted') return;
-  const n = new Notification(titulo, { body: msg, icon: ICON_URL, badge: ICON_URL, tag: titulo });
-  n.onclick = () => { window.focus(); location.hash = '#grade'; n.close(); };
-}
-
-function checarLembretes() {
-  const hora = horaAgoraBRT();
-  const item = LEMBRETES_HORARIO[hora];
-  if (!item) return;
-  const chave = 'synora_lembrete_' + hora + '_' + diaAgoraBRT();
-  if (localStorage.getItem(chave)) return;
-  localStorage.setItem(chave, '1');
-  dispararNotificacao(item.titulo, item.msg);
-}
-
-function atualizarStatusNotif() {
-  const el = document.getElementById('notifStatus');
-  if (!('Notification' in window)) { el.textContent = 'Seu navegador não suporta notificações.'; el.className = 'notif-status erro'; return; }
-  if (Notification.permission === 'granted') { el.textContent = '✓ Notificações ativas nesse navegador.'; el.className = 'notif-status ok'; }
-  else if (Notification.permission === 'denied') { el.textContent = 'Notificações bloqueadas — ative nas configurações do navegador.'; el.className = 'notif-status erro'; }
-  else { el.textContent = 'Notificações ainda não ativadas.'; el.className = 'notif-status'; }
-}
-
-function configurarNotificacoes() {
-  atualizarStatusNotif();
-
-  document.getElementById('btnAtivarNotif').addEventListener('click', async () => {
-    if (!('Notification' in window)) { toast('Seu navegador não suporta notificações.'); return; }
-    const perm = await Notification.requestPermission();
-    atualizarStatusNotif();
-    if (perm === 'granted') toast('Notificações ativadas! Mantenha essa aba aberta.');
-    else toast('Permissão não concedida.');
-  });
-
-  document.getElementById('btnTestarNotif').addEventListener('click', () => {
-    if (Notification.permission !== 'granted') { toast('Ative as notificações primeiro.'); return; }
-    dispararNotificacao('Teste - Synora Copys', 'Notificação de teste! Se você recebeu isso, está funcionando 🔔');
-    toast('Notificação de teste disparada.');
-  });
-
-  checarLembretes();
-  setInterval(checarLembretes, 20000);
-}
-
 // ═══════════════════════════════════════════════ LOGIN + ATIVIDADE (Firebase) ═══
 
 const FIREBASE_CONFIG = {
@@ -375,7 +306,6 @@ function iniciarFeedFavoritos() {
     favoritosDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((d) => d.texto)
       .sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
     favoritos = favoritosDocs.map((d) => d.texto);
-    renderDisparos();
     renderDashboard();
     renderFavoritos();
   }, (err) => console.error('[favoritos]', err));
@@ -476,7 +406,7 @@ function atualizarSinalNovidades(tipo) {
 
 const ORIGEM_FAV = {
   disparo: { nome: 'Banco', icone: '➤' },
-  minerada: { nome: 'Mineradas', icone: '▤' },
+  minerada: { nome: 'Copys', icone: '▤' },
   ia: { nome: 'IA', icone: '✨' }
 };
 let filtroOrigemFav = 'todas';
@@ -497,7 +427,7 @@ function renderFavoritos() {
     return (filtroOrigemFav === 'todas' || o === filtroOrigemFav) && (!termo || d.texto.toLowerCase().includes(termo) || (d.categoria || '').toLowerCase().includes(termo));
   });
   if (!lista.length) {
-    container.innerHTML = `<div class="empty-state"><span class="empty-ico">⭐</span><p>${favoritosDocs.length ? 'Nenhum favorito com esse filtro.' : 'Nenhuma copy favoritada ainda. Toque na ⭐ de qualquer copy (banco, mineradas ou gerada pela IA) pra guardar aqui.'}</p></div>`;
+    container.innerHTML = `<div class="empty-state"><span class="empty-ico">⭐</span><p>${favoritosDocs.length ? 'Nenhum favorito com esse filtro.' : 'Nenhuma copy favoritada ainda. Toque na ⭐ de qualquer copy (da aba Copys ou gerada pela IA) pra guardar aqui.'}</p></div>`;
     return;
   }
   container.innerHTML = lista.map((d) => {
@@ -512,12 +442,12 @@ function renderFavoritos() {
 }
 
 function configurarNovidades() {
-  ['mineradas', 'disparos'].forEach((tipo) => {
+  ['mineradas'].forEach((tipo) => {
     const chip = document.getElementById('chipNovas-' + tipo);
     chip.addEventListener('click', (e) => {
       if (e.target.closest('.chip-novas-ok')) { marcarComoVistas(tipo); }
       else { somenteNovas[tipo] = !somenteNovas[tipo]; atualizarSinalNovidades(tipo); }
-      if (tipo === 'mineradas') { paginaMineradas = 1; aplicarFiltroMineradas(); } else renderDisparos();
+      paginaMineradas = 1; aplicarFiltroMineradas();
     });
   });
   // Fechou o app com a aba aberta = viu
@@ -539,7 +469,6 @@ function iniciarFeedFeedbackCopy() {
   unsubFeedbackCopy = db.collection('feedback_copy').onSnapshot((snap) => {
     feedbackCopy = {};
     snap.docs.forEach((d) => { feedbackCopy[d.id] = d.data().avaliacao; });
-    if (bancoDisparos) renderDisparos();
     if (typeof todasMineradas !== 'undefined' && todasMineradas.length) aplicarFiltroMineradas();
   }, (err) => console.error('[feedback_copy]', err));
 }
@@ -579,19 +508,7 @@ async function buscarExemplosAvaliados(avaliacao, limite) {
   }
   return amostra(cacheExemplos[avaliacao].textos, limite);
 }
-function buscarExemplosBoa(limite) { return buscarExemplosAvaliados('boa', limite); }
-function buscarExemplosRuins(limite) { return buscarExemplosAvaliados('ruim', limite); }
 
-// Bloco de referências que vai no fim de todo pedido pra IA: boas (imitar), ruins (evitar) e recentes (não repetir)
-async function blocoReferenciasIA(qtdBoa) {
-  const [boas, ruins] = await Promise.all([buscarExemplosBoa(qtdBoa), buscarExemplosRuins(4)]);
-  let bloco = '';
-  if (boas.length) bloco += '\n\nCopys que a equipe marcou como BOAS (siga esse estilo de perto, sem copiar):\n' + boas.map((t) => '- ' + t).join('\n');
-  if (ruins.length) bloco += '\n\nCopys que a equipe marcou como RUINS (NÃO escreva nada parecido com isso):\n' + ruins.map((t) => '- ' + t).join('\n');
-  const recentes = copysGeradasRecentes.slice(-8);
-  if (recentes.length) bloco += '\n\nCopys geradas recentemente (NÃO repita as mesmas aberturas, ganchos nem estrutura):\n' + recentes.map((t) => '- ' + t.slice(0, 120)).join('\n');
-  return bloco;
-}
 
 function amostra(lista, n) {
   const copia = lista.slice();
@@ -599,11 +516,6 @@ function amostra(lista, n) {
   return copia.slice(0, n);
 }
 
-let copysGeradasRecentes = safeParse('gerador_recentes', []);
-function lembrarGeradas(textos) {
-  copysGeradasRecentes = copysGeradasRecentes.concat(textos.filter(Boolean)).slice(-20);
-  localStorage.setItem('gerador_recentes', JSON.stringify(copysGeradasRecentes));
-}
 
 // ═══════════════════════════════════════════════ REGRAS DA IA (Treinar IA) ═══
 
@@ -611,56 +523,12 @@ function iniciarFeedRegrasIA() {
   if (unsubRegrasIA) return;
   unsubRegrasIA = db.collection('regras_ia').orderBy('timestamp', 'desc').onSnapshot((snap) => {
     regrasIA = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderRegrasIA();
-    atualizarPreviaPrompt();
   }, (err) => console.error('[regras_ia]', err));
 }
 
-function adicionarRegraIA(texto) {
-  if (!usuarioAtual || !texto.trim()) return;
-  db.collection('regras_ia').add({
-    texto: texto.trim().slice(0, 300),
-    criadoPor: usuarioAtual.displayName || usuarioAtual.email,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => registrarAtividade('Ensinou uma regra pra IA', texto.slice(0, 80)))
-    .catch((err) => toast('Erro: ' + err.message));
-}
 
-function apagarRegraIA(id) {
-  db.collection('regras_ia').doc(id).delete().catch((err) => toast('Erro: ' + err.message));
-}
 
-function renderRegrasIA() {
-  const container = document.getElementById('listaRegrasIA');
-  if (!container) return;
-  if (!regrasIA.length) { container.innerHTML = '<p class="empty-hint">A IA ainda não aprendeu nenhuma regra. Ensine a primeira abaixo.</p>'; return; }
-  container.innerHTML = regrasIA.map((r) => `<div class="regra-item">
-    <span class="regra-check">✓</span>
-    <span class="regra-texto">${esc(r.texto)}</span>
-    <button class="icon-btn btn-del-regra" data-id="${escAttr(r.id)}" title="Remover">🗑</button>
-  </div>`).join('');
-  container.querySelectorAll('.btn-del-regra').forEach((btn) => btn.addEventListener('click', () => apagarRegraIA(btn.dataset.id)));
-}
 
-function configurarTreinarIA() {
-  const btnNova = document.getElementById('btnNovaRegraIA');
-  if (btnNova) btnNova.addEventListener('click', () => {
-    const texto = prompt('Nova regra pra IA seguir (ex: "sempre usar \'vc\' em vez de \'você\'"):');
-    if (texto && texto.trim()) { adicionarRegraIA(texto); toast('Regra adicionada!'); }
-  });
-
-  const btnEnsinar = document.getElementById('btnEnsinarCorrecao');
-  if (btnEnsinar) btnEnsinar.addEventListener('click', () => {
-    const iaEscreveu = document.getElementById('correcaoIaEscreveu').value.trim();
-    const euEscreveria = document.getElementById('correcaoEuEscreveria').value.trim();
-    if (!iaEscreveu || !euEscreveria) { toast('Preenche os dois campos pra ensinar a correção.'); return; }
-    const regra = `Em vez de escrever algo como "${iaEscreveu.slice(0, 120)}", escreva no estilo "${euEscreveria.slice(0, 120)}"`;
-    adicionarRegraIA(regra);
-    document.getElementById('correcaoIaEscreveu').value = '';
-    document.getElementById('correcaoEuEscreveria').value = '';
-    toast('Correção ensinada! A IA vai considerar isso a partir de agora.');
-  });
-}
 
 // ═══════════════════════════════════════════════ MÉTRICAS COMPARTILHADAS ═══
 
@@ -672,11 +540,6 @@ function iniciarFeedMetricas() {
   }, (err) => console.error('[metricas]', err));
 }
 
-function incrementarMetricaGlobal(campo, valor) {
-  db.collection('metricas').doc('global').set({
-    [campo]: firebase.firestore.FieldValue.increment(valor)
-  }, { merge: true }).catch((err) => console.error('[metricas incrementar]', err));
-}
 
 function incrementarContadorFuncionario(campo, valor) {
   if (!usuarioAtual) return;
@@ -774,27 +637,7 @@ const CONFIG_PADRAO = {
 
 function uid() { return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
-const PERSONAS_SEED = [
-  { id: 'default', nome: 'Letícia Vargas', texto: 'Letícia Vargas, 18 anos, universitária, vocabulário: "vida", "corre lá", "prévia", "amor", "bb"', tipo: 'universitaria', comprimento: 'medio', emoji: '2' },
-  { id: 'coroa', nome: 'Coroa Confiante', texto: '35 anos, divorciada, segura de si, ensina o lead sem rodeios, vocabulário: "gatinho", "deixa comigo", "vem cá"', tipo: 'coroa', comprimento: 'medio', emoji: '1' },
-  { id: 'timida', nome: 'Timidinha Descobrindo', texto: '19 anos, primeira vez fazendo esse tipo de conteúdo, insegura mas curiosa, vocabulário: "nossa", "sério?", "não acredito que tô fazendo isso"', tipo: 'timida', comprimento: 'medio', emoji: '2' },
-  { id: 'executiva', nome: 'Executiva Estressada', texto: '27 anos, trabalha o dia todo, usa a conversa à noite pra relaxar, vocabulário: "que dia cansativo", "preciso descontar", "me ajuda a relaxar"', tipo: 'executiva', comprimento: 'medio', emoji: '1' },
-  { id: 'professora', nome: 'Professora Tutora', texto: '26 anos, dá aula, tom de comando com verniz educacional, vocabulário: "presta atenção", "vou te ensinar", "boa resposta"', tipo: 'professora', comprimento: 'medio', emoji: '1' },
-  { id: 'proibida', nome: 'Proibida', texto: '24 anos, tá online escondida do namorado, sensação de risco, vocabulário: "psiu", "não conta pra ninguém", "só um pouquinho"', tipo: 'proibida', comprimento: 'curto', emoji: '1' },
-  { id: 'popstar', nome: 'Popstar Local', texto: '23 anos, vida badalada, sensação de exclusividade e status, vocabulário: "poucos têm acesso", "você é sortudo", "olha só quem eu escolhi"', tipo: 'popstar', comprimento: 'medio', emoji: '2' },
-  { id: 'interiorana', nome: 'Interiorana Simples', texto: '21 anos, jeito caseiro do interior, contraste inocência x safadeza, vocabulário: "uai", "nossa senhora", "vixe"', tipo: 'interiorana', comprimento: 'medio', emoji: '2' },
-  { id: 'sortuda', nome: 'Sortuda Eufórica', texto: '22 anos, acabou de ganhar algo bom, tá generosa e empolgada, vocabulário: "tô numa vibe boa", "quero comemorar com você", "deixa eu te mimar também"', tipo: 'sortuda', comprimento: 'medio', emoji: '2' }
-];
 
-function getPersonas() {
-  let lista = safeParse('gerador_personas', null);
-  if (!lista || !lista.length) {
-    lista = PERSONAS_SEED.map((p) => ({ ...p }));
-    localStorage.setItem('gerador_personas', JSON.stringify(lista));
-  }
-  return lista;
-}
-function salvarPersonasList(lista) { localStorage.setItem('gerador_personas', JSON.stringify(lista)); }
 
 const TIPO_PERSONA_DESC = {
   universitaria: 'Universitária, patricinha de família tradicional/rígida — comportada e certinha por fora, safadinha por dentro, faz tudo escondido.',
@@ -855,12 +698,8 @@ function salvarConfig(cfg) {
 const PAGE_INFO = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
   criar: { title: 'Criar com IA', subtitle: 'Copys novas no jeito de cada modelo, aprendendo com as copys reais dela' },
-  favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou — do banco, das mineradas e da IA' },
+  favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou: das modelos e geradas pela IA' },
   mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto do Google Docs' },
-  disparos: { title: 'Disparos', subtitle: 'Banco de copys prontas + grade manual do dia' },
-  grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA em horários aleatórios do dia' },
-  gerador: { title: 'Gerador', subtitle: 'Gere uma copy avulsa ou um script por tipo' },
-  treinar: { title: 'Treinar IA', subtitle: 'Ensine a IA a escrever do jeito da sua equipe' },
   admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
 };
 
@@ -916,9 +755,7 @@ function gerarSlotsAleatorios() {
   return slots;
 }
 
-let gradeSlots = [];
 
-const POR_PAGINA = 24;
 let todasMineradas = [];
 let mineradasFiltradas = [];
 let paginaMineradas = 1;
@@ -927,9 +764,6 @@ const DOCS_URL = 'https://script.google.com/macros/s/AKfycbyZZjrqt2ZdkhdU_C0k5cW
 const DOCS_TOKEN = '300106';
 const CATEGORIAS_COPYS = ['PPV', 'Prévias', 'Boas-vindas', 'Remarketing', 'Expirados', 'Promoções', 'VIP', 'Chamadas', 'Disparos em massa', 'Pós-venda', 'Reengajamento', 'Testes'];
 
-let bancoDisparos = null;
-let disparosFiltrados = [];
-let mostrandoFavoritos = false;
 
 let favoritos = []; // agora compartilhado via Firestore (coleção "favoritos"), veja iniciarFeedFavoritos()
 let favoritosDocs = []; // mesmos favoritos com origem/categoria/quem salvou, pra aba Favoritos
@@ -940,10 +774,7 @@ let regrasIA = []; // compartilhado via Firestore (coleção "regras_ia")
 let unsubRegrasIA = null;
 let metricasGlobais = { copysGeradas: 0, copysCopiadas: 0, porHora: {} }; // compartilhado via Firestore (metricas/global)
 let unsubMetricas = null;
-let copysCustom = safeParse('gerador_copys_custom', []);
 let copyCounts = safeParse('gerador_copy_counts', {});
-let gradeManual = safeParse('gerador_grade_manual', { '11h': '', '14h': '', '19h': '' });
-let gradeGerada = null;
 
 function safeParse(key, fallback) {
   try { const v = JSON.parse(localStorage.getItem(key)); return v || fallback; } catch (e) { return fallback; }
@@ -1063,12 +894,8 @@ function irParaTab(tab, opts) {
     history.replaceState(null, '', '#' + tab);
   }
   if (tab === 'dashboard') renderDashboard();
-  if (tab === 'disparos' && !bancoDisparos) carregarBancoDisparos();
-  if (tab === 'grade' || tab === 'gerador') atualizarResumoPersona();
   if (tab === 'favoritos') renderFavoritos();
   if (tab === 'criar') renderCriar();
-  if (tab === 'treinar') renderPromptBase();
-  if (tab === 'grade' && !gradeGerada) { gradeSlots = gerarSlotsAleatorios(); gradeGerada = {}; renderGradeGerada(gradeGerada); }
 }
 
 function abrirTabDaHash() {
@@ -1081,12 +908,6 @@ function fecharSidebarMobile() { document.getElementById('sidebar').classList.re
 
 function configurarNav() {
   document.querySelectorAll('.nav-item').forEach((btn) => btn.addEventListener('click', () => irParaTab(btn.dataset.tab)));
-  document.querySelectorAll('[data-ir-tab]').forEach((btn) => btn.addEventListener('click', () => {
-    irParaTab(btn.dataset.irTab);
-    if (btn.dataset.irTab === 'grade') { const card = document.getElementById('personaCard'); card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-  }));
-  document.getElementById('personaCard').addEventListener('click', (e) => { if (e.target.closest('button')) setTimeout(atualizarResumoPersona, 0); });
-  document.getElementById('personaCard').addEventListener('change', () => setTimeout(atualizarResumoPersona, 0));
   document.getElementById('menuBtn').addEventListener('click', abrirSidebarMobile);
   document.getElementById('sidebarClose').addEventListener('click', fecharSidebarMobile);
   document.getElementById('scrim').addEventListener('click', fecharSidebarMobile);
@@ -1598,15 +1419,6 @@ function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA
         ${comIA ? `<button class="icon-btn btn-avaliar ${avaliacao === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
         <button class="icon-btn btn-avaliar ${avaliacao === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>` : ''}
         ${botaoFavHtml(texto, origemFav || origem, categoria || tag)}
-        ${origem !== 'gerada' ? `<div class="grade-add-wrap" title="Adicionar na grade">
-          <span class="icon-btn">➕</span>
-          <select class="select-add-grade" data-texto="${escAttr(texto)}">
-            <option value="">Horário…</option>
-            <option value="11h">11h Bom Dia</option>
-            <option value="14h">14h Vídeo</option>
-            <option value="19h">19h Aquecimento</option>
-          </select>
-        </div>` : ''}
         ${comIA ? `<div class="ia-wrap" title="Reescrever com IA">
           <button class="icon-btn btn-reescrever" data-texto="${escAttr(texto)}">✨</button>
           <select class="select-estilo-ia" data-texto="${escAttr(texto)}">
@@ -1635,877 +1447,10 @@ function ligarEventosCard(container) {
       if (card) { card.style.transition = 'opacity 0.3s ease'; card.style.opacity = '0'; setTimeout(() => card.remove(), 300); }
     }
   }));
-  container.querySelectorAll('.btn-del-custom').forEach((btn) => btn.addEventListener('click', () => {
-    copysCustom = copysCustom.filter((c) => c.texto !== btn.dataset.texto);
-    localStorage.setItem('gerador_copys_custom', JSON.stringify(copysCustom));
-    renderDisparos();
-  }));
-  container.querySelectorAll('.select-add-grade').forEach((sel) => sel.addEventListener('change', () => {
-    const horario = sel.value;
-    if (horario) { setGradeManualSlot(horario, sel.dataset.texto); sel.value = ''; toast('Adicionado no horário ' + horario); }
-  }));
   container.querySelectorAll('.btn-reescrever').forEach((btn) => btn.addEventListener('click', () => reescreverCopy(btn.dataset.texto, 'safada', btn)));
   container.querySelectorAll('.select-estilo-ia').forEach((sel) => sel.addEventListener('change', () => {
     if (sel.value) { const btn = sel.closest('.ia-wrap').querySelector('.btn-reescrever'); reescreverCopy(sel.dataset.texto, sel.value, btn); sel.value = ''; }
   }));
-}
-
-// ═══════════════════════════════════════════════ DISPAROS ═══
-
-async function carregarBancoDisparos() {
-  try {
-    const resp = await fetch('banco-disparos.json');
-    bancoDisparos = await resp.json();
-    calcularNovidades('disparos', todasCopysDoBanco().map((d) => hashTexto(d.texto)));
-    const select = document.getElementById('filtroCategoriaDisparos');
-    select.innerHTML = '<option value="">Todas as categorias</option>';
-    bancoDisparos.categorias.forEach((cat) => {
-      const opt = document.createElement('option');
-      opt.value = cat.nome;
-      opt.textContent = `${cat.icone} ${cat.nome} (${cat.copys.length})`;
-      select.appendChild(opt);
-    });
-    renderGradeManual();
-    renderDisparos();
-    renderDashboard();
-  } catch (err) {
-    document.getElementById('listaDisparos').innerHTML = `<div class="empty-state"><p>Erro ao carregar banco: ${esc(err.message)}</p></div>`;
-  }
-}
-
-function configurarDisparos() {
-  document.getElementById('buscaDisparos').addEventListener('input', renderDisparos);
-  document.getElementById('filtroCategoriaDisparos').addEventListener('change', renderDisparos);
-  document.getElementById('btnMostrarFavoritas').addEventListener('click', (e) => {
-    mostrandoFavoritos = !mostrandoFavoritos;
-    e.currentTarget.classList.toggle('btn-primary', mostrandoFavoritos);
-    renderDisparos();
-  });
-  document.getElementById('btnSortearAleatorio').addEventListener('click', sortearCopyAleatoria);
-
-  document.getElementById('btnAddCopy').addEventListener('click', () => {
-    const form = document.getElementById('formAddCopy');
-    form.classList.toggle('hidden');
-    if (!form.classList.contains('hidden')) {
-      populaCategoriaSelect();
-      document.getElementById('novaCopyTexto').focus();
-    }
-  });
-  document.getElementById('btnFecharAdd').addEventListener('click', () => document.getElementById('formAddCopy').classList.add('hidden'));
-  document.getElementById('btnAdicionarCopy').addEventListener('click', () => {
-    const texto = document.getElementById('novaCopyTexto').value.trim();
-    const categoria = document.getElementById('novaCopyCategoria').value;
-    if (!texto) { toast('Escreva o texto da copy.'); return; }
-    if (!categoria) { toast('Escolha uma categoria.'); return; }
-    copysCustom.push({ texto, categoria });
-    // copy que a própria pessoa criou não conta como "nova" pra ela
-    const vistosDisp = safeParse('gerador_vistos_disparos', null);
-    if (Array.isArray(vistosDisp)) localStorage.setItem('gerador_vistos_disparos', JSON.stringify(vistosDisp.concat(hashTexto(texto))));
-    localStorage.setItem('gerador_copys_custom', JSON.stringify(copysCustom));
-    document.getElementById('novaCopyTexto').value = '';
-    document.getElementById('formAddCopy').classList.add('hidden');
-    toast('Copy adicionada ao banco.');
-    registrarAtividade('Adicionou copy customizada', `${categoria}: ${texto.slice(0, 60)}`);
-    renderDisparos();
-    renderDashboard();
-  });
-
-  document.getElementById('btnLimparGradeManual').addEventListener('click', () => {
-    gradeManual = { '11h': '', '14h': '', '19h': '' };
-    localStorage.setItem('gerador_grade_manual', JSON.stringify(gradeManual));
-    renderGradeManual();
-  });
-  document.getElementById('btnCopiarGradeManual').addEventListener('click', () => {
-    const nomes = { '11h': 'Bom Dia', '14h': 'Vídeo Exclusivo', '19h': 'Aquecimento' };
-    const texto = Object.keys(gradeManual).filter((k) => gradeManual[k])
-      .map((k) => `${k} — ${nomes[k]}:\n${gradeManual[k]}`).join('\n\n---\n\n');
-    if (!texto) return;
-    copiarTexto(texto).then(() => toast('Grade completa copiada!'));
-  });
-}
-
-function populaCategoriaSelect() {
-  const select = document.getElementById('novaCopyCategoria');
-  if (select.options.length > 1 || !bancoDisparos) return;
-  bancoDisparos.categorias.forEach((cat) => {
-    const opt = document.createElement('option');
-    opt.value = cat.nome; opt.textContent = `${cat.icone} ${cat.nome}`;
-    select.appendChild(opt);
-  });
-  const optNova = document.createElement('option');
-  optNova.value = '__nova__'; optNova.textContent = '+ Criar nova categoria';
-  select.appendChild(optNova);
-  select.addEventListener('change', () => {
-    if (select.value === '__nova__') {
-      const nome = prompt('Nome da nova categoria:');
-      if (nome && nome.trim()) {
-        const opt = document.createElement('option');
-        opt.value = nome.trim(); opt.textContent = nome.trim();
-        select.insertBefore(opt, select.lastChild);
-        select.value = nome.trim();
-      } else select.value = '';
-    }
-  });
-}
-
-function todasCopysDoBanco() {
-  const lista = [];
-  if (bancoDisparos) {
-    bancoDisparos.categorias.forEach((cat) => cat.copys.forEach((texto) => { if (naoEhRuim(texto)) lista.push({ texto, categoria: cat.nome, icone: cat.icone }); }));
-  }
-  copysCustom.forEach((c) => {
-    if (!naoEhRuim(c.texto)) return;
-    const catOriginal = bancoDisparos?.categorias.find((cat) => cat.nome === c.categoria);
-    lista.push({ texto: c.texto, categoria: c.categoria, icone: catOriginal?.icone || '✏️', custom: true });
-  });
-  return lista;
-}
-
-function renderDisparos() {
-  const container = document.getElementById('listaDisparos');
-  if (!bancoDisparos) return;
-
-  const categoriaFiltro = document.getElementById('filtroCategoriaDisparos').value;
-  const termo = (document.getElementById('buscaDisparos').value || '').toLowerCase().trim();
-
-  let lista = todasCopysDoBanco();
-  if (categoriaFiltro) lista = lista.filter((d) => d.categoria === categoriaFiltro);
-  if (termo) lista = lista.filter((d) => d.texto.toLowerCase().includes(termo));
-  if (mostrandoFavoritos) lista = lista.filter((d) => favoritos.includes(d.texto));
-  if (somenteNovas.disparos) lista = lista.filter((d) => novidades.disparos.has(hashTexto(d.texto)));
-
-  disparosFiltrados = lista;
-
-  if (!lista.length) {
-    container.innerHTML = `<div class="empty-state"><p>${mostrandoFavoritos ? 'Nenhuma copy favoritada ainda.' : 'Nenhuma copy encontrada.'}</p></div>`;
-    return;
-  }
-
-  const agrupado = {};
-  lista.forEach((d) => {
-    if (!agrupado[d.categoria]) agrupado[d.categoria] = { icone: d.icone, itens: [] };
-    agrupado[d.categoria].itens.push(d);
-  });
-
-  const comFiltro = Boolean(categoriaFiltro || termo || mostrandoFavoritos || somenteNovas.disparos);
-  let html = '';
-  Object.keys(agrupado).forEach((catNome, i) => {
-    const grupo = agrupado[catNome];
-    const aberta = comFiltro || i === 0 || categoriasAbertas.has(catNome);
-    html += `<details class="categoria-bloco" data-categoria="${escAttr(catNome)}" ${aberta ? 'open' : ''}>`;
-    const novasCat = grupo.itens.filter((d) => novidades.disparos.has(hashTexto(d.texto))).length;
-    html += `<summary class="categoria-header"><span>${grupo.icone}</span> ${esc(catNome)}${novasCat ? ` <span class="tag-nova">${novasCat} nova${novasCat > 1 ? 's' : ''}</span>` : ''} <span class="categoria-count">${grupo.itens.length}</span><span class="categoria-seta" aria-hidden="true"></span></summary>`;
-    html += `<div class="grid-copys">${grupo.itens.map((d) => cardCopyHtml({
-      texto: d.texto, categoria: d.categoria, icone: d.icone, comIA: true, origem: 'disparo',
-      custom: d.custom, nova: novidades.disparos.has(hashTexto(d.texto))
-    })).join('')}</div></details>`;
-  });
-
-  container.innerHTML = html;
-  container.querySelectorAll('.categoria-bloco').forEach((det) => det.addEventListener('toggle', () => {
-    if (det.open) categoriasAbertas.add(det.dataset.categoria); else categoriasAbertas.delete(det.dataset.categoria);
-  }));
-  ligarEventosCard(container);
-}
-const categoriasAbertas = new Set();
-
-// Resumo da persona ativa (no cabeçalho recolhido da Grade e no Gerador)
-function atualizarResumoPersona() {
-  const cfg = getConfig();
-  const sel = document.getElementById('personaSelect');
-  const nome = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : 'Persona';
-  const tipoSel = document.getElementById('personaTipo');
-  const tipo = tipoSel && tipoSel.selectedOptions[0] ? tipoSel.selectedOptions[0].textContent.replace(/^\S+\s/, '') : '';
-  const resumo = [nome, tipo, 'tom ' + (cfg.tom || 'natural'), cfg.comprimento || 'medio'].filter(Boolean).join(' · ');
-  const r = document.getElementById('personaResumo');
-  if (r) r.textContent = resumo;
-  const g = document.getElementById('geradorPersonaInfo');
-  if (g) g.textContent = 'Escrevendo como ' + nome + ' →';
-}
-
-function sortearCopyAleatoria() {
-  if (!disparosFiltrados.length) { toast('Nenhuma copy disponível com esse filtro.'); return; }
-  const sorteada = disparosFiltrados[Math.floor(Math.random() * disparosFiltrados.length)];
-  const container = document.getElementById('copyAleatoria');
-  container.innerHTML = `<div class="panel" style="margin-bottom:14px;"><div class="panel-head"><h2>Copy sorteada</h2></div>${cardCopyHtml({
-    texto: sorteada.texto, categoria: sorteada.categoria, icone: sorteada.icone, comIA: true, origem: 'disparo', favorito: favoritos.includes(sorteada.texto)
-  })}</div>`;
-  ligarEventosCard(container);
-  container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-// ═══════════════════════════════════════════════ GRADE MANUAL (aba Disparos) ═══
-
-function setGradeManualSlot(slot, texto) {
-  gradeManual[slot] = texto;
-  localStorage.setItem('gerador_grade_manual', JSON.stringify(gradeManual));
-  renderGradeManual();
-}
-
-function renderGradeManual() {
-  const container = document.getElementById('gradeManualSlots');
-  const nomes = { '11h': 'Bom Dia', '14h': 'Vídeo Exclusivo', '19h': 'Aquecimento' };
-  const cores = { '11h': '#fbbf24', '14h': '#a855f7', '19h': '#ec4899' };
-  let preenchidos = 0;
-  container.innerHTML = Object.keys(nomes).map((slot) => {
-    const texto = gradeManual[slot];
-    if (texto) preenchidos++;
-    return `<div class="grade-slot ${texto ? 'preenchido' : ''}">
-      <div class="grade-slot-header"><span class="grade-slot-hora" style="color:${cores[slot]}">${slot}</span><span class="grade-slot-nome">${nomes[slot]}</span></div>
-      <div class="grade-slot-texto ${texto ? '' : 'grade-slot-empty'}">${texto ? esc(texto) : 'Clique em ➕ numa copy abaixo'}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('btnCopiarGradeManual').disabled = preenchidos === 0;
-}
-
-// ═══════════════════════════════════════════════ GRADE DO DIA (sortear / IA) ═══
-
-function popularSelectPersonas(selecionarId) {
-  const select = document.getElementById('personaSelect');
-  const lista = getPersonas();
-  select.innerHTML = lista.map((p) => `<option value="${escAttr(p.id)}">${esc(p.nome)}</option>`).join('');
-  if (selecionarId && lista.some((p) => p.id === selecionarId)) select.value = selecionarId;
-  return lista;
-}
-
-function carregarPersonaNosCampos(persona) {
-  document.getElementById('personaTexto').value = persona.texto || '';
-  document.getElementById('personaTipo').value = persona.tipo || 'universitaria';
-  document.querySelectorAll('#comprimentoRow .estilo-btn').forEach((btn) => {
-    btn.classList.toggle('ativo', btn.dataset.comprimento === (persona.comprimento || 'medio'));
-  });
-  document.querySelectorAll('#emojiRow .estilo-btn').forEach((btn) => {
-    btn.classList.toggle('ativo', btn.dataset.emoji === (persona.emoji || '2'));
-  });
-  document.querySelectorAll('#tomRow .estilo-btn').forEach((btn) => {
-    btn.classList.toggle('ativo', btn.dataset.tom === (persona.tom || 'natural'));
-  });
-  document.querySelectorAll('#abreviacoesRow .estilo-btn').forEach((btn) => {
-    btn.classList.toggle('ativo', btn.dataset.abrev === (persona.abreviacoes || 'sim'));
-  });
-}
-
-function configurarPersona() {
-  const cfg = getConfig();
-  let lista = popularSelectPersonas(cfg.personaAtivaId);
-  let ativa = lista.find((p) => p.id === cfg.personaAtivaId) || lista[0];
-  document.getElementById('personaSelect').value = ativa.id;
-  carregarPersonaNosCampos(ativa);
-  salvarConfig({ persona: ativa.texto, personaTipo: ativa.tipo, comprimento: ativa.comprimento, emoji: ativa.emoji || '2', tom: ativa.tom || 'natural', abreviacoes: ativa.abreviacoes || 'sim', personaAtivaId: ativa.id });
-
-  const inputPersona = document.getElementById('personaTexto');
-  const selectTipo = document.getElementById('personaTipo');
-  const selectPersona = document.getElementById('personaSelect');
-
-  let debounce;
-  inputPersona.addEventListener('input', () => {
-    clearTimeout(debounce);
-    debounce = setTimeout(() => salvarConfig({ persona: inputPersona.value.trim() }), 400);
-  });
-  selectTipo.addEventListener('change', () => salvarConfig({ personaTipo: selectTipo.value }));
-  document.querySelectorAll('#comprimentoRow .estilo-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#comprimentoRow .estilo-btn').forEach((b) => b.classList.remove('ativo'));
-      btn.classList.add('ativo');
-      salvarConfig({ comprimento: btn.dataset.comprimento });
-    });
-  });
-  document.querySelectorAll('#emojiRow .estilo-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#emojiRow .estilo-btn').forEach((b) => b.classList.remove('ativo'));
-      btn.classList.add('ativo');
-      salvarConfig({ emoji: btn.dataset.emoji });
-    });
-  });
-  document.querySelectorAll('#tomRow .estilo-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#tomRow .estilo-btn').forEach((b) => b.classList.remove('ativo'));
-      btn.classList.add('ativo');
-      salvarConfig({ tom: btn.dataset.tom });
-    });
-  });
-  document.querySelectorAll('#abreviacoesRow .estilo-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#abreviacoesRow .estilo-btn').forEach((b) => b.classList.remove('ativo'));
-      btn.classList.add('ativo');
-      salvarConfig({ abreviacoes: btn.dataset.abrev });
-    });
-  });
-
-  selectPersona.addEventListener('change', () => {
-    const lista2 = getPersonas();
-    const p = lista2.find((x) => x.id === selectPersona.value);
-    if (!p) return;
-    carregarPersonaNosCampos(p);
-    salvarConfig({ persona: p.texto, personaTipo: p.tipo, comprimento: p.comprimento, emoji: p.emoji || '2', tom: p.tom || 'natural', abreviacoes: p.abreviacoes || 'sim', personaAtivaId: p.id });
-    toast(`Persona "${p.nome}" carregada.`);
-  });
-
-  document.getElementById('btnNovaPersona').addEventListener('click', () => {
-    const nome = prompt('Nome da nova persona:');
-    if (!nome || !nome.trim()) return;
-    const nova = { id: uid(), nome: nome.trim(), texto: '', tipo: 'universitaria', comprimento: 'medio', emoji: '2', tom: 'natural', abreviacoes: 'sim' };
-    const lista3 = getPersonas();
-    lista3.push(nova);
-    salvarPersonasList(lista3);
-    popularSelectPersonas(nova.id);
-    carregarPersonaNosCampos(nova);
-    salvarConfig({ persona: nova.texto, personaTipo: nova.tipo, comprimento: nova.comprimento, emoji: nova.emoji, tom: nova.tom, abreviacoes: nova.abreviacoes, personaAtivaId: nova.id });
-    toast(`Persona "${nova.nome}" criada. Preencha e clique em 💾 pra salvar.`);
-    inputPersona.focus();
-  });
-
-  document.getElementById('btnSalvarPersona').addEventListener('click', () => {
-    const lista4 = getPersonas();
-    const idAtiva = getConfig().personaAtivaId;
-    const p = lista4.find((x) => x.id === idAtiva);
-    if (!p) return;
-    p.texto = inputPersona.value.trim();
-    p.tipo = selectTipo.value;
-    p.comprimento = getConfig().comprimento;
-    p.emoji = getConfig().emoji;
-    p.tom = getConfig().tom;
-    p.abreviacoes = getConfig().abreviacoes;
-    salvarPersonasList(lista4);
-    toast(`Persona "${p.nome}" atualizada.`);
-  });
-
-  document.getElementById('btnApagarPersona').addEventListener('click', () => {
-    let lista5 = getPersonas();
-    if (lista5.length <= 1) { toast('Precisa deixar pelo menos uma persona.'); return; }
-    const idAtiva = getConfig().personaAtivaId;
-    const p = lista5.find((x) => x.id === idAtiva);
-    if (!p) return;
-    if (!confirm(`Apagar a persona "${p.nome}"?`)) return;
-    lista5 = lista5.filter((x) => x.id !== idAtiva);
-    salvarPersonasList(lista5);
-    const proxima = lista5[0];
-    popularSelectPersonas(proxima.id);
-    carregarPersonaNosCampos(proxima);
-    salvarConfig({ persona: proxima.texto, personaTipo: proxima.tipo, comprimento: proxima.comprimento, emoji: proxima.emoji || '2', tom: proxima.tom || 'natural', abreviacoes: proxima.abreviacoes || 'sim', personaAtivaId: proxima.id });
-    toast('Persona apagada.');
-  });
-}
-
-function configurarGrade() {
-  document.getElementById('btnSortearGrade').addEventListener('click', sortearGradeDia);
-  document.getElementById('btnGerarGradeIA').addEventListener('click', gerarGradeIA);
-  document.getElementById('btnCompletarGradeIA').addEventListener('click', completarGradeIA);
-  document.getElementById('btnCopiarGradeGerada').addEventListener('click', () => {
-    if (!gradeGerada) return;
-    const texto = gradeSlots.filter((s) => gradeGerada[s.tag]).map((s) => `${s.hora} — ${s.tipo}:\n${gradeGerada[s.tag]}`).join('\n\n---\n\n');
-    copiarTexto(texto).then(() => toast('Grade completa copiada!'));
-  });
-
-  document.querySelectorAll('#estilosReescrita .estilo-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      document.querySelectorAll('#estilosReescrita .estilo-btn').forEach((b) => b.classList.remove('ativo'));
-      btn.classList.add('ativo');
-      const textoOriginal = document.getElementById('textoReescrever').value.trim();
-      if (!textoOriginal) { toast('Cole ou escreva uma copy primeiro.'); return; }
-      const resultadoDiv = document.getElementById('resultadoReescrita');
-      resultadoDiv.classList.remove('hidden');
-      resultadoDiv.textContent = 'Gerando…';
-      try {
-        const resultado = await chamarOpenRouter([
-          { role: 'system', content: montarPromptBase() },
-          { role: 'user', content: (ESTILOS_REESCRITA[btn.dataset.estilo] || '') + '\n\nCopy original:\n' + textoOriginal }
-        ], { maxTokens: tokensParaComprimento(1) });
-        resultadoDiv.textContent = resultado.trim();
-      } catch (err) {
-        resultadoDiv.textContent = 'Erro: ' + err.message;
-      }
-    });
-  });
-}
-
-function poolParaSlot(slot) {
-  let pool = [];
-  if (bancoDisparos) {
-    (slot.categorias || []).forEach((catNome) => {
-      const cat = bancoDisparos.categorias.find((c) => c.nome === catNome);
-      if (cat) pool.push(...cat.copys.filter(naoEhRuim));
-    });
-  }
-  copysCustom.forEach((c) => { if (naoEhRuim(c.texto) && (slot.categorias || []).includes(c.categoria)) pool.push(c.texto); });
-  if (mineradasFiltradas.length && slot.tipoMinerada) {
-    pool.push(...mineradasFiltradas.filter((c) => c.tipo === slot.tipoMinerada).map((c) => c.mensagem));
-  }
-  return pool;
-}
-
-function sortearGradeDia() {
-  if (!bancoDisparos) { toast('Aguarde o banco de disparos carregar.'); return; }
-  gradeSlots = gerarSlotsAleatorios();
-  const grade = {};
-  gradeSlots.forEach((slot) => {
-    const pool = poolParaSlot(slot);
-    grade[slot.tag] = pool.length ? pool[Math.floor(Math.random() * pool.length)] : '';
-  });
-  gradeGerada = grade;
-  renderGradeGerada(grade);
-  setStatus('Grade do dia montada! Clique de novo pra sortear outros horários.', 'ok');
-  registrarAtividade('Sorteou a grade do dia', '');
-}
-
-function trocarSlotSorteio(tag) {
-  const slot = gradeSlots.find((s) => s.tag === tag);
-  if (!slot) return;
-  const pool = poolParaSlot(slot);
-  if (!pool.length) { toast('Nenhuma copy disponível pra esse horário.'); return; }
-  if (!gradeGerada) gradeGerada = {};
-  const atual = gradeGerada[tag];
-  let escolha = pool[Math.floor(Math.random() * pool.length)];
-  if (pool.length > 1) {
-    let tentativas = 0;
-    while (escolha === atual && tentativas < 5) { escolha = pool[Math.floor(Math.random() * pool.length)]; tentativas++; }
-  }
-  gradeGerada[tag] = escolha;
-  renderGradeGerada(gradeGerada);
-}
-
-async function gerarSlotIA(tag) {
-  const cfg = getConfig();
-  if (!cfg.openrouterKey) {
-    toast('Configure sua API Key do OpenRouter nas Configurações.');
-    document.getElementById('modalBackdrop').classList.add('open');
-    return;
-  }
-  const slot = gradeSlots.find((s) => s.tag === tag);
-  if (!slot) return;
-  const exemplos = amostra(poolParaSlot(slot), 4).join('\n');
-  const referencias = await blocoReferenciasIA(4);
-
-  const resultado = await chamarOpenRouter([
-    { role: 'system', content: montarPromptBase() },
-    {
-      role: 'user',
-      content: `Crie UMA copy original pro horário ${slot.hora} — ${slot.tipo}. Responda só com a copy pura, sem rótulos.\n\nExemplos de referência (não copie, crie uma nova):\n${exemplos.slice(0, 1200)}${referencias}`
-    }
-  ], { temperature: 0.9, maxTokens: tokensParaComprimento(1) });
-
-  if (!gradeGerada) gradeGerada = {};
-  gradeGerada[tag] = resultado.trim();
-  lembrarGeradas([gradeGerada[tag]]);
-  renderGradeGerada(gradeGerada);
-  incrementarContadorFuncionario('copysGeradas', 1);
-  incrementarMetricaGlobal('copysGeradas', 1);
-  registrarAtividade('Gerou copy pro horário ' + slot.hora, '');
-}
-
-async function completarGradeIA() {
-  const cfg = getConfig();
-  if (!cfg.openrouterKey) {
-    toast('Configure sua API Key do OpenRouter nas Configurações.');
-    document.getElementById('modalBackdrop').classList.add('open');
-    return;
-  }
-  if (!gradeGerada) gradeGerada = {};
-  const vazios = gradeSlots.filter((s) => !gradeGerada[s.tag]);
-  if (!vazios.length) { toast('Todos os horários já têm copy.'); return; }
-  const btn = document.getElementById('btnCompletarGradeIA');
-  btn.disabled = true;
-  const original = btn.textContent;
-  btn.textContent = '✨ Completando…';
-  try {
-    for (const slot of vazios) { await gerarSlotIA(slot.tag); }
-    toast('Grade completada!');
-  } catch (err) {
-    toast('Erro IA: ' + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = original;
-  }
-}
-
-function renderGradeGerada(grade) {
-  const container = document.getElementById('gradeContainer');
-  container.innerHTML = gradeSlots.map((slot) => {
-    const texto = grade[slot.tag];
-    const av = texto ? feedbackCopy[hashTexto(texto)] : null;
-    return `<div class="grade-slot ${texto ? 'preenchido' : ''}">
-      <div class="grade-slot-header"><span class="grade-slot-hora" style="color:${slot.cor}">${slot.hora}</span><span class="grade-slot-nome">${slot.tipo}</span></div>
-      <div class="grade-slot-texto ${texto ? '' : 'grade-slot-empty'}">${texto ? esc(texto) : 'IA ainda não gerou'}</div>
-      ${texto ? `<div class="grade-slot-actions">
-        <button class="icon-btn btn-avaliar ${av === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
-        <button class="icon-btn btn-avaliar ${av === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>
-        ${botaoFavHtml(texto, 'ia', slot.tipo)}
-        <button class="icon-btn btn-trocar-slot" data-tag="${slot.tag}" title="Trocar por outra">🔀</button>
-        <button class="btn-shimmer btn-copiar-slot" data-texto="${escAttr(texto)}" style="flex:1;"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>
-      </div>` : `<div class="grade-slot-actions">
-        <button class="btn btn-secondary btn-gerar-slot" data-tag="${slot.tag}" style="flex:1;">✨ Gerar</button>
-      </div>`}
-    </div>`;
-  }).join('');
-  container.querySelectorAll('.btn-copiar-slot').forEach((btn) => btn.addEventListener('click', () => copiarTexto(btn.dataset.texto).then(() => toast('Copy copiada!'))));
-  container.querySelectorAll('.btn-trocar-slot').forEach((btn) => btn.addEventListener('click', () => trocarSlotSorteio(btn.dataset.tag)));
-  container.querySelectorAll('.btn-gerar-slot').forEach((btn) => btn.addEventListener('click', async (e) => {
-    const b = e.currentTarget;
-    const original = b.textContent;
-    b.disabled = true;
-    b.textContent = '✨ Gerando…';
-    try { await gerarSlotIA(b.dataset.tag); }
-    catch (err) { toast('Erro IA: ' + err.message); b.disabled = false; b.textContent = original; }
-  }));
-  container.querySelectorAll('.btn-avaliar').forEach((btn) => btn.addEventListener('click', () => {
-    avaliarCopy(btn.dataset.texto, btn.dataset.avaliacao);
-    if (btn.dataset.avaliacao === 'ruim') {
-      const slot = btn.closest('.grade-slot');
-      slot.classList.remove('preenchido');
-      slot.querySelector('.grade-slot-texto').textContent = '🚫 Marcada como ruim e excluída';
-      slot.querySelector('.grade-slot-texto').classList.add('grade-slot-empty');
-      slot.querySelector('.grade-slot-actions')?.remove();
-      return;
-    }
-    const ativou = !btn.classList.contains('avaliacao-' + btn.dataset.avaliacao);
-    btn.parentElement.querySelectorAll('.btn-avaliar').forEach((b) => b.classList.remove('avaliacao-boa', 'avaliacao-ruim'));
-    if (ativou) btn.classList.add('avaliacao-' + btn.dataset.avaliacao);
-  }));
-  document.getElementById('btnCopiarGradeGerada').classList.toggle('hidden', !Object.values(grade).some(Boolean));
-}
-
-async function gerarGradeIA() {
-  const cfg = getConfig();
-  if (!cfg.openrouterKey) {
-    toast('Configure sua API Key do OpenRouter nas Configurações.');
-    document.getElementById('modalBackdrop').classList.add('open');
-    return;
-  }
-  const btn = document.getElementById('btnGerarGradeIA');
-  const btnTextEl = btn.querySelector('.btn-premium-text') || btn;
-  btn.disabled = true;
-  const original = btnTextEl.textContent;
-  btnTextEl.textContent = '✨ Gerando…';
-
-  gradeSlots = gerarSlotsAleatorios();
-
-  let exemplos = '';
-  if (bancoDisparos) bancoDisparos.categorias.forEach((cat) => { exemplos += cat.nome + ':\n' + amostra(cat.copys.filter(naoEhRuim), 3).join('\n') + '\n\n'; });
-  const referencias = await blocoReferenciasIA(6);
-
-  try {
-    const resultado = await chamarOpenRouter([
-      { role: 'system', content: montarPromptBase() },
-      {
-        role: 'user',
-        content: `Crie ${gradeSlots.length} copys originais, uma pra cada horário abaixo, cada uma com um tipo de abertura diferente.\n\n`
-          + 'Responda EXATAMENTE nesse formato, só a copy pura depois de cada tag, sem rótulos:\n\n'
-          + gradeSlots.map((s) => `[${s.tag}] (copy pro horário ${s.hora}, tema: ${s.tipo})`).join('\n')
-          + '\n\nExemplos reais de referência (não copie, crie novas):\n' + exemplos.slice(0, 1500)
-          + referencias
-      }
-    ], { temperature: 0.9, maxTokens: tokensParaComprimento(gradeSlots.length) });
-    const grade = parsearGrade(resultado);
-    gradeGerada = grade;
-    lembrarGeradas(Object.values(grade));
-    renderGradeGerada(grade);
-    setStatus('Grade gerada pela IA! Clique de novo pra gerar outros horários.', 'ok');
-    registrarAtividade('Gerou a grade do dia com IA', '');
-    incrementarContadorFuncionario('copysGeradas', Object.values(grade).filter(Boolean).length);
-    incrementarMetricaGlobal('copysGeradas', Object.values(grade).filter(Boolean).length);
-  } catch (err) {
-    toast('Erro IA: ' + err.message);
-  } finally {
-    btn.disabled = false;
-    btnTextEl.textContent = original;
-  }
-}
-
-function parsearGrade(texto) {
-  const grade = {};
-  gradeSlots.forEach((slot) => {
-    const regex = new RegExp('\\[' + slot.tag + '\\]\\s*([\\s\\S]*?)(?=\\[S\\d+\\]|$)', 'i');
-    const match = texto.match(regex);
-    grade[slot.tag] = match ? match[1].trim() : '';
-  });
-  if (!Object.values(grade).some((v) => v.length)) {
-    const partes = texto.split(/---|\n\n+/).map((p) => p.trim()).filter((p) => p.length > 10);
-    gradeSlots.forEach((slot, i) => { if (partes[i]) grade[slot.tag] = partes[i]; });
-  }
-  return grade;
-}
-
-// ═══════════════════════════════════════════════ GERADOR DE COPY AVULSA / SCRIPT ═══
-
-const TIPO_GERADOR_DESC = {
-  Saudacao: 'Mensagem de saudação / primeiro contato — recebe o fã, cria conexão inicial, sem vender nada ainda.',
-  Aquecimento: 'Mensagem de aquecimento — cria expectativa e tesão aos poucos, prepara terreno pra uma oferta em breve, sem oferecer ainda.',
-  Venda: 'Mensagem de venda direta — menciona um mimo/conteúdo específico e concreto (ex: unha, sushi, café, pack, vídeo), não pode ficar vaga falando só dela mesma. NÃO pode soar como cobrança ou pedido de pagamento — é sempre um mimo espontâneo, nunca uma exigência de valor. Gera desejo com leve urgência.',
-  Chamada: 'Convite pra uma chamada de vídeo, tom provocante e exclusivo.',
-  Pergunta: 'Uma pergunta simples pra puxar resposta e manter o papo, baixo esforço de leitura.',
-  Engajamento: 'Mensagem leve pra manter o fã engajado, sem foco em venda.',
-  Reengajamento: 'Mensagem pra um fã que sumiu ou não responde há um tempo, tenta trazer ele de volta.',
-  Conteudo: 'Oferece uma prévia/conteúdo exclusivo, cria curiosidade.',
-  Upsell: 'Oferece algo a mais pra quem já comprou, valorizando o que ele já tem.',
-  Outro: 'Mensagem seguindo a persona, sem objetivo específico.'
-};
-
-const MOMENTO_DESC = { manha: 'período da manhã', tarde: 'período da tarde', noite: 'período da noite', madrugada: 'madrugada' };
-const PUBLICO_DESC = { assinantes: 'assinantes ativos', inativos: 'fãs inativos há uns 7 dias (precisa reengajar)', vip: 'fãs VIP / que já compraram bastante' };
-const REFINAR_DESC = {
-  curta: 'Reescreva essa copy BEM mais curta, direto ao ponto.',
-  provocante: 'Reescreva essa copy mais provocante e ousada.',
-  natural: 'Reescreva essa copy mais natural, como uma pessoa real digitando, menos "roteirizada".',
-  nova: 'Reescreva essa copy criando uma variação totalmente nova, mesmo objetivo mas outras palavras.'
-};
-
-let geradorCards = {}; // id -> { texto, tag, historico: [{texto, ts}] }
-let geradorFiltroTag = 'Todas';
-
-function configurarGerador() {
-  document.querySelectorAll('#geradorFormato .estilo-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#geradorFormato .estilo-btn').forEach((b) => b.classList.remove('ativo'));
-      btn.classList.add('ativo');
-    });
-  });
-  document.getElementById('btnGerarCopyAvulsa').addEventListener('click', gerarCopyAvulsa);
-
-  const slider = document.getElementById('geradorEstilo');
-  const atualizarSliderVisual = () => {
-    slider.style.background = `linear-gradient(90deg, var(--accent) ${slider.value}%, var(--bg-input) ${slider.value}%)`;
-  };
-  slider.addEventListener('input', atualizarSliderVisual);
-  atualizarSliderVisual();
-}
-
-async function gerarCopyAvulsa() {
-  const cfg = getConfig();
-  if (!cfg.openrouterKey) {
-    toast('Configure sua API Key do OpenRouter nas Configurações.');
-    document.getElementById('modalBackdrop').classList.add('open');
-    return;
-  }
-
-  const tipo = document.getElementById('geradorTipo').value;
-  const momento = document.getElementById('geradorMomento').value;
-  const publico = document.getElementById('geradorPublico').value;
-  const estiloVal = parseInt(document.getElementById('geradorEstilo').value, 10);
-  const formatoBtn = document.querySelector('#geradorFormato .estilo-btn.ativo');
-  const formato = formatoBtn ? formatoBtn.dataset.formato : '1';
-  const contexto = document.getElementById('geradorContexto').value.trim();
-  const querCTA = document.getElementById('geradorCTA').checked;
-  const querPergunta = document.getElementById('geradorPergunta').checked;
-  const querQuebradas = document.getElementById('geradorQuebradas').checked;
-  const querVariacoes = document.getElementById('geradorVariacoes').checked;
-
-  const btn = document.getElementById('btnGerarCopyAvulsa');
-  const btnText = btn.querySelector('.btn-premium-text');
-  const original = btnText.textContent;
-  btn.disabled = true;
-  btnText.textContent = '✨ Gerando…';
-
-  const objetivo = TIPO_GERADOR_DESC[tipo] || TIPO_GERADOR_DESC.Outro;
-  const extras = [];
-  if (momento && MOMENTO_DESC[momento]) extras.push(`Mensagem pensada pro ${MOMENTO_DESC[momento]}.`);
-  if (publico && PUBLICO_DESC[publico]) extras.push(`Público-alvo: ${PUBLICO_DESC[publico]}.`);
-  extras.push(estiloVal < 35 ? 'Estilo bem suave e sutil, sem forçar tesão.' : estiloVal > 65 ? 'Estilo bem provocante e ousado.' : 'Estilo equilibrado, nem muito suave nem muito provocante.');
-  if (querCTA) extras.push('Termine com uma chamada pra ação clara (CTA), convidando pra próxima etapa.');
-  if (querPergunta) extras.push('Termine a mensagem com uma pergunta direta pro fã responder.');
-  if (querQuebradas) extras.push('Quebre a copy em 2-3 frases curtas separadas por quebra de linha, como se fossem balões de mensagem diferentes.');
-
-  const numeroMsgs = formato === 'seq' ? 6 : (parseInt(formato, 10) || 1);
-  const querMultiplasVariacoes = numeroMsgs === 1 && querVariacoes;
-  const totalPartes = querMultiplasVariacoes ? 4 : numeroMsgs;
-
-  let instrucao;
-  if (querMultiplasVariacoes) {
-    instrucao = `Crie 4 VARIAÇÕES diferentes de abertura pro objetivo: ${objetivo}\n\n`
-      + 'Responda EXATAMENTE nesse formato, só a copy pura depois de cada tag, sem rótulos:\n[1] (variação 1)\n[2] (variação 2)\n[3] (variação 3)\n[4] (variação 4)';
-  } else if (numeroMsgs > 1) {
-    instrucao = `Crie um SCRIPT de ${numeroMsgs} mensagens sequenciais (como se fossem enviadas em momentos próximos, cada uma avançando a conversa) pro objetivo: ${objetivo}\n\n`
-      + 'Responda EXATAMENTE nesse formato, só a copy pura depois de cada tag, sem rótulos:\n'
-      + Array.from({ length: numeroMsgs }, (_, i) => `[${i + 1}] (mensagem ${i + 1})`).join('\n');
-  } else {
-    instrucao = `Crie UMA copy pro objetivo: ${objetivo}`;
-  }
-  if (extras.length) instrucao += '\n\nDetalhes adicionais pra considerar:\n- ' + extras.join('\n- ');
-  if (contexto) instrucao += `\n\nContexto extra pra considerar: ${contexto}`;
-  instrucao += await blocoReferenciasIA(5);
-
-  const resultadoEl = document.getElementById('geradorResultado');
-  resultadoEl.innerHTML = '<p class="empty-hint">Gerando…</p>';
-  document.getElementById('geradorTabsCategorias').classList.add('hidden');
-
-  try {
-    const resultado = await chamarOpenRouter([
-      { role: 'system', content: montarPromptBase() },
-      { role: 'user', content: instrucao }
-    ], { maxTokens: tokensParaComprimento(totalPartes), temperature: 0.9 });
-
-    let mensagens;
-    if (totalPartes > 1) {
-      mensagens = Array.from({ length: totalPartes }, (_, i) => {
-        const m = resultado.match(new RegExp('\\[' + (i + 1) + '\\]\\s*([\\s\\S]*?)(?=\\[\\d\\]|$)'));
-        return m ? m[1].trim() : '';
-      }).filter(Boolean);
-      if (!mensagens.length) mensagens = resultado.split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
-    } else {
-      mensagens = [resultado.trim()];
-    }
-
-    lembrarGeradas(mensagens);
-    geradorCards = {};
-    geradorFiltroTag = 'Todas';
-    mensagens.forEach((texto, i) => {
-      const id = 'g' + Date.now().toString(36) + i;
-      const tag = querMultiplasVariacoes ? 'Abertura' : (totalPartes > 1 ? `Msg ${i + 1}` : tipo);
-      geradorCards[id] = { texto, tag, historico: [{ texto, ts: Date.now() }] };
-    });
-
-    renderGeradorResultado();
-    incrementarContadorFuncionario('copysGeradas', mensagens.length);
-    incrementarMetricaGlobal('copysGeradas', mensagens.length);
-    registrarAtividade('Gerou copy avulsa', `${tipo} (${totalPartes}x)`);
-  } catch (err) {
-    resultadoEl.innerHTML = `<p class="empty-hint">Erro: ${esc(err.message)}</p>`;
-  } finally {
-    btn.disabled = false;
-    btnText.textContent = original;
-  }
-}
-
-function renderGeradorResultado() {
-  const resultadoEl = document.getElementById('geradorResultado');
-  const tabsEl = document.getElementById('geradorTabsCategorias');
-  const ids = Object.keys(geradorCards);
-  if (!ids.length) { resultadoEl.innerHTML = ''; tabsEl.classList.add('hidden'); return; }
-
-  const tags = [...new Set(ids.map((id) => geradorCards[id].tag))];
-  if (tags.length > 1) {
-    tabsEl.classList.remove('hidden');
-    tabsEl.innerHTML = `<button class="estilo-btn ${geradorFiltroTag === 'Todas' ? 'ativo' : ''}" data-tag-filtro="Todas">Todas (${ids.length})</button>`
-      + tags.map((tag) => {
-        const count = ids.filter((id) => geradorCards[id].tag === tag).length;
-        return `<button class="estilo-btn ${geradorFiltroTag === tag ? 'ativo' : ''}" data-tag-filtro="${escAttr(tag)}">${esc(tag)} (${count})</button>`;
-      }).join('');
-    tabsEl.querySelectorAll('[data-tag-filtro]').forEach((btn) => btn.addEventListener('click', () => {
-      geradorFiltroTag = btn.dataset.tagFiltro;
-      renderGeradorResultado();
-    }));
-  } else {
-    tabsEl.classList.add('hidden');
-    geradorFiltroTag = 'Todas';
-  }
-
-  const idsVisiveis = ids.filter((id) => geradorFiltroTag === 'Todas' || geradorCards[id].tag === geradorFiltroTag);
-  resultadoEl.innerHTML = idsVisiveis.map((id) => geradorCardHtml(id)).join('');
-  ligarEventosGeradorCard(resultadoEl);
-}
-
-function geradorCardHtml(id) {
-  const card = geradorCards[id];
-  if (!card) return '';
-  const texto = card.texto;
-  const av = feedbackCopy[hashTexto(texto)];
-  const cor = COR_TIPO[card.tag] || 'var(--accent)';
-  return `<div class="gerador-card" data-id="${escAttr(id)}">
-    <div class="gerador-card-topo"><span class="gerador-card-tag" style="background:${cor}22;color:${cor};border-color:${cor}44">${esc(card.tag)}</span></div>
-    <div class="gerador-card-texto">${esc(texto)}</div>
-    <div class="grade-slot-actions">
-      <button class="icon-btn btn-avaliar ${av === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
-      <button class="icon-btn btn-avaliar ${av === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>
-      ${botaoFavHtml(texto, 'ia', card.tag)}
-      <button class="icon-btn btn-editar-gerador" title="Editar" data-id="${escAttr(id)}">✏️</button>
-      <button class="icon-btn btn-salvar-biblioteca" title="Salvar na biblioteca" data-id="${escAttr(id)}">💾</button>
-      <button class="btn-shimmer btn-copiar-gerador" data-texto="${escAttr(texto)}" style="flex:1;"><span class="btn-shimmer-icon"></span><span class="btn-shimmer-text">📋 Copiar</span></button>
-    </div>
-    ${card.historico.length > 1 ? `<details class="historico-versoes"><summary>Histórico de versões (${card.historico.length})</summary>
-      ${card.historico.map((v, i) => `<div class="historico-item" data-id="${escAttr(id)}" data-idx="${i}"><span>v${i + 1}</span><span class="historico-texto">${esc(v.texto.slice(0, 70))}${v.texto.length > 70 ? '…' : ''}</span></div>`).join('')}
-    </details>` : ''}
-  </div>`;
-}
-
-function ligarEventosGeradorCard(container) {
-  container.querySelectorAll('.btn-copiar-gerador').forEach((b) => b.addEventListener('click', () => copiarTexto(b.dataset.texto).then(() => toast('Copy copiada!'))));
-
-  container.querySelectorAll('.btn-avaliar').forEach((btn) => btn.addEventListener('click', () => {
-    avaliarCopy(btn.dataset.texto, btn.dataset.avaliacao);
-    if (btn.dataset.avaliacao === 'ruim') {
-      const card = btn.closest('.gerador-card');
-      delete geradorCards[card.dataset.id];
-      renderGeradorResultado();
-      return;
-    }
-    const ativou = !btn.classList.contains('avaliacao-' + btn.dataset.avaliacao);
-    btn.parentElement.querySelectorAll('.btn-avaliar').forEach((b) => b.classList.remove('avaliacao-boa', 'avaliacao-ruim'));
-    if (ativou) btn.classList.add('avaliacao-' + btn.dataset.avaliacao);
-  }));
-
-  container.querySelectorAll('.btn-salvar-biblioteca').forEach((btn) => btn.addEventListener('click', () => {
-    const card = geradorCards[btn.dataset.id];
-    if (!card) return;
-    const opt = document.getElementById('geradorTipo').selectedOptions[0];
-    const categoria = opt ? opt.textContent.replace(/^\S+\s/, '') : 'Gerador';
-    copysCustom.push({ texto: card.texto, categoria });
-    localStorage.setItem('gerador_copys_custom', JSON.stringify(copysCustom));
-    toast('Salvo na biblioteca!');
-    registrarAtividade('Salvou copy gerada na biblioteca', card.texto.slice(0, 60));
-  }));
-
-  container.querySelectorAll('.btn-editar-gerador').forEach((btn) => btn.addEventListener('click', () => abrirEdicaoGerador(btn.dataset.id)));
-
-  container.querySelectorAll('.historico-item').forEach((el) => el.addEventListener('click', () => {
-    const card = geradorCards[el.dataset.id];
-    if (!card) return;
-    card.texto = card.historico[parseInt(el.dataset.idx, 10)].texto;
-    renderGeradorResultado();
-  }));
-}
-
-function abrirEdicaoGerador(id) {
-  const card = geradorCards[id];
-  const el = document.querySelector(`.gerador-card[data-id="${id}"]`);
-  if (!card || !el) return;
-  const textoDiv = el.querySelector('.gerador-card-texto');
-  if (!textoDiv) return;
-
-  const wrap = document.createElement('div');
-  wrap.className = 'gerador-edicao';
-  wrap.innerHTML = `<textarea class="gerador-edicao-textarea" rows="4">${esc(card.texto)}</textarea>
-    <div class="gerador-edicao-refinar">
-      <button class="estilo-btn" data-refinar="curta">Mais curta</button>
-      <button class="estilo-btn" data-refinar="provocante">Mais provocante</button>
-      <button class="estilo-btn" data-refinar="natural">Mais natural</button>
-      <button class="estilo-btn" data-refinar="nova">Outra variação</button>
-    </div>
-    <div class="gerador-edicao-acoes">
-      <button class="btn btn-sm btn-primary btn-salvar-edicao">Salvar</button>
-      <button class="btn btn-sm btn-ghost btn-cancelar-edicao">Cancelar</button>
-    </div>`;
-  textoDiv.replaceWith(wrap);
-
-  const textarea = wrap.querySelector('.gerador-edicao-textarea');
-
-  wrap.querySelectorAll('[data-refinar]').forEach((btn) => btn.addEventListener('click', async () => {
-    const cfg = getConfig();
-    if (!cfg.openrouterKey) { toast('Configure sua API Key do OpenRouter nas Configurações.'); return; }
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = '…';
-    try {
-      const resultado = await chamarOpenRouter([
-        { role: 'system', content: montarPromptBase() },
-        { role: 'user', content: REFINAR_DESC[btn.dataset.refinar] + '\n\nCopy original:\n' + textarea.value }
-      ], { maxTokens: tokensParaComprimento(1) });
-      textarea.value = resultado.trim();
-    } catch (err) {
-      toast('Erro IA: ' + err.message);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = original;
-    }
-  }));
-
-  wrap.querySelector('.btn-salvar-edicao').addEventListener('click', () => {
-    const novoTexto = textarea.value.trim();
-    if (!novoTexto) { toast('A copy não pode ficar vazia.'); return; }
-    card.texto = novoTexto;
-    card.historico.push({ texto: novoTexto, ts: Date.now() });
-    renderGeradorResultado();
-  });
-
-  wrap.querySelector('.btn-cancelar-edicao').addEventListener('click', () => renderGeradorResultado());
 }
 
 // ═══════════════════════════════════════════════ REESCREVER COPY (IA, usado nos cards) ═══
@@ -2612,82 +1557,15 @@ function iniciarFeedPromptBase(usarReserva) {
   refPromptBase = usarReserva ? db.collection('metricas').doc('prompt_base') : db.collection('config').doc('prompt_base');
   unsubPromptBase = refPromptBase.onSnapshot((doc) => {
     promptBaseEquipe = doc.exists ? doc.data() : null;
-    renderPromptBase();
   }, (err) => {
     console.warn('[prompt_base]', err.message);
     if (!usarReserva) iniciarFeedPromptBase(true);
   });
 }
 
-function renderPromptBase() {
-  const ta = document.getElementById('promptBaseTexto');
-  if (!ta) return;
-  if (document.activeElement !== ta) ta.value = promptBaseAtual();
-  ta.readOnly = !souAdmin;
-  document.getElementById('promptBaseAcoes').hidden = !souAdmin;
-  const info = document.getElementById('promptBaseInfo');
-  if (promptBaseEquipe && promptBaseEquipe.texto) {
-    const quando = promptBaseEquipe.timestamp?.toDate ? promptBaseEquipe.timestamp.toDate().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'agora';
-    info.textContent = 'Personalizado por ' + (promptBaseEquipe.atualizadoPor || '—') + ' · ' + quando;
-  } else {
-    info.textContent = 'Usando o prompt padrão';
-  }
-  if (!souAdmin) info.textContent += ' · só o admin pode editar';
-  atualizarPreviaPrompt();
-}
 
-function atualizarPreviaPrompt() {
-  const previa = document.getElementById('promptCompletoPrevia');
-  if (previa) previa.textContent = montarPromptBase();
-}
 
-async function salvarPromptBase(texto) {
-  const dados = {
-    texto,
-    atualizadoPor: usuarioAtual?.displayName || usuarioAtual?.email || '—',
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  };
-  try {
-    await refPromptBase.set(dados);
-  } catch (err) {
-    // "config" bloqueado pelas regras: grava na reserva e passa a ouvir ela
-    const reserva = db.collection('metricas').doc('prompt_base');
-    if (refPromptBase.path === reserva.path) throw err;
-    await reserva.set(dados);
-    iniciarFeedPromptBase(true);
-  }
-}
 
-function configurarPromptBase() {
-  document.getElementById('btnSalvarPromptBase').addEventListener('click', async () => {
-    const texto = document.getElementById('promptBaseTexto').value.trim();
-    if (!texto) { toast('O prompt não pode ficar vazio. Use "Restaurar padrão".'); return; }
-    try {
-      await salvarPromptBase(texto);
-      registrarAtividade('Editou o prompt base da IA', texto.slice(0, 80));
-      toast('Prompt salvo pra equipe toda.');
-    } catch (err) { toast('Não deu pra salvar: ' + err.message); }
-  });
-  document.getElementById('btnRestaurarPromptBase').addEventListener('click', async () => {
-    if (!confirm('Voltar pro prompt padrão? O texto personalizado atual será substituído.')) return;
-    try {
-      await salvarPromptBase('');
-      document.getElementById('promptBaseTexto').value = PROMPT_BASE_PADRAO;
-      registrarAtividade('Restaurou o prompt base padrão', '');
-      toast('Prompt padrão restaurado.');
-    } catch (err) { toast('Não deu pra restaurar: ' + err.message); }
-  });
-  document.getElementById('promptBaseTexto').addEventListener('input', () => {
-    // prévia ao vivo enquanto edita (sem salvar)
-    const original = promptBaseEquipe;
-    promptBaseEquipe = { ...(original || {}), texto: document.getElementById('promptBaseTexto').value };
-    atualizarPreviaPrompt();
-    promptBaseEquipe = original;
-  });
-  document.getElementById('btnCopiarPromptCompleto').addEventListener('click', () => {
-    navigator.clipboard?.writeText(montarPromptBase()).then(() => toast('Prompt completo copiado.'), () => toast('Não deu pra copiar.'));
-  });
-}
 
 async function chamarOpenRouter(mensagens, opts) {
   const cfg = getConfig();
@@ -2974,12 +1852,10 @@ function configurarCriar() {
 
 function renderDashboard() {
   const totalMineradas = todasMineradas.length;
-  const totalDisparos = todasCopysDoBanco().length;
   const totalFavoritas = favoritos.length;
   const modelos = new Set(todasMineradas.map((c) => c.modelo)).size;
 
   document.getElementById('kpiMineradas').textContent = totalMineradas;
-  document.getElementById('kpiDisparos').textContent = totalDisparos;
   document.getElementById('kpiFavoritas').textContent = totalFavoritas;
   document.getElementById('kpiModelos').textContent = modelos;
 
@@ -3046,19 +1922,10 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarConfigModal();
   configurarMineradas();
   configurarCriar();
-  configurarDisparos();
   configurarFavoritos();
   configurarNovidades();
-  configurarGrade();
-  configurarGerador();
-  configurarPersona();
-  configurarTreinarIA();
-  configurarPromptBase();
-  configurarNotificacoes();
 
-  renderGradeManual();
   renderDashboard();
-  carregarBancoDisparos();
 
   carregarMineradasDoCache();
   carregarMineradas();
