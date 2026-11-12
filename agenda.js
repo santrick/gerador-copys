@@ -875,7 +875,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       </section>
 
       <section class="ag-passo" id="agPasso3" data-painel="programar" role="tabpanel" aria-labelledby="agP3" hidden>
-        <header class="ag-passo-cab"><span class="ag-num">3</span><div><h2 id="agP3">Programar</h2><p>Confira e mande pra fila. A extensão agenda tudo na Privacy.</p></div></header>
+        <header class="ag-passo-cab"><span class="ag-num">3</span><div><h2 id="agP3">Programar</h2><p>Confira e clique em Agendar. Com a Privacy dessa modelo aberta no Chrome (com o Agendador), ele começa sozinho em até 15 segundos.</p></div></header>
         <p class="ag-frase" id="agResumoFrase"></p>
         <ul class="ag-avisos" id="agAvisos"></ul>
         <label class="ag-campo ag-conta-campo"><span>Conta da modelo na Privacy <em>opcional · a extensão confere se tá logada na conta certa</em></span>
@@ -1812,7 +1812,7 @@ bom dia, vida! já acordou?"></textarea>
       </div>
       <div class="ag-folha-rodape">
         <button type="button" class="ag-btn" data-folha="fechar">Voltar e ajustar</button>
-        <button type="button" class="gr-sortear ag-btn-fila" data-folha="mandar" data-foco>${ico(c.teste ? 'frasco' : 'enviar')}<span>${c.teste ? 'Mandar teste pra fila' : 'Mandar pra fila'}</span></button>
+        <button type="button" class="gr-sortear ag-btn-fila" data-folha="mandar" data-foco>${ico(c.teste ? 'frasco' : 'enviar')}<span>${c.teste ? 'Agendar teste na Privacy' : 'Agendar na Privacy'}</span></button>
       </div>`;
     agAbrirFolha(html, 'ag-folha-previa');
     ag.previa = { prep, id: ag.id, cfg: c };
@@ -1872,7 +1872,7 @@ bom dia, vida! já acordou?"></textarea>
     registrarAtividade('Mandou disparos pra fila', `${modelo} · ${itens.length} disparos`);
     agFecharFolha();
     agMostrarAba('fila', true);
-    toast(c.teste ? 'Teste mandado pra fila' : `${itens.length} ${itens.length === 1 ? 'disparo mandado' : 'disparos mandados'} pra fila`);
+    toast((c.teste ? 'Teste mandado' : `${itens.length} ${itens.length === 1 ? 'disparo mandado' : 'disparos mandados'}`) + ' pro Agendador. Deixe a Privacy da modelo aberta: ele começa sozinho.');
     agStatus(`Na fila: a extensão agenda quando abrir a Privacy${c.contaPrivacy ? ` da @${c.contaPrivacy}` : ' dessa modelo'}.`, 'ok', 'prog');
     agRenderTudo();
     agAtualizarRodape();
