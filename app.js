@@ -879,6 +879,7 @@ function irParaTab(tab, opts) {
   if (tab === 'admin' && !souAdmin) tab = 'dashboard';
   if (abaAtual !== tab && novidades[abaAtual]) marcarComoVistas(abaAtual);
   abaAtual = tab;
+  document.body.classList.toggle('aba-copys', tab === 'mineradas');
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
   atualizarNavGlider();
@@ -1040,6 +1041,7 @@ function renderAbasCopys() {
   if (copysAtivo && sub) sub.textContent = selModelo.value ? `Copys de ${selModelo.value}` : PAGE_INFO.mineradas.subtitle;
 
   const daModelo = todasMineradas.filter((c) => !selModelo.value || c.modelo === selModelo.value);
+  renderHeroCopys(selModelo.value, daModelo, contagem);
   const extras = [...new Set(daModelo.map((c) => c.tipo).filter((t) => t && !CATEGORIAS_COPYS.includes(t)))];
   const cats = CATEGORIAS_COPYS.concat(extras);
   const atualTipo = selTipo.value;
@@ -1049,6 +1051,42 @@ function renderAbasCopys() {
   document.getElementById('abasCategorias').innerHTML = tab('', 'Todas', unicas(daModelo), !selTipo.value)
     + cats.map((c) => [c, unicas(daModelo.filter((x) => x.tipo === c))]).filter(([c, n]) => n || selTipo.value === c)
       .map(([c, n]) => tab(c, c, n, selTipo.value === c)).join('');
+}
+
+// Cabeçalho da aba Copys: quem é a modelo e os números dela
+function renderHeroCopys(modelo, daModelo, contagem) {
+  const hero = document.getElementById('cpHero');
+  if (!hero) return;
+  if (!todasMineradas.length) { hero.innerHTML = ''; return; }
+  const vistos = new Set();
+  const unicas = daModelo.filter((c) => { const k = c.modelo + '|' + normTexto(c.mensagem); if (vistos.has(k)) return false; vistos.add(k); return true; });
+  const comPreco = unicas.filter((c) => Number(c.preco) > 0);
+  const ticket = comPreco.length ? comPreco.reduce((t, c) => t + Number(c.preco), 0) / comPreco.length : 0;
+  const cats = new Set(unicas.map((c) => c.tipo).filter(Boolean)).size;
+  const ultima = Math.max(0, ...daModelo.map(tsCopy));
+  const quando = ultima ? `${rotuloDia(inicioDoDia(ultima)).split(',')[0].toLowerCase()}${new Date(ultima).getHours() || new Date(ultima).getMinutes() ? ' às ' + new Date(ultima).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}` : '—';
+  const stat = (valor, rotulo) => `<div class="cp-stat"><strong>${valor}</strong><span>${rotulo}</span></div>`;
+  const av = (m, cls) => { const foto = avataresModelos[m]; return `<span class="${cls}" style="--cor:${corAvatar(m)}">${esc(iniciais(m))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`; };
+  let ident;
+  if (modelo) {
+    ident = `${av(modelo, 'cp-hero-av')}
+      <div class="cp-hero-txt"><span class="cp-hero-eyebrow">Modelo</span><h2 class="cp-hero-nome">${esc(modelo)}</h2></div>`;
+  } else {
+    const top = Object.entries(contagem).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([m]) => m);
+    ident = `<div class="cp-hero-pilha">${top.map((m) => av(m, 'cp-hero-av mini')).join('')}</div>
+      <div class="cp-hero-txt"><span class="cp-hero-eyebrow">${Object.keys(contagem).length} modelos</span><h2 class="cp-hero-nome sem-cap">Todas as modelos</h2></div>`;
+  }
+  hero.innerHTML = `<div class="cp-hero-id">${ident}</div>
+    <div class="cp-hero-stats">
+      ${stat(unicas.length, unicas.length === 1 ? 'copy' : 'copys')}
+      ${stat(cats, cats === 1 ? 'categoria' : 'categorias')}
+      ${stat(ticket ? precoCopy(ticket) : '—', 'ticket médio')}
+      ${stat(esc(quando), 'última copy')}
+    </div>
+    ${modelo ? `<button type="button" class="cp-hero-gerar" id="cpHeroGerar">🎲 Gerar copys dela</button>` : ''}`;
+  hero.querySelectorAll('img').forEach((img) => { img.onerror = () => img.remove(); });
+  const btn = document.getElementById('cpHeroGerar');
+  if (btn) btn.addEventListener('click', () => { grModelo = modelo; grCatsSel = null; grItens = []; irParaTab('gerador'); });
 }
 
 async function carregarMineradas() {
@@ -1298,10 +1336,7 @@ function renderMineradas() {
 
   const total = mineradasFiltradas.length;
   const visiveis = mineradasFiltradas.slice(0, limiteCopys);
-  const vendas = mineradasFiltradas.filter((c) => Number(c.preco) > 0);
-  const ticket = vendas.length ? vendas.reduce((s, c) => s + Number(c.preco), 0) / vendas.length : 0;
-  resumo.innerHTML = `<strong>${total}</strong> ${total === 1 ? 'copy' : 'copys'}`
-    + (vendas.length ? `<span class="sep">·</span>ticket médio <strong>${precoCopy(ticket)}</strong>` : '');
+  resumo.innerHTML = `<strong>${total}</strong> ${total === 1 ? 'copy' : 'copys'}`;
 
   // agrupa por dia (menos quando ordena por preço)
   const grupos = [];
@@ -1317,7 +1352,7 @@ function renderMineradas() {
 
   const mostrarModelo = !document.getElementById('filtroModeloMineradas').value;
   container.innerHTML = grupos.map((g) => `<section class="copys-grupo">
-      ${g.titulo ? `<h3 class="copys-dia"><span>${esc(g.titulo)}</span><span class="copys-dia-qtd">${totalPorDia[g.dia]} ${totalPorDia[g.dia] === 1 ? 'copy' : 'copys'}</span></h3>` : ''}
+      ${g.titulo ? `<h3 class="copys-dia"><span>${esc(g.titulo)}${g.dia && /^(Hoje|Ontem)$/.test(g.titulo) ? `<em>${new Date(g.dia).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</em>` : ''}</span><span class="copys-dia-qtd">${totalPorDia[g.dia]} ${totalPorDia[g.dia] === 1 ? 'copy' : 'copys'}</span></h3>` : ''}
       <div class="grid-copys copys-grid">${g.itens.map((c) => cardCopyModeloHtml(c, mostrarModelo)).join('')}</div>
     </section>`).join('')
     + (total > limiteCopys ? `<div class="copys-mais"><button type="button" class="btn btn-secondary" id="btnMaisCopys">Mostrar mais ${Math.min(PASSO_COPYS, total - limiteCopys)} <span>de ${total - limiteCopys} restantes</span></button></div>` : '');
@@ -1358,7 +1393,7 @@ function cardCopyModeloHtml(c, mostrarModelo) {
   const foto = avataresModelos[c.modelo];
   const nova = novidades.mineradas.has(idMinerada(c));
   const preco = precoCopy(c.preco);
-  const longa = texto.length > 480 || (texto.match(/\n/g) || []).length > 9;
+  const longa = texto.length > 300 || (texto.match(/\n/g) || []).length > 6;
   return `<article class="copy-item ${nova ? 'is-nova' : ''}" style="--cat:${cor}">
     <header class="copy-item-top">
       ${mostrarModelo ? `<span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(c.modelo || '')}">${esc(iniciais(c.modelo))}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>${esc((c.modelo || '').split(/\s+/)[0])}</span>` : ''}
