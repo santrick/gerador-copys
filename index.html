@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=28" />
+  <link rel="stylesheet" href="styles.css?v=30" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -221,27 +221,47 @@
         </section>
 
         <!-- MINERADAS -->
-        <section id="tab-mineradas" class="tab-panel">
-          <div class="toolbar">
-            <input type="text" id="buscaMineradas" placeholder="Buscar por modelo, categoria ou texto..." />
+        <section id="tab-mineradas" class="tab-panel copys-page">
+          <div class="cp-toolbar">
+            <label class="cp-busca">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+              <input type="search" id="buscaMineradas" placeholder="Buscar no texto das copys…" autocomplete="off" />
+            </label>
+            <div class="segmentado" id="periodoCopys" role="group" aria-label="Período">
+              <button type="button" data-periodo="tudo" class="ativo">Tudo</button>
+              <button type="button" data-periodo="hoje">Hoje</button>
+              <button type="button" data-periodo="7">7 dias</button>
+              <button type="button" data-periodo="30">30 dias</button>
+            </div>
+            <select id="ordemCopys" class="cp-select" aria-label="Ordenar">
+              <option value="recentes">Mais recentes</option>
+              <option value="antigas">Mais antigas</option>
+              <option value="preco">Maior preço</option>
+            </select>
+            <button id="btnRecarregarMineradas" class="cp-icone" title="Atualizar do Google Docs" aria-label="Atualizar">↻</button>
             <button type="button" class="chip-novas" id="chipNovas-mineradas" hidden><span class="chip-novas-dot"></span><span>Só novas (<span class="chip-novas-qtd">0</span>)</span><span class="chip-novas-ok" title="Marcar todas como vistas">✓ vistas</span></button>
             <select id="filtroModeloMineradas" hidden><option value="">Todas as modelos</option></select>
             <select id="filtroTipoMineradas" hidden><option value="">Todas</option></select>
-            <button id="btnRecarregarMineradas" class="btn btn-secondary">↻ Atualizar</button>
           </div>
-          <div class="abas-copys">
-            <div class="modelos-head">
-              <span class="abas-copys-rotulo">Modelos</span>
-              <input type="search" id="buscaModelos" class="modelos-busca" placeholder="Buscar modelo..." autocomplete="off" />
+
+          <div class="cp-modelos">
+            <div class="cp-modelos-head">
+              <span class="cp-rotulo">Modelos</span>
+              <input type="search" id="buscaModelos" class="cp-busca-modelo" placeholder="Filtrar modelo…" autocomplete="off" />
             </div>
             <div class="modelos-faixa-wrap">
               <button type="button" class="faixa-seta" data-dir="-1" aria-label="Voltar">&#8249;</button>
               <div class="modelos-faixa" id="abasModelos"></div>
               <button type="button" class="faixa-seta" data-dir="1" aria-label="Avançar">&#8250;</button>
             </div>
-            <div class="categorias-faixa" id="abasCategorias"></div>
           </div>
-          <div id="listaMineradas" class="grid-copys">
+
+          <div class="cp-cats">
+            <nav class="cp-tabs" id="abasCategorias" aria-label="Categorias"></nav>
+            <p class="copys-resumo" id="copysResumo" aria-live="polite"></p>
+          </div>
+
+          <div id="listaMineradas" class="lista-copys">
             <div class="empty-state">
               <span class="empty-ico">▤</span>
               <p>Carregando copys do Google Docs…</p>
@@ -662,6 +682,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=34"></script>
+  <script src="app.js?v=36"></script>
 </body>
 </html>

@@ -1151,6 +1151,14 @@ function configurarMineradas() {
   document.getElementById('filtroModeloMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('filtroTipoMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('buscaModelos').addEventListener('input', renderAbasCopys);
+  document.getElementById('ordemCopys').addEventListener('change', (e) => { ordemCopys = e.target.value; aplicarFiltroMineradas(); });
+  document.getElementById('periodoCopys').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-periodo]');
+    if (!btn) return;
+    periodoCopys = btn.dataset.periodo;
+    document.querySelectorAll('#periodoCopys button').forEach((b) => b.classList.toggle('ativo', b === btn));
+    aplicarFiltroMineradas();
+  });
   document.querySelectorAll('.faixa-seta').forEach((btn) => btn.addEventListener('click', () => {
     const faixa = document.getElementById('abasModelos');
     faixa.scrollBy({ left: Number(btn.dataset.dir) * faixa.clientWidth * 0.8, behavior: 'smooth' });
@@ -1172,8 +1180,12 @@ function renderAbasCopys() {
   const selModelo = document.getElementById('filtroModeloMineradas');
   const selTipo = document.getElementById('filtroTipoMineradas');
   const termo = normTexto(document.getElementById('buscaModelos').value);
+  // contagens sem repetição (mesma copy enviada várias vezes conta 1), igual à lista
+  const chaveCopy = (c) => c.modelo + '|' + normTexto(c.mensagem);
+  const unicas = (lista) => new Set(lista.map(chaveCopy)).size;
   const contagem = {};
-  todasMineradas.forEach((c) => { contagem[c.modelo] = (contagem[c.modelo] || 0) + 1; });
+  const vistos = new Set();
+  todasMineradas.forEach((c) => { const k = chaveCopy(c); if (vistos.has(k)) return; vistos.add(k); contagem[c.modelo] = (contagem[c.modelo] || 0) + 1; });
   const modelos = [...selModelo.options].map((o) => o.value).filter(Boolean)
     .filter((m) => !termo || normTexto(m).includes(termo) || m === selModelo.value)
     .sort((x, y) => (contagem[y] || 0) - (contagem[x] || 0) || x.localeCompare(y));
@@ -1186,7 +1198,7 @@ function renderAbasCopys() {
     </button>`;
   };
   const faixa = document.getElementById('abasModelos');
-  faixa.innerHTML = (termo ? '' : chip('', 'Todas', todasMineradas.length, !selModelo.value))
+  faixa.innerHTML = (termo ? '' : chip('', 'Todas', vistos.size, !selModelo.value))
     + modelos.map((m) => chip(m, m, contagem[m] || 0, selModelo.value === m)).join('')
     + (termo && !modelos.length ? '<span class="modelos-vazio">Nenhuma modelo com esse nome</span>' : '');
   faixa.querySelectorAll('.modelo-avatar img').forEach((img) => { img.onerror = () => img.remove(); });
@@ -1197,16 +1209,17 @@ function renderAbasCopys() {
   const atualTipo = selTipo.value;
   selTipo.innerHTML = '<option value="">Todas</option>' + cats.map((c) => `<option value="${escAttr(c)}">${esc(c)}</option>`).join('');
   selTipo.value = cats.includes(atualTipo) ? atualTipo : '';
-  const pill = (valor, rotulo, qtd, ativa) => `<button type="button" class="cat-pill ${ativa ? 'ativo' : ''} ${qtd ? '' : 'vazia'}" data-valor="${escAttr(valor)}">${esc(rotulo)}<span>${qtd}</span></button>`;
-  document.getElementById('abasCategorias').innerHTML = pill('', 'Todas', daModelo.length, !selTipo.value)
-    + cats.map((c) => pill(c, c, daModelo.filter((x) => x.tipo === c).length, selTipo.value === c)).join('');
+  const tab = (valor, rotulo, qtd, ativa) => `<button type="button" class="cp-tab ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}" style="--cat:${COR_CATEGORIA[valor] || 'var(--accent)'}">${esc(rotulo)}<span>${qtd}</span></button>`;
+  document.getElementById('abasCategorias').innerHTML = tab('', 'Todas', unicas(daModelo), !selTipo.value)
+    + cats.map((c) => [c, unicas(daModelo.filter((x) => x.tipo === c))]).filter(([c, n]) => n || selTipo.value === c)
+      .map(([c, n]) => tab(c, c, n, selTipo.value === c)).join('');
 }
 
 async function carregarMineradas() {
   const btn = document.getElementById('btnRecarregarMineradas');
   btn.disabled = true;
   const textoOriginal = btn.textContent;
-  btn.textContent = 'Atualizando…';
+  btn.classList.add('girando');
   if (!todasMineradas.length) renderMineradas();
   setStatus(todasMineradas.length ? `${todasMineradas.length} copys (versão salva) — atualizando…` : 'Buscando copys do Google Docs…', 'aviso');
 
@@ -1231,6 +1244,7 @@ async function carregarMineradas() {
   } finally {
     btn.disabled = false;
     btn.textContent = textoOriginal;
+    btn.classList.remove('girando');
   }
 }
 
@@ -1264,27 +1278,73 @@ function carregarMineradasDoCache() {
   return true;
 }
 
+// Estado da lista da aba Copys
+let ordemCopys = 'recentes';
+let periodoCopys = 'tudo';
+let limiteCopys = 60;
+const PASSO_COPYS = 60;
+
+// "qua., 11/11/2026" (+ hora opcional "14:10") -> timestamp; sem data = 0
+function tsCopy(c) {
+  if (c._ts !== undefined) return c._ts;
+  const m = String(c.data || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  const h = String(c.hora || '').match(/(\d{1,2}):(\d{2})/);
+  c._ts = m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), h ? Number(h[1]) : 0, h ? Number(h[2]) : 0).getTime() : 0;
+  return c._ts;
+}
+function inicioDoDia(ts) { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function rotuloDia(ts) {
+  if (!ts) return 'Sem data';
+  const hoje = inicioDoDia(Date.now());
+  const dias = Math.round((hoje - inicioDoDia(ts)) / 86400000);
+  if (dias === 0) return 'Hoje';
+  if (dias === 1) return 'Ontem';
+  const d = new Date(ts);
+  const txt = d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
 function aplicarFiltroMineradas() {
   renderAbasCopys();
-  const termo = (document.getElementById('buscaMineradas').value || '').toLowerCase().trim();
+  const termo = normTexto(document.getElementById('buscaMineradas').value);
   const modelo = document.getElementById('filtroModeloMineradas').value;
   const tipo = document.getElementById('filtroTipoMineradas').value;
-  mineradasFiltradas = todasMineradas.filter((c) => naoEhRuim(c.mensagem) &&
-    (!somenteNovas.mineradas || novidades.mineradas.has(idMinerada(c))) &&
-    (!modelo || c.modelo === modelo) && (!tipo || c.tipo === tipo) && (!termo ||
-    (c.mensagem && c.mensagem.toLowerCase().includes(termo)) ||
-    (c.modelo && c.modelo.toLowerCase().includes(termo)) ||
-    (c.tipo && c.tipo.toLowerCase().includes(termo))
-  ));
-  if (novidades.mineradas.size) {
-    mineradasFiltradas.sort((a, b) => novidades.mineradas.has(idMinerada(b)) - novidades.mineradas.has(idMinerada(a)));
-  }
+  const hoje = inicioDoDia(Date.now());
+  const corte = periodoCopys === 'hoje' ? hoje : periodoCopys === 'tudo' ? 0 : hoje - (Number(periodoCopys) - 1) * 86400000;
+
+  // junta a mesma copy repetida (mesma modelo + mesmo texto): fica a mais recente, com contador
+  const porChave = new Map();
+  todasMineradas.forEach((c, i) => {
+    if (c._i === undefined) c._i = i;
+    if (!naoEhRuim(c.mensagem)) return;
+    if (somenteNovas.mineradas && !novidades.mineradas.has(idMinerada(c))) return;
+    if ((modelo && c.modelo !== modelo) || (tipo && c.tipo !== tipo)) return;
+    if (corte && tsCopy(c) < corte) return;
+    if (termo && !(normTexto(c.mensagem).includes(termo) || normTexto(c.modelo).includes(termo) || normTexto(c.tipo).includes(termo))) return;
+    const chave = c.modelo + '|' + normTexto(c.mensagem);
+    const atual = porChave.get(chave);
+    if (!atual) porChave.set(chave, { ...c, vezes: 1 });
+    else {
+      atual.vezes++;
+      if (tsCopy(c) > atual._ts || (tsCopy(c) === atual._ts && c._i > atual._i)) Object.assign(atual, { ...c, vezes: atual.vezes });
+    }
+  });
+  mineradasFiltradas = [...porChave.values()];
+
+  const porData = (x, y) => (tsCopy(y) - tsCopy(x)) || (y._i - x._i);
+  if (ordemCopys === 'antigas') mineradasFiltradas.sort((x, y) => -porData(x, y));
+  else if (ordemCopys === 'preco') mineradasFiltradas.sort((x, y) => ((Number(y.preco) || 0) - (Number(x.preco) || 0)) || porData(x, y));
+  else mineradasFiltradas.sort(porData);
+
+  limiteCopys = PASSO_COPYS;
   renderMineradas();
 }
 
 function renderMineradas() {
   const container = document.getElementById('listaMineradas');
+  const resumo = document.getElementById('copysResumo');
   if (!mineradasFiltradas.length) {
+    resumo.textContent = '';
     container.innerHTML = todasMineradas.length
       ? '<div class="empty-state"><p>Nenhuma copy encontrada com esses filtros.</p></div>'
       : (document.getElementById('btnRecarregarMineradas').disabled
@@ -1293,25 +1353,36 @@ function renderMineradas() {
     return;
   }
 
-  const inicio = (paginaMineradas - 1) * POR_PAGINA;
-  const pagina = mineradasFiltradas.slice(inicio, inicio + POR_PAGINA);
-  const totalPaginas = Math.ceil(mineradasFiltradas.length / POR_PAGINA);
+  const total = mineradasFiltradas.length;
+  const visiveis = mineradasFiltradas.slice(0, limiteCopys);
+  const vendas = mineradasFiltradas.filter((c) => Number(c.preco) > 0);
+  const ticket = vendas.length ? vendas.reduce((s, c) => s + Number(c.preco), 0) / vendas.length : 0;
+  resumo.innerHTML = `<strong>${total}</strong> ${total === 1 ? 'copy' : 'copys'}`
+    + (vendas.length ? `<span class="sep">·</span>ticket médio <strong>${precoCopy(ticket)}</strong>` : '');
+
+  // agrupa por dia (menos quando ordena por preço)
+  const grupos = [];
+  if (ordemCopys === 'preco') grupos.push({ titulo: null, itens: visiveis });
+  else visiveis.forEach((c) => {
+    const dia = tsCopy(c) ? inicioDoDia(tsCopy(c)) : 0;
+    const ult = grupos[grupos.length - 1];
+    if (ult && ult.dia === dia) ult.itens.push(c);
+    else grupos.push({ dia, titulo: rotuloDia(dia), itens: [c] });
+  });
+  const totalPorDia = {};
+  if (ordemCopys !== 'preco') mineradasFiltradas.forEach((c) => { const d = tsCopy(c) ? inicioDoDia(tsCopy(c)) : 0; totalPorDia[d] = (totalPorDia[d] || 0) + 1; });
 
   const mostrarModelo = !document.getElementById('filtroModeloMineradas').value;
-  container.innerHTML = pagina.map((c) => cardCopyModeloHtml(c, mostrarModelo)).join('');
+  container.innerHTML = grupos.map((g) => `<section class="copys-grupo">
+      ${g.titulo ? `<h3 class="copys-dia"><span>${esc(g.titulo)}</span><span class="copys-dia-qtd">${totalPorDia[g.dia]} ${totalPorDia[g.dia] === 1 ? 'copy' : 'copys'}</span></h3>` : ''}
+      <div class="grid-copys copys-grid">${g.itens.map((c) => cardCopyModeloHtml(c, mostrarModelo)).join('')}</div>
+    </section>`).join('')
+    + (total > limiteCopys ? `<div class="copys-mais"><button type="button" class="btn btn-secondary" id="btnMaisCopys">Mostrar mais ${Math.min(PASSO_COPYS, total - limiteCopys)} <span>de ${total - limiteCopys} restantes</span></button></div>` : '');
 
   ligarEventosCard(container);
   ligarEventosCopyItem(container);
-
-  if (totalPaginas > 1) {
-    const pagDiv = document.createElement('div');
-    pagDiv.className = 'pagination';
-    pagDiv.innerHTML = `<button id="pagAnt" ${paginaMineradas <= 1 ? 'disabled' : ''}>← Anterior</button><span>${paginaMineradas} / ${totalPaginas}</span><button id="pagProx" ${paginaMineradas >= totalPaginas ? 'disabled' : ''}>Próxima →</button>`;
-    container.appendChild(pagDiv);
-    const ant = document.getElementById('pagAnt'); const prox = document.getElementById('pagProx');
-    if (ant) ant.addEventListener('click', () => { paginaMineradas--; renderMineradas(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-    if (prox) prox.addEventListener('click', () => { paginaMineradas++; renderMineradas(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-  }
+  const mais = document.getElementById('btnMaisCopys');
+  if (mais) mais.addEventListener('click', () => { limiteCopys += PASSO_COPYS; renderMineradas(); });
 }
 
 // ═══════════════════════════════════════════════ CARTÃO DA ABA COPYS ═══
@@ -1355,7 +1426,7 @@ function cardCopyModeloHtml(c, mostrarModelo) {
     <p class="copy-item-texto ${longa ? 'is-longa' : ''}" title="Clique pra copiar">${esc(texto)}</p>
     ${longa ? '<button type="button" class="copy-item-mais">ver tudo</button>' : ''}
     <footer class="copy-item-bottom">
-      <span class="copy-item-data">${esc(dataCurtaCopy(c.data))}</span>
+      <span class="copy-item-data">${esc(c.hora || dataCurtaCopy(c.data))}${c.vezes > 1 ? `<span class="copy-item-vezes" title="Mandou essa mesma copy ${c.vezes} vezes">enviada ${c.vezes}×</span>` : ''}</span>
       <div class="copy-item-acoes">
         ${botaoFavHtml(texto, 'minerada', c.tipo)}
         <div class="ia-wrap" title="Reescrever com IA">
