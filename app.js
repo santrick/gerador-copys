@@ -1,6 +1,18 @@
 /* Synora Copys — app.js
    Site estático (GitHub Pages). Sem dependência de extensão — config e dados ficam em localStorage. */
 
+// ═══════════════════════════════════════════════ LIMPEZA DAS COPYS (v1) ═══
+// Roda uma vez por navegador: apaga copys e caches de copys guardados localmente.
+(function limparCopysLocais() {
+  try {
+    if (localStorage.getItem('gerador_limpeza_v1')) return;
+    ['gerador_copys_custom', 'gerador_mineradas_cache', 'gerador_recentes', 'gerador_grade_manual', 'gerador_copy_counts', 'gerador_vistos_disparos']
+      .forEach((k) => localStorage.removeItem(k));
+    Object.keys(localStorage).filter((k) => k.startsWith('gerador_vistos_')).forEach((k) => localStorage.removeItem(k));
+    localStorage.setItem('gerador_limpeza_v1', '1');
+  } catch (e) { /* sem localStorage: nada a limpar */ }
+})();
+
 // ═══════════════════════════════════════════════ NOTIFICAÇÕES (navegador) ═══
 // Só funcionam com essa aba aberta (pode estar minimizada/em 2º plano).
 // Sem servidor: cada dispositivo agenda e dispara localmente, checando o horário de Brasília.
@@ -187,8 +199,32 @@ function configurarLogin() {
     iniciarFeedRegrasIA();
     iniciarFeedPromptBase(false);
     iniciarFeedMetricas();
-    if (souAdmin) { iniciarFeedAdmin(); iniciarFeedFuncionarios(); }
+    if (souAdmin) { iniciarFeedAdmin(); iniciarFeedFuncionarios(); limparCopysFirestore(); }
   });
+}
+
+// Roda uma vez (marcada em metricas/limpeza_copys): apaga favoritos e avaliações de copys da equipe.
+async function limparCopysFirestore() {
+  try {
+    const marca = db.collection('metricas').doc('limpeza_copys');
+    const snapMarca = await marca.get();
+    if (snapMarca.exists && snapMarca.data().v1) return;
+    let total = 0;
+    for (const nome of ['favoritos', 'feedback_copy']) {
+      const snap = await db.collection(nome).get();
+      for (let i = 0; i < snap.docs.length; i += 400) {
+        const lote = db.batch();
+        snap.docs.slice(i, i + 400).forEach((d) => lote.delete(d.ref));
+        await lote.commit();
+      }
+      total += snap.size;
+    }
+    await marca.set({ v1: true, apagados: total, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+    toast(`Limpeza feita: ${total} favoritos/avaliações apagados`);
+  } catch (err) {
+    console.error('[limpeza]', err);
+    toast('Erro na limpeza das copys: ' + err.message);
+  }
 }
 
 async function upsertFuncionario(user) {
