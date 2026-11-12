@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=34" />
+  <link rel="stylesheet" href="styles.css?v=35" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -73,9 +73,6 @@
         </button>
         <button class="nav-item" data-tab="mineradas">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Copys <span class="nav-badge" hidden></span>
-        </button>
-        <button class="nav-item" data-tab="criar">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg></span> Criar com IA
         </button>
         <button class="nav-item" data-tab="favoritos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> Favoritos
@@ -262,59 +259,6 @@
           </div>
         </section>
 
-        <!-- CRIAR COM IA -->
-        <section id="tab-criar" class="tab-panel copys-page">
-          <div class="ci-layout">
-            <form class="ci-painel" id="ciForm" autocomplete="off">
-              <div class="ci-campo">
-                <span class="cp-rotulo">Modelo</span>
-                <div class="ci-modelos" id="ciModelos" role="radiogroup" aria-label="Modelo"></div>
-              </div>
-              <div class="ci-campo">
-                <span class="cp-rotulo">Categoria</span>
-                <div class="ci-cats" id="ciCategorias" role="radiogroup" aria-label="Categoria"></div>
-              </div>
-              <div class="ci-linha">
-                <div class="ci-campo">
-                  <span class="cp-rotulo">Quantas</span>
-                  <div class="segmentado" id="ciQtd" role="radiogroup" aria-label="Quantidade">
-                    <button type="button" data-qtd="3">3</button>
-                    <button type="button" data-qtd="5" class="ativo">5</button>
-                    <button type="button" data-qtd="8">8</button>
-                  </div>
-                </div>
-                <label class="ci-campo ci-preco">
-                  <span class="cp-rotulo">Preço (opcional)</span>
-                  <input type="text" id="ciPreco" inputmode="decimal" placeholder="R$ 29,90" />
-                </label>
-              </div>
-              <label class="ci-campo">
-                <span class="cp-rotulo">Sobre o quê? (opcional)</span>
-                <textarea id="ciDetalhe" rows="3" placeholder="Ex.: vídeo novo de lingerie vermelha, tom mais carinhoso, mencionar que é só hoje…"></textarea>
-              </label>
-              <div class="ci-base" id="ciBase" aria-live="polite"></div>
-              <button type="submit" class="ci-gerar" id="ciGerar">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>
-                <span>Gerar copys</span>
-              </button>
-              <p class="ci-rodape">IA: <span id="ciModeloIA"></span> · usa a chave do OpenRouter das Configurações</p>
-            </form>
-
-            <div class="ci-resultados">
-              <div class="ci-res-head">
-                <h3 id="ciResTitulo">Copys geradas</h3>
-                <button type="button" class="cal-limpar" id="ciLimpar" hidden>Limpar</button>
-              </div>
-              <div id="ciLista" class="ci-lista">
-                <div class="ci-vazio">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>
-                  <p>Escolha a modelo e a categoria e clique em <strong>Gerar copys</strong>.<br>A IA escreve no jeito dela, usando as copys reais como base.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <!-- FAVORITOS -->
         <section id="tab-favoritos" class="tab-panel">
           <div class="toolbar">
@@ -413,6 +357,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=45"></script>
+  <script src="app.js?v=46"></script>
 </body>
 </html>
