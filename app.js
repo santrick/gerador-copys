@@ -121,6 +121,7 @@ function configurarLogin() {
     }
 
     registrarAtividade('Entrou no sistema', '');
+    carregarMineradas();
     iniciarFeedFavoritos();
     iniciarFeedFeedbackCopy();
     if (souAdmin) { iniciarFeedAdmin(); iniciarFeedFuncionarios(); limparCopysFirestore(); }
@@ -543,7 +544,7 @@ function configurarCriarAtendente() {
 }
 
 const PAGE_INFO = {
-  mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto do Google Docs' },
+  mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto da Privacy' },
   gerador: { title: 'Gerador', subtitle: 'Sorteia copys da modelo prontas pro campo ✏️ Mensagens' },
   extrair: { title: 'Extrair', subtitle: 'Todas as copys de uma vez, no formato do disparo' },
   favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou' },
@@ -561,7 +562,7 @@ const COR_TIPO = {
 let todasMineradas = [];
 let mineradasFiltradas = [];
 let paginaMineradas = 1;
-// Script do Google Docs (extensão copys-privacy grava lá; o site só lê)
+// Google Doc antigo: só pra ler enquanto o Firebase está vazio e pra copiar pro Firebase o que ainda faltar
 const DOCS_URL = 'https://script.google.com/macros/s/AKfycbyZZjrqt2ZdkhdU_C0k5cWqHdjR8uDrnwQ6bSQ4iiIbnAsdq18b4hqfyUuIFDYZaXnSbw/exec';
 const DOCS_TOKEN = '300106';
 const CATEGORIAS_COPYS = ['PPV', 'Prévias', 'Boas-vindas', 'Remarketing', 'Expirados', 'Promoções', 'VIP', 'Chamadas', 'Disparos em massa', 'Pós-venda', 'Reengajamento', 'Testes'];
@@ -706,7 +707,7 @@ function configurarNav() {
 // ═══════════════════════════════════════════════ MINERADAS ═══
 
 function configurarMineradas() {
-  document.getElementById('btnRecarregarMineradas').addEventListener('click', carregarMineradas);
+  document.getElementById('btnRecarregarMineradas').addEventListener('click', () => carregarMineradas({ completo: true }));
   document.getElementById('buscaMineradas').addEventListener('input', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('filtroModeloMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('filtroTipoMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
@@ -835,25 +836,120 @@ function renderHeroCopys(modelo, daModelo, contagem) {
   if (btn) btn.addEventListener('click', () => { grModelo = modelo; trocouModeloGerador(); irParaTab('gerador'); });
 }
 
-async function carregarMineradas() {
+// ═══ COPYS NO FIREBASE ═══
+// Coleção "copys" (a extensão grava, o site lê) e "modelos" (foto de cada modelo).
+// O ID da copy sai de modelo + data + hora + texto: igual na extensão e aqui,
+// então reenviar o mesmo período não duplica nada.
+function cyrb53(str) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0, ch; i < str.length; i++) { ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507); h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+function normId(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[\s\p{P}\p{M}\p{C}]/gu, ''); }
+function idCopyFirebase(c) { return 'c' + cyrb53([c.modelo, c.data, c.hora, c.mensagem].map(normId).join('|')).toString(36); }
+function idModeloFirebase(nome) { return 'm' + cyrb53(normId(nome)).toString(36); }
+
+const CACHE_FIREBASE = 'copys_firebase_v1';
+// Lê do Firebase só o que mudou desde a última vez (o resto fica guardado no navegador)
+async function lerCopysFirebase(completo) {
+  let cache = completo ? null : safeParse(CACHE_FIREBASE, null);
+  if (cache && (!cache.itens || Date.now() - (cache.lido || 0) > 3 * 86400000)) cache = null; // a cada 3 dias relê tudo
+  const itens = cache ? cache.itens : {};
+  let ultimo = cache ? cache.ultimo || 0 : 0;
+  let q = db.collection('copys');
+  if (ultimo) q = q.where('atualizadoEm', '>', firebase.firestore.Timestamp.fromMillis(ultimo));
+  const [snap, snapModelos] = await Promise.all([q.get(), db.collection('modelos').get()]);
+  snap.forEach((d) => {
+    const x = d.data();
+    const t = x.atualizadoEm && x.atualizadoEm.toMillis ? x.atualizadoEm.toMillis() : 0;
+    if (t > ultimo) ultimo = t;
+    itens[d.id] = { modelo: x.modelo || '', mensagem: x.mensagem || '', tipo: x.tipo || '', data: x.data || '', hora: x.hora || '', preco: x.preco ?? null };
+  });
+  const avatares = {};
+  snapModelos.forEach((d) => { const x = d.data(); if (x.nome && x.avatar) avatares[x.nome] = x.avatar; });
+  try { localStorage.setItem(CACHE_FIREBASE, JSON.stringify({ ultimo, lido: cache ? cache.lido : Date.now(), itens })); } catch (e) { /* cota cheia: relê tudo da próxima vez */ }
+  return { itens, avatares };
+}
+
+async function lerCopysDoc() {
+  const resp = await fetch(`${DOCS_URL}?acao=mineradas&token=${encodeURIComponent(DOCS_TOKEN)}`, { redirect: 'follow' });
+  if (!resp.ok) throw new Error('Google Docs retornou erro ' + resp.status);
+  const data = await resp.json();
+  if (data.status === 'erro') throw new Error(data.msg || data.mensagem);
+  (data.copys || []).forEach((c) => { if (c.mensagem) c.mensagem = String(c.mensagem).replace(/[\u000b\r]/g, '\n'); });
+  return { copys: data.copys || [], avatares: data.avatares || {} };
+}
+
+// Admin: copia pro Firebase as copys (e fotos) do Doc que ainda não estão lá. Devolve quantas copiou.
+let sincronizandoDoc = false;
+async function sincronizarDocNoFirebase(itens, avataresFb) {
+  if (sincronizandoDoc) return 0;
+  sincronizandoDoc = true;
+  try {
+    const doc = await lerCopysDoc();
+    const novas = new Map();
+    doc.copys.forEach((c) => { const id = idCopyFirebase(c); if (!itens[id] && !novas.has(id)) novas.set(id, c); });
+    const fotos = Object.entries(doc.avatares).filter(([nome]) => !avataresFb[nome]);
+    const escritas = [...novas].map(([id, c]) => [db.collection('copys').doc(id), {
+      modelo: c.modelo || '', mensagem: c.mensagem || '', tipo: c.tipo || '', data: c.data || '', hora: c.hora || '',
+      preco: Number(c.preco) > 0 ? Number(c.preco) : null, origem: 'doc', atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    }]).concat(fotos.map(([nome, avatar]) => [db.collection('modelos').doc(idModeloFirebase(nome)), {
+      nome, avatar, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    }]));
+    for (let i = 0; i < escritas.length; i += 400) {
+      const lote = db.batch();
+      escritas.slice(i, i + 400).forEach(([ref, dados]) => lote.set(ref, dados));
+      await lote.commit();
+    }
+    if (novas.size) {
+      toast(`${novas.size} copys do Google Doc copiadas pro Firebase`);
+      registrarAtividade('Copiou copys do Doc pro Firebase', `${novas.size} copys`);
+    }
+    return novas.size + fotos.length;
+  } catch (err) {
+    console.error('[doc → firebase]', err);
+    toast('Não deu pra copiar as copys do Doc pro Firebase: ' + err.message);
+    return 0;
+  } finally {
+    sincronizandoDoc = false;
+  }
+}
+
+let docSincronizadoNessaSessao = false;
+async function carregarMineradas(opcoes = {}) {
+  if (!usuarioAtual) return;
   const btn = document.getElementById('btnRecarregarMineradas');
   btn.disabled = true;
   const textoOriginal = btn.textContent;
   btn.classList.add('girando');
   if (!todasMineradas.length) renderMineradas();
-  setStatus(todasMineradas.length ? `${todasMineradas.length} copys (versão salva) — atualizando…` : 'Buscando copys do Google Docs…', 'aviso');
+  setStatus(todasMineradas.length ? `${todasMineradas.length} copys (versão salva) — atualizando…` : 'Buscando copys…', 'aviso');
 
   try {
-    const resp = await fetch(`${DOCS_URL}?acao=mineradas&token=${encodeURIComponent(DOCS_TOKEN)}`, { redirect: 'follow' });
-    if (!resp.ok) throw new Error('Servidor retornou erro ' + resp.status);
-    const data = await resp.json();
-    if (data.status === 'erro') throw new Error(data.msg || data.mensagem);
+    let fb, erroFb = null;
+    try { fb = await lerCopysFirebase(opcoes.completo); } catch (e) { console.error('[copys firebase]', e); erroFb = e; fb = { itens: {}, avatares: {} }; }
+    let copys = Object.values(fb.itens);
+    let avatares = fb.avatares;
+    let doDoc = false;
+    if (!copys.length) { // Firebase vazio (ou fora do ar): mostra o Doc enquanto isso
+      const doc = await lerCopysDoc();
+      copys = doc.copys; avatares = Object.assign({}, doc.avatares, avatares); doDoc = true;
+    }
 
-    avataresModelos = data.avatares || {};
-    aplicarDadosMineradas(data.copys || [], data.modelos);
-    try { localStorage.setItem('gerador_mineradas_cache', JSON.stringify({ ts: Date.now(), copys: todasMineradas, modelos: data.modelos || null, avatares: avataresModelos })); } catch (e) { /* cota cheia: segue sem cache */ }
+    avataresModelos = avatares;
+    aplicarDadosMineradas(copys, null);
+    try { localStorage.setItem('gerador_mineradas_cache', JSON.stringify({ ts: Date.now(), copys: todasMineradas, modelos: null, avatares: avataresModelos })); } catch (e) { /* cota cheia: segue sem cache */ }
     const qtdNovas = novidades.mineradas.size;
-    setStatus(`${todasMineradas.length} copys carregadas do Google Docs` + (qtdNovas ? ` · ${qtdNovas} nova${qtdNovas > 1 ? 's' : ''} desde sua última visita` : ' · nenhuma nova desde sua última visita'), 'ok');
+    setStatus(`${todasMineradas.length} copys carregadas${doDoc ? ' do Google Doc (Firebase ainda vazio)' : ''}` + (qtdNovas ? ` · ${qtdNovas} nova${qtdNovas > 1 ? 's' : ''} desde sua última visita` : ' · nenhuma nova desde sua última visita'), doDoc ? 'aviso' : 'ok');
+
+    // admin: uma vez por sessão, garante que tudo que está no Doc também está no Firebase
+    if (erroFb) setStatus(`${todasMineradas.length} copys carregadas do Google Doc · o Firebase recusou a leitura (${erroFb.message})`, 'aviso');
+    if (souAdmin && !erroFb && !docSincronizadoNessaSessao) {
+      docSincronizadoNessaSessao = true;
+      sincronizarDocNoFirebase(doDoc ? {} : fb.itens, fb.avatares).then((n) => { if (n) carregarMineradas(); });
+    }
   } catch (err) {
     if (todasMineradas.length) {
       setStatus('Não deu pra atualizar as copys agora (' + err.message + '). Mostrando a última versão salva.', 'aviso');
@@ -1080,7 +1176,7 @@ function renderMineradas() {
       ? '<div class="empty-state"><p>Nenhuma copy encontrada com esses filtros.</p></div>'
       : (document.getElementById('btnRecarregarMineradas').disabled
         ? '<div class="grid-copys">' + '<div class="skeleton"></div>'.repeat(6) + '</div>'
-        : '<div class="empty-state"><span class="empty-ico">▤</span><p>Nenhuma copy no Google Docs ainda. Elas aparecem aqui assim que a extensão enviar.</p></div>');
+        : '<div class="empty-state"><span class="empty-ico">▤</span><p>Nenhuma copy ainda. Elas aparecem aqui assim que a extensão enviar.</p></div>');
     return;
   }
 
@@ -1829,7 +1925,6 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarNovidades();
 
   carregarMineradasDoCache();
-  carregarMineradas();
 
   abrirTabDaHash();
   window.addEventListener('hashchange', abrirTabDaHash);
