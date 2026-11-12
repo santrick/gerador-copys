@@ -1150,6 +1150,11 @@ function configurarMineradas() {
   document.getElementById('buscaMineradas').addEventListener('input', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('filtroModeloMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('filtroTipoMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
+  document.getElementById('buscaModelos').addEventListener('input', renderAbasCopys);
+  document.querySelectorAll('.faixa-seta').forEach((btn) => btn.addEventListener('click', () => {
+    const faixa = document.getElementById('abasModelos');
+    faixa.scrollBy({ left: Number(btn.dataset.dir) * faixa.clientWidth * 0.8, behavior: 'smooth' });
+  }));
   ['abasModelos', 'abasCategorias'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => {
     const btn = e.target.closest('[data-valor]');
     if (!btn) return;
@@ -1160,23 +1165,41 @@ function configurarMineradas() {
   }));
 }
 
-// Abas de modelo e de categoria (contagem respeita a modelo escolhida)
+// Faixa de modelos (fotos da Privacy) e de categorias (contagem respeita a modelo escolhida)
+let avataresModelos = {};
+function normTexto(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
 function renderAbasCopys() {
   const selModelo = document.getElementById('filtroModeloMineradas');
   const selTipo = document.getElementById('filtroTipoMineradas');
-  const modelos = [...selModelo.options].map((o) => o.value).filter(Boolean);
+  const termo = normTexto(document.getElementById('buscaModelos').value);
+  const contagem = {};
+  todasMineradas.forEach((c) => { contagem[c.modelo] = (contagem[c.modelo] || 0) + 1; });
+  const modelos = [...selModelo.options].map((o) => o.value).filter(Boolean)
+    .filter((m) => !termo || normTexto(m).includes(termo) || m === selModelo.value)
+    .sort((x, y) => (contagem[y] || 0) - (contagem[x] || 0) || x.localeCompare(y));
+  const chip = (valor, nome, qtd, ativa) => {
+    const foto = valor && avataresModelos[valor];
+    return `<button type="button" class="modelo-chip ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}" title="${escAttr(nome)}">
+      <span class="modelo-avatar" style="--cor:${valor ? corAvatar(nome) : 'var(--accent)'}">${valor ? esc(iniciais(nome)) : '✦'}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
+      <span class="modelo-nome">${esc(valor ? nome.split(/\s+/)[0] : 'Todas')}</span>
+      <span class="modelo-qtd">${qtd}</span>
+    </button>`;
+  };
+  const faixa = document.getElementById('abasModelos');
+  faixa.innerHTML = (termo ? '' : chip('', 'Todas', todasMineradas.length, !selModelo.value))
+    + modelos.map((m) => chip(m, m, contagem[m] || 0, selModelo.value === m)).join('')
+    + (termo && !modelos.length ? '<span class="modelos-vazio">Nenhuma modelo com esse nome</span>' : '');
+  faixa.querySelectorAll('.modelo-avatar img').forEach((img) => { img.onerror = () => img.remove(); });
+
   const daModelo = todasMineradas.filter((c) => !selModelo.value || c.modelo === selModelo.value);
-  const contaModelo = (m) => todasMineradas.filter((c) => c.modelo === m).length;
-  const aba = (valor, rotulo, qtd, ativa) => `<button type="button" class="estilo-btn ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}">${esc(rotulo)} <span class="fav-count">${qtd}</span></button>`;
-  document.getElementById('abasModelos').innerHTML = aba('', 'Todas', todasMineradas.length, !selModelo.value)
-    + modelos.map((m) => aba(m, m, contaModelo(m), selModelo.value === m)).join('');
   const extras = [...new Set(daModelo.map((c) => c.tipo).filter((t) => t && !CATEGORIAS_COPYS.includes(t)))];
   const cats = CATEGORIAS_COPYS.concat(extras);
   const atualTipo = selTipo.value;
   selTipo.innerHTML = '<option value="">Todas</option>' + cats.map((c) => `<option value="${escAttr(c)}">${esc(c)}</option>`).join('');
   selTipo.value = cats.includes(atualTipo) ? atualTipo : '';
-  document.getElementById('abasCategorias').innerHTML = aba('', 'Todas', daModelo.length, !selTipo.value)
-    + cats.map((c) => aba(c, c, daModelo.filter((x) => x.tipo === c).length, selTipo.value === c)).join('');
+  const pill = (valor, rotulo, qtd, ativa) => `<button type="button" class="cat-pill ${ativa ? 'ativo' : ''} ${qtd ? '' : 'vazia'}" data-valor="${escAttr(valor)}">${esc(rotulo)}<span>${qtd}</span></button>`;
+  document.getElementById('abasCategorias').innerHTML = pill('', 'Todas', daModelo.length, !selTipo.value)
+    + cats.map((c) => pill(c, c, daModelo.filter((x) => x.tipo === c).length, selTipo.value === c)).join('');
 }
 
 async function carregarMineradas() {
@@ -1193,8 +1216,9 @@ async function carregarMineradas() {
     const data = await resp.json();
     if (data.status === 'erro') throw new Error(data.msg || data.mensagem);
 
+    avataresModelos = data.avatares || {};
     aplicarDadosMineradas(data.copys || [], data.modelos);
-    try { localStorage.setItem('gerador_mineradas_cache', JSON.stringify({ ts: Date.now(), copys: todasMineradas, modelos: data.modelos || null })); } catch (e) { /* cota cheia: segue sem cache */ }
+    try { localStorage.setItem('gerador_mineradas_cache', JSON.stringify({ ts: Date.now(), copys: todasMineradas, modelos: data.modelos || null, avatares: avataresModelos })); } catch (e) { /* cota cheia: segue sem cache */ }
     const qtdNovas = novidades.mineradas.size;
     setStatus(`${todasMineradas.length} copys carregadas do Google Docs` + (qtdNovas ? ` · ${qtdNovas} nova${qtdNovas > 1 ? 's' : ''} desde sua última visita` : ' · nenhuma nova desde sua última visita'), 'ok');
   } catch (err) {
@@ -1235,6 +1259,7 @@ function preencherSelect(id, rotuloTodos, valores) {
 function carregarMineradasDoCache() {
   const cache = safeParse('gerador_mineradas_cache', null);
   if (!cache || !Array.isArray(cache.copys) || !cache.copys.length) return false;
+  avataresModelos = cache.avatares || {};
   aplicarDadosMineradas(cache.copys, cache.modelos);
   return true;
 }

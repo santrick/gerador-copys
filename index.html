@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=26" />
+  <link rel="stylesheet" href="styles.css?v=27" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -74,19 +74,19 @@
         <button class="nav-item" data-tab="mineradas">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Copys <span class="nav-badge" hidden></span>
         </button>
-        <button class="nav-item" data-tab="disparos">
+        <button class="nav-item aba-oculta" data-tab="disparos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5L4 12z"/></svg></span> Disparos <span class="nav-badge" hidden></span>
         </button>
         <button class="nav-item" data-tab="favoritos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> Favoritos
         </button>
-        <button class="nav-item" data-tab="grade">
+        <button class="nav-item aba-oculta" data-tab="grade">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span> Grade do Dia
         </button>
-        <button class="nav-item" data-tab="gerador">
+        <button class="nav-item aba-oculta" data-tab="gerador">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg></span> Gerador
         </button>
-        <button class="nav-item" data-tab="treinar">
+        <button class="nav-item aba-oculta" data-tab="treinar">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg></span> Treinar IA
         </button>
         <button class="nav-item hidden" data-tab="admin" id="navAdmin">
@@ -230,10 +230,16 @@
             <button id="btnRecarregarMineradas" class="btn btn-secondary">↻ Atualizar</button>
           </div>
           <div class="abas-copys">
-            <span class="abas-copys-rotulo">Modelo</span>
-            <div class="estilos-row" id="abasModelos"></div>
-            <span class="abas-copys-rotulo">Categoria</span>
-            <div class="estilos-row" id="abasCategorias"></div>
+            <div class="modelos-head">
+              <span class="abas-copys-rotulo">Modelos</span>
+              <input type="search" id="buscaModelos" class="modelos-busca" placeholder="Buscar modelo..." autocomplete="off" />
+            </div>
+            <div class="modelos-faixa-wrap">
+              <button type="button" class="faixa-seta" data-dir="-1" aria-label="Voltar">&#8249;</button>
+              <div class="modelos-faixa" id="abasModelos"></div>
+              <button type="button" class="faixa-seta" data-dir="1" aria-label="Avançar">&#8250;</button>
+            </div>
+            <div class="categorias-faixa" id="abasCategorias"></div>
           </div>
           <div id="listaMineradas" class="grid-copys">
             <div class="empty-state">
@@ -244,7 +250,7 @@
         </section>
 
         <!-- DISPAROS -->
-        <section id="tab-disparos" class="tab-panel">
+        <section id="tab-disparos" class="tab-panel aba-oculta">
 
           <div class="panel grade-manual" id="gradeManualPanel">
             <div class="panel-head">
@@ -295,7 +301,7 @@
         </section>
 
         <!-- GRADE DO DIA -->
-        <section id="tab-grade" class="tab-panel">
+        <section id="tab-grade" class="tab-panel aba-oculta">
 
           <div class="panel">
             <div class="panel-head"><h2>Grade do dia</h2></div>
@@ -408,7 +414,7 @@
         </section>
 
         <!-- GERADOR DE COPY AVULSA -->
-        <section id="tab-gerador" class="tab-panel">
+        <section id="tab-gerador" class="tab-panel aba-oculta">
           <div class="gerador-layout">
           <div class="panel">
             <div class="panel-head"><h2>Gerador de copy</h2><button type="button" class="link-btn persona-link" data-ir-tab="grade" id="geradorPersonaInfo"></button></div>
@@ -500,7 +506,7 @@
         </section>
 
         <!-- TREINAR IA -->
-        <section id="tab-treinar" class="tab-panel">
+        <section id="tab-treinar" class="tab-panel aba-oculta">
           <div class="panel panel-wide prompt-base-card">
             <div class="panel-head">
               <h2>Prompt base do Gerador</h2>
@@ -656,6 +662,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=31"></script>
+  <script src="app.js?v=32"></script>
 </body>
 </html>
