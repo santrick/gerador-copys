@@ -854,6 +854,7 @@ function salvarConfig(cfg) {
 
 const PAGE_INFO = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
+  criar: { title: 'Criar com IA', subtitle: 'Copys novas no jeito de cada modelo, aprendendo com as copys reais dela' },
   favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou — do banco, das mineradas e da IA' },
   mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto do Google Docs' },
   disparos: { title: 'Disparos', subtitle: 'Banco de copys prontas + grade manual do dia' },
@@ -1065,6 +1066,7 @@ function irParaTab(tab, opts) {
   if (tab === 'disparos' && !bancoDisparos) carregarBancoDisparos();
   if (tab === 'grade' || tab === 'gerador') atualizarResumoPersona();
   if (tab === 'favoritos') renderFavoritos();
+  if (tab === 'criar') renderCriar();
   if (tab === 'treinar') renderPromptBase();
   if (tab === 'grade' && !gradeGerada) { gradeSlots = gerarSlotsAleatorios(); gradeGerada = {}; renderGradeGerada(gradeGerada); }
 }
@@ -1263,6 +1265,7 @@ function aplicarDadosMineradas(copys, modelosServidor) {
   pill.hidden = false;
   aplicarFiltroMineradas();
   renderDashboard();
+  if (document.getElementById('tab-criar').classList.contains('active')) renderCriar();
 }
 
 // Repopula um <select> mantendo o valor escolhido, se ainda existir
@@ -2689,7 +2692,7 @@ function configurarPromptBase() {
 async function chamarOpenRouter(mensagens, opts) {
   const cfg = getConfig();
   if (!cfg.openrouterKey) throw new Error('Configure sua API Key do OpenRouter nas Configurações.');
-  const modelo = cfg.openrouterModel || CONFIG_PADRAO.openrouterModel;
+  const modelo = opts?.modelo || cfg.openrouterModel || CONFIG_PADRAO.openrouterModel;
 
   const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -2709,11 +2712,262 @@ async function chamarOpenRouter(mensagens, opts) {
   if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error?.message || 'Erro ' + resp.status + ' no OpenRouter'); }
   const data = await resp.json();
   let texto = data.choices?.[0]?.message?.content || '';
+  if (opts?.cru) return texto;
   texto = texto.replace(/^(ABERTURA\s+(ROMÂNTICA|SAFADA|DE CONTROLE)|QUEBRA DE EGO|Bom dia|Conteúdo exclusivo)\s*[—:\-]+\s*/gim, '');
   // Tira rótulo tipo "Copy:" e aspas em volta da mensagem inteira, que alguns modelos insistem em colocar
   texto = texto.trim().replace(/^(copy|mensagem|resposta)\s*\d*\s*:\s*/i, '');
   if (/^["“][\s\S]*["”]$/.test(texto) && !/["“”]/.test(texto.slice(1, -1))) texto = texto.slice(1, -1);
   return texto;
+}
+
+// ═══════════════════════════════════════════════ CRIAR COM IA ═══
+// A IA escreve copys novas no jeito de cada modelo, usando as copys reais dela (aba Copys) como base.
+
+const IA_CRIAR = 'x-ai/grok-4.3';               // escreve bem em PT-BR e aceita conteúdo adulto
+const IA_CRIAR_RESERVA = 'deepseek/deepseek-v3.2'; // se a primeira recusar ou falhar
+const EMOJI_RE = /\p{Extended_Pictographic}/gu;
+// Nada que sugira menor de idade: essas copys não entram como exemplo e resultados com isso são descartados
+const TEMAS_PROIBIDOS = /\b(escola|escolar|colegial|colegio|col[eé]gio|ensino m[eé]dio|aluna|aluno|alunas|alunos|novinha|novinhas|novinho|ninfeta|lolita|menor de idade|menores|virgindade|virgem|sala de aula|uniforme|primeira vez|1[0-7] ?anos|teen|adolescente|crian[cç]a)\b/i;
+function temaProibido(texto) { return TEMAS_PROIBIDOS.test(normTexto(texto)) || TEMAS_PROIBIDOS.test(String(texto || '')); }
+const VOCATIVOS = ['amor', 'bebê', 'bb', 'gostoso', 'delícia', 'meu bem', 'vida', 'lindo', 'gato', 'safado', 'neném', 'meu rei', 'paixão', 'tesão'];
+
+let ciModelo = '';
+let ciCategoria = 'PPV';
+let ciQtd = 5;
+let ciResultados = []; // { texto, modelo, categoria }
+let ciGerando = false;
+
+function copysUnicasDaModelo(modelo) {
+  const vistos = new Map();
+  todasMineradas.forEach((c) => {
+    if (c.modelo !== modelo || !c.mensagem || !naoEhRuim(c.mensagem) || temaProibido(c.mensagem)) return;
+    const k = normTexto(c.mensagem);
+    const atual = vistos.get(k);
+    if (atual) { atual.vezes++; if (tsCopy(c) > tsCopy(atual)) { atual.data = c.data; atual.hora = c.hora; atual._ts = undefined; } }
+    else vistos.set(k, { ...c, vezes: 1, _ts: undefined });
+  });
+  return [...vistos.values()];
+}
+
+// Retrato do jeito de escrever da modelo, tirado das copys reais
+function perfilVoz(copys) {
+  if (!copys.length) return null;
+  const textos = copys.map((c) => c.mensagem);
+  const tam = textos.map((t) => t.length).sort((a, b) => a - b);
+  const emojis = {};
+  let comEmoji = 0, gritando = 0, pergunta = 0, vc = 0, voce = 0;
+  const voc = {};
+  textos.forEach((t) => {
+    const e = t.match(EMOJI_RE) || [];
+    if (e.length) comEmoji++;
+    e.forEach((x) => { emojis[x] = (emojis[x] || 0) + 1; });
+    const letras = t.replace(/[^A-Za-zÀ-ÿ]/g, '');
+    if (letras.length > 15 && letras.replace(/[^A-ZÀ-Þ]/g, '').length / letras.length > 0.6) gritando++;
+    if (/\?\s*\S{0,4}\s*$/.test(t)) pergunta++;
+    const low = ' ' + t.toLowerCase() + ' ';
+    if (/\bvc\b/.test(low)) vc++;
+    if (/\bvocê\b/.test(low)) voce++;
+    VOCATIVOS.forEach((v) => { if (low.includes(' ' + v + ' ') || low.includes(' ' + v + ',') || low.includes(' ' + v + '?') || low.includes(' ' + v + '!')) voc[v] = (voc[v] || 0) + 1; });
+  });
+  const top = (obj, n) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k]) => k);
+  const precos = copys.map((c) => Number(c.preco)).filter((p) => p > 0).sort((a, b) => a - b);
+  const pct = (n) => Math.round((n / textos.length) * 100);
+  return {
+    total: textos.length,
+    tamMedio: Math.round(tam.reduce((a, b) => a + b, 0) / tam.length),
+    tamMin: tam[Math.floor(tam.length * 0.15)], tamMax: tam[Math.floor(tam.length * 0.85)],
+    emojis: top(emojis, 10), pctEmoji: pct(comEmoji), pctCaixaAlta: pct(gritando), pctPergunta: pct(pergunta),
+    vocativos: top(voc, 4), usaVc: vc > voce,
+    preco: precos.length ? { min: precos[0], max: precos[precos.length - 1], mediana: precos[Math.floor(precos.length / 2)] } : null
+  };
+}
+
+function descreverPerfil(p) {
+  if (!p) return '';
+  const partes = [
+    `copys com ${p.tamMin}–${p.tamMax} caracteres (média ${p.tamMedio})`,
+    p.pctEmoji >= 30 ? `usa emoji em ${p.pctEmoji}% das copys, principalmente ${p.emojis.slice(0, 8).join(' ')}` : 'usa pouco emoji',
+    p.pctCaixaAlta >= 15 ? `escreve em CAIXA ALTA em ${p.pctCaixaAlta}% das copys` : 'quase não usa caixa alta',
+    p.vocativos.length ? `chama o fã de: ${p.vocativos.join(', ')}` : '',
+    p.usaVc ? 'escreve "vc" em vez de "você"' : '',
+    p.pctPergunta >= 25 ? `termina com pergunta em ${p.pctPergunta}% das vezes` : '',
+    p.preco ? `preços entre ${precoCopy(p.preco.min)} e ${precoCopy(p.preco.max)} (mais comum ~${precoCopy(p.preco.mediana)})` : ''
+  ];
+  return partes.filter(Boolean).map((x) => '- ' + x).join('\n');
+}
+
+// Exemplos: da categoria escolhida primeiro (as mais repetidas e recentes), completando com outras dela
+function exemplosParaIA(copys, categoria) {
+  const ordena = (a, b) => (b.vezes - a.vezes) || (tsCopy(b) - tsCopy(a));
+  const daCat = copys.filter((c) => c.tipo === categoria).sort(ordena).slice(0, 30);
+  const outras = daCat.length >= 12 ? [] : copys.filter((c) => c.tipo !== categoria).sort(ordena).slice(0, 15 - Math.min(daCat.length, 10));
+  return { daCat, outras };
+}
+
+function montarPedidoIA({ modelo, categoria, qtd, preco, detalhe, base }) {
+  const copys = copysUnicasDaModelo(modelo);
+  const { daCat, outras } = exemplosParaIA(copys, categoria);
+  const perfil = perfilVoz(daCat.length >= 8 ? daCat : copys);
+  const lista = (arr) => arr.map((c, i) => `${i + 1}. ${c.mensagem.replace(/\n+/g, ' / ')}${Number(c.preco) > 0 ? `  [vendida a ${precoCopy(c.preco)}]` : ''}`).join('\n');
+  const regras = (regrasIA || []).map((r) => '- ' + r.texto).join('\n');
+  const sistema = `Você é a ghostwriter da criadora de conteúdo adulto "${modelo}" na plataforma Privacy (Brasil). Escreve as mensagens que ela manda pros assinantes no chat, pra engajar e vender conteúdo.
+
+Sua tarefa: escrever copys NOVAS com a MESMA VOZ dela — mesmo vocabulário, gírias, jeito de chamar o fã, uso de emoji, pontuação, tamanho e nível de ousadia das copys reais abaixo. Quem ler não pode perceber que não foi ela.
+
+Jeito de escrever dela (tirado das copys reais):
+${descreverPerfil(perfil)}
+
+Regras:
+- Português do Brasil, informal, como mensagem de chat. Nada de linguagem de anúncio ou corporativa.
+- Não copie frases das copys reais: crie situações, ganchos e chamadas novas, mantendo o estilo.
+- Cada copy diferente das outras (abertura, gancho e chamada pra ação variados).
+- Sem hashtags, sem aspas em volta, sem numeração, sem explicar nada.
+- Todas as pessoas citadas são ADULTAS (18+). Nunca mencione nem sugira menor de idade: nada de escola, colégio, aluna/aluno, novinha, virgindade, "primeira vez", uniforme escolar, idades abaixo de 18 ou parecido.${regras ? '\n' + regras : ''}
+
+Responda SOMENTE com um array JSON de strings, ex.: ["copy 1", "copy 2"]. Quebra de linha dentro da copy = \\n.`;
+  const usuario = `Categoria: ${categoria}
+Quantidade: ${qtd} copys
+${preco ? `Preço do conteúdo: ${preco}\n` : ''}${detalhe ? `Sobre: ${detalhe}\n` : ''}${base ? `Use esta copy como ponto de partida e escreva variações dela (sem repetir):\n${base}\n` : ''}
+Copys reais dela em "${categoria}" (as primeiras são as que ela mais repete = as que funcionam):
+${daCat.length ? lista(daCat) : '(ela ainda não tem copys nessa categoria)'}
+${outras.length ? `\nOutras copys dela (só pra pegar a voz):\n${lista(outras)}` : ''}`;
+  return { mensagens: [{ role: 'system', content: sistema }, { role: 'user', content: usuario }], perfil, nCat: daCat.length, nTotal: copys.length };
+}
+
+function lerCopysDaIA(texto) {
+  const limpo = String(texto || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
+  const ini = limpo.indexOf('['), fim = limpo.lastIndexOf(']');
+  if (ini !== -1 && fim > ini) {
+    try {
+      const arr = JSON.parse(limpo.slice(ini, fim + 1));
+      if (Array.isArray(arr)) return arr.map((x) => String(typeof x === 'object' && x ? (x.copy || x.texto || x.text || '') : x).trim()).filter(Boolean);
+    } catch (e) { /* cai no plano B */ }
+  }
+  return limpo.split(/\n\s*(?:---+|\d+[.)]\s)/).map((x) => x.replace(/^\d+[.)]\s*/, '').trim()).filter((x) => x.length > 8);
+}
+
+async function gerarComIA(opts) {
+  if (ciGerando) return;
+  const cfg = getConfig();
+  if (!cfg.openrouterKey) { toast('Coloque a chave do OpenRouter em Configurações.'); document.getElementById('modalBackdrop').classList.add('open'); return; }
+  if (!opts.modelo) { toast('Escolha a modelo.'); return; }
+  ciGerando = true;
+  const btn = document.getElementById('ciGerar');
+  btn.disabled = true; btn.classList.add('carregando'); btn.querySelector('span').textContent = 'Escrevendo…';
+  const lista = document.getElementById('ciLista');
+  if (!ciResultados.length) lista.innerHTML = '';
+  const esqueleto = document.createElement('div');
+  esqueleto.className = 'ci-esqueletos';
+  esqueleto.innerHTML = '<div class="ci-esq"></div>'.repeat(Math.min(opts.qtd, 4));
+  lista.prepend(esqueleto);
+  try {
+    const pedido = montarPedidoIA(opts);
+    let novas = [];
+    for (const modeloIA of [IA_CRIAR, IA_CRIAR_RESERVA]) {
+      try {
+        const resp = await chamarOpenRouter(pedido.mensagens, { modelo: modeloIA, maxTokens: 300 * opts.qtd + 300, temperature: 0.95, cru: true });
+        novas = lerCopysDaIA(resp).filter((t) => !temaProibido(t));
+        if (novas.length) break;
+      } catch (e) { if (modeloIA === IA_CRIAR_RESERVA) throw e; }
+    }
+    if (!novas.length) throw new Error('A IA não devolveu copys. Tente de novo.');
+    ciResultados = novas.slice(0, opts.qtd).map((texto) => ({ texto, modelo: opts.modelo, categoria: opts.categoria, nova: true }))
+      .concat(ciResultados.map((r) => ({ ...r, nova: false })));
+    registrarAtividade('Gerou copys com IA', `${opts.modelo} · ${opts.categoria}`);
+  } catch (err) {
+    toast('Erro na IA: ' + err.message);
+  } finally {
+    ciGerando = false;
+    btn.disabled = false; btn.classList.remove('carregando'); btn.querySelector('span').textContent = 'Gerar copys';
+    esqueleto.remove();
+    renderResultadosCriar();
+  }
+}
+
+function renderCriar() {
+  const contagem = {};
+  const vistos = new Set();
+  todasMineradas.forEach((c) => { const k = c.modelo + '|' + normTexto(c.mensagem); if (vistos.has(k)) return; vistos.add(k); contagem[c.modelo] = (contagem[c.modelo] || 0) + 1; });
+  const modelos = Object.keys(contagem).sort((a, b) => contagem[b] - contagem[a]);
+  if (!ciModelo || !contagem[ciModelo]) ciModelo = modelos[0] || '';
+  document.getElementById('ciModelos').innerHTML = modelos.length ? modelos.map((m) => {
+    const foto = avataresModelos[m];
+    return `<button type="button" class="modelo-chip ${m === ciModelo ? 'ativo' : ''}" data-modelo="${escAttr(m)}" role="radio" aria-checked="${m === ciModelo}" title="${escAttr(m)}">
+      <span class="modelo-avatar" style="--cor:${corAvatar(m)}">${esc(iniciais(m))}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
+      <span class="modelo-nome">${esc(m.split(/\s+/)[0])}</span><span class="modelo-qtd">${contagem[m]}</span></button>`;
+  }).join('') : '<p class="ci-aviso">As copys ainda estão carregando… (aba Copys)</p>';
+  document.querySelectorAll('#ciModelos .modelo-avatar img').forEach((img) => { img.onerror = () => img.remove(); });
+
+  const copys = ciModelo ? copysUnicasDaModelo(ciModelo) : [];
+  const porCat = {};
+  copys.forEach((c) => { porCat[c.tipo] = (porCat[c.tipo] || 0) + 1; });
+  document.getElementById('ciCategorias').innerHTML = CATEGORIAS_COPYS.map((cat) => `<button type="button" class="ci-cat ${cat === ciCategoria ? 'ativo' : ''}" data-cat="${escAttr(cat)}" role="radio" aria-checked="${cat === ciCategoria}" style="--cat:${COR_CATEGORIA[cat]}">${esc(cat)}${porCat[cat] ? `<span>${porCat[cat]}</span>` : ''}</button>`).join('');
+
+  const perfil = perfilVoz(copys);
+  const nCat = porCat[ciCategoria] || 0;
+  document.getElementById('ciBase').innerHTML = !ciModelo ? '' : `
+    <div class="ci-base-topo"><strong>Base da ${esc(ciModelo.split(/\s+/)[0])}</strong><span>${nCat} em ${esc(ciCategoria)} · ${copys.length} no total</span></div>
+    ${perfil ? `<div class="ci-voz">
+      ${perfil.emojis.length && perfil.pctEmoji >= 30 ? `<span title="Emojis que ela mais usa">${perfil.emojis.slice(0, 6).join(' ')}</span>` : ''}
+      <span>~${perfil.tamMedio} letras</span>
+      ${perfil.vocativos.length ? `<span>"${esc(perfil.vocativos.slice(0, 2).join('", "'))}"</span>` : ''}
+      ${perfil.pctCaixaAlta >= 15 ? '<span>CAIXA ALTA</span>' : ''}
+      ${perfil.preco ? `<span>${precoCopy(perfil.preco.min)}–${precoCopy(perfil.preco.max)}</span>` : ''}
+    </div>` : ''}
+    ${copys.length < 15 ? `<p class="ci-aviso">Pouca base (${copys.length} copys): a voz pode sair menos parecida com a dela.</p>` : nCat < 3 ? `<p class="ci-aviso">Ela tem pouca copy em ${esc(ciCategoria)}; a IA vai se apoiar nas outras categorias dela.</p>` : ''}`;
+  document.getElementById('ciModeloIA').textContent = 'Grok 4.3';
+}
+
+function renderResultadosCriar() {
+  const lista = document.getElementById('ciLista');
+  document.getElementById('ciLimpar').hidden = !ciResultados.length;
+  document.getElementById('ciResTitulo').textContent = ciResultados.length ? `Copys geradas (${ciResultados.length})` : 'Copys geradas';
+  if (!ciResultados.length) {
+    lista.innerHTML = `<div class="ci-vazio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><p>Escolha a modelo e a categoria e clique em <strong>Gerar copys</strong>.<br>A IA escreve no jeito dela, usando as copys reais como base.</p></div>`;
+    return;
+  }
+  lista.innerHTML = ciResultados.map((r, i) => `<article class="copy-item ${r.nova ? 'ci-nova' : ''}" style="--cat:${COR_CATEGORIA[r.categoria] || 'var(--accent)'}">
+      <header class="copy-item-top">
+        <span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(r.modelo)}">${esc(iniciais(r.modelo))}${avataresModelos[r.modelo] ? `<img src="${escAttr(avataresModelos[r.modelo])}" alt="" referrerpolicy="no-referrer">` : ''}</span>${esc(r.modelo.split(/\s+/)[0])}</span>
+        <span class="copy-item-cat">${esc(r.categoria)}</span>
+        <span class="ci-tag-ia">✨ IA</span>
+      </header>
+      <p class="copy-item-texto" title="Clique pra copiar">${esc(r.texto)}</p>
+      <footer class="copy-item-bottom">
+        <span class="copy-item-data">${r.texto.length} letras</span>
+        <div class="copy-item-acoes">
+          ${botaoFavHtml(r.texto, 'ia', r.categoria)}
+          <button type="button" class="icon-btn ci-parecida" data-i="${i}" title="Gerar mais parecidas com essa">🔁</button>
+          <button type="button" class="copy-item-copiar" data-texto="${escAttr(r.texto)}"><span aria-hidden="true">⧉</span> Copiar</button>
+        </div>
+      </footer>
+    </article>`).join('');
+  ligarEventosCopyItem(lista);
+  lista.querySelectorAll('.ci-parecida').forEach((b) => b.addEventListener('click', () => {
+    const r = ciResultados[Number(b.dataset.i)];
+    gerarComIA({ modelo: r.modelo, categoria: r.categoria, qtd: 3, preco: document.getElementById('ciPreco').value.trim(), detalhe: document.getElementById('ciDetalhe').value.trim(), base: r.texto });
+  }));
+}
+
+function configurarCriar() {
+  document.getElementById('ciModelos').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-modelo]'); if (!b) return;
+    ciModelo = b.dataset.modelo; renderCriar();
+  });
+  document.getElementById('ciCategorias').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cat]'); if (!b) return;
+    ciCategoria = b.dataset.cat; renderCriar();
+  });
+  document.getElementById('ciQtd').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-qtd]'); if (!b) return;
+    ciQtd = Number(b.dataset.qtd);
+    document.querySelectorAll('#ciQtd button').forEach((x) => x.classList.toggle('ativo', x === b));
+  });
+  document.getElementById('ciForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    gerarComIA({ modelo: ciModelo, categoria: ciCategoria, qtd: ciQtd, preco: document.getElementById('ciPreco').value.trim(), detalhe: document.getElementById('ciDetalhe').value.trim() });
+  });
+  document.getElementById('ciLimpar').addEventListener('click', () => { ciResultados = []; renderResultadosCriar(); });
 }
 
 // ═══════════════════════════════════════════════ DASHBOARD ═══
@@ -2791,6 +3045,7 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarNav();
   configurarConfigModal();
   configurarMineradas();
+  configurarCriar();
   configurarDisparos();
   configurarFavoritos();
   configurarNovidades();
