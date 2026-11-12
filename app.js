@@ -1540,6 +1540,8 @@ function abrirGerador() {
   const foto = avataresModelos[grModelo];
   document.getElementById('grAvatar').innerHTML = `<span class="gr-av" style="--cor:${corAvatar(grModelo)}">${esc(iniciais(grModelo))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
   document.querySelectorAll('#grAvatar img').forEach((img) => { img.onerror = () => img.remove(); });
+  document.getElementById('grModeloNome').textContent = nomeModelo(grModelo);
+  document.getElementById('grModeloInfo').textContent = `${contagem[grModelo]} copys · ${modelos.length} ${modelos.length === 1 ? 'modelo' : 'modelos'} na lista`;
   renderGeradorCats();
   const hist = Object.keys(lerHistGerador(grModelo)).length;
   document.getElementById('grHistInfo').textContent = hist ? `${hist} já ${hist === 1 ? 'saiu' : 'saíram'} nos últimos ${DIAS_SEM_REPETIR} dias` : `Nenhuma copy dela saiu nos últimos ${DIAS_SEM_REPETIR} dias`;
@@ -1584,49 +1586,64 @@ function renderGeradorCats() {
 
 function textoGerador() { return grItens.map((c) => blocoCopy(c.texto)).join('\n\n'); }
 
+const GR_ICO = {
+  copiar: '<svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg>',
+  editar: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
+  salvar: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  trocar: '<svg viewBox="0 0 24 24"><path d="M4 7h11l-3-3M20 17H9l3 3"/></svg>',
+  remover: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  subir: '<svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5"/></svg>',
+  descer: '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>',
+  dado: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3"/><circle cx="15.5" cy="15.5" r="1.3"/><circle cx="12" cy="12" r="1.3"/></svg>'
+};
 function renderGeradorSaida() {
   const box = document.getElementById('grSaida');
   if (!grItens.length) {
+    const nome = grModelo ? esc(nomeModelo(grModelo).split(/\s+/)[0]) : '';
     box.innerHTML = `<div class="gr-vazio">
-      <span class="gr-vazio-ico" aria-hidden="true">🎲</span>
-      <strong>${grModelo ? `Pronto pra sortear as copys de ${esc(nomeModelo(grModelo).split(/\s+/)[0])}` : 'Carregando as modelos…'}</strong>
-      <p>Escolha as categorias e clique em <b>Sortear copys</b>. Elas vêm prontas pro campo <b>✏️ Mensagens</b>: uma por bloco, com linha em branco entre elas.</p>
+      <div class="gr-vazio-ilustra" aria-hidden="true">
+        <span style="--w:78%"></span><span style="--w:92%"></span><span style="--w:64%"></span>
+      </div>
+      <strong>${grModelo ? `Sorteie as copys de ${nome}` : 'Carregando as modelos…'}</strong>
+      <p>Escolha as categorias e a quantidade ao lado e clique em <b>Sortear copys</b>. Elas saem prontas pro campo <b>Mensagens</b> do disparo: uma por bloco, com linha em branco entre elas.</p>
     </div>`;
     return;
   }
   const n = grItens.length;
   const txt = textoGerador();
-  box.innerHTML = `<div class="gr-res-head">
-      <div class="gr-res-titulo"><strong>${n} ${n === 1 ? 'copy' : 'copys'}</strong><span>de <b>${esc(nomeModelo(grModelo))}</b></span></div>
+  box.innerHTML = `<div class="gr-topo">
+      <div class="gr-topo-titulo">
+        <strong>${n} ${n === 1 ? 'copy sorteada' : 'copys sorteadas'}</strong>
+        <span>${esc(nomeModelo(grModelo))} · ${txt.length.toLocaleString('pt-BR')} caracteres</span>
+      </div>
       <div class="segmentado gr-vista" role="group" aria-label="Ver como">
         <button type="button" data-vista="lista" class="${grVista === 'lista' ? 'ativo' : ''}">Lista</button>
         <button type="button" data-vista="texto" class="${grVista === 'texto' ? 'ativo' : ''}">Texto final</button>
       </div>
+      <div class="gr-topo-acoes">
+        <button type="button" class="gr-btn2" data-acao="resortear">${GR_ICO.trocar}<span>Sortear de novo</span></button>
+        <button type="button" class="gr-btn1 gr-copiar-tudo" data-acao="copiar-tudo">${GR_ICO.copiar}<span>Copiar tudo</span></button>
+      </div>
     </div>
     ${grAviso ? `<p class="gr-aviso">${esc(grAviso)}</p>` : ''}
     ${grVista === 'texto'
-      ? `<pre class="gr-preview">${esc(txt)}</pre><p class="gr-preview-info">${n} blocos · ${txt.length} caracteres</p>`
+      ? `<pre class="gr-preview">${esc(txt)}</pre>`
       : `<ol class="gr-lista">${grItens.map((c, i) => `<li class="gr-item ${grEditando === i ? 'editando' : ''}" data-i="${i}" style="--cat:${COR_CATEGORIA[c.categoria] || 'var(--accent)'}">
-        <div class="gr-ordem">
-          <button type="button" data-acao="subir" aria-label="Subir" ${i ? '' : 'disabled'}>▴</button>
-          <span class="gr-num">${i + 1}</span>
-          <button type="button" data-acao="descer" aria-label="Descer" ${i < n - 1 ? '' : 'disabled'}>▾</button>
-        </div>
+        <span class="gr-num">${String(i + 1).padStart(2, '0')}</span>
         <div class="gr-corpo">
           <div class="gr-meta"><span class="gr-tag">${esc(c.categoria)}</span>${precoCopy(c.preco) ? `<span class="gr-preco">${precoCopy(c.preco)}</span>` : ''}${c.editada ? '<span class="gr-editada">editada</span>' : ''}</div>
           <p class="gr-texto" ${grEditando === i ? 'contenteditable="plaintext-only" spellcheck="false"' : ''}>${esc(blocoCopy(c.texto))}</p>
         </div>
         <div class="gr-botoes">
-          <button type="button" class="gr-ico" data-acao="copiar" title="Copiar só essa" aria-label="Copiar só essa">⧉</button>
-          <button type="button" class="gr-ico" data-acao="editar" title="${grEditando === i ? 'Salvar' : 'Editar'}" aria-label="${grEditando === i ? 'Salvar' : 'Editar'}">${grEditando === i ? '✓' : '✎'}</button>
-          <button type="button" class="gr-ico" data-acao="trocar" title="Trocar por outra" aria-label="Trocar por outra">🔀</button>
-          <button type="button" class="gr-ico" data-acao="remover" title="Tirar essa" aria-label="Tirar essa">✕</button>
+          <button type="button" class="gr-ico" data-acao="subir" title="Subir" aria-label="Subir" ${i ? '' : 'disabled'}>${GR_ICO.subir}</button>
+          <button type="button" class="gr-ico" data-acao="descer" title="Descer" aria-label="Descer" ${i < n - 1 ? '' : 'disabled'}>${GR_ICO.descer}</button>
+          <span class="gr-sep" aria-hidden="true"></span>
+          <button type="button" class="gr-ico" data-acao="copiar" title="Copiar só essa" aria-label="Copiar só essa">${GR_ICO.copiar}</button>
+          <button type="button" class="gr-ico" data-acao="editar" title="${grEditando === i ? 'Salvar' : 'Editar'}" aria-label="${grEditando === i ? 'Salvar' : 'Editar'}">${grEditando === i ? GR_ICO.salvar : GR_ICO.editar}</button>
+          <button type="button" class="gr-ico" data-acao="trocar" title="Trocar por outra" aria-label="Trocar por outra">${GR_ICO.trocar}</button>
+          <button type="button" class="gr-ico gr-ico-x" data-acao="remover" title="Tirar essa" aria-label="Tirar essa">${GR_ICO.remover}</button>
         </div>
-      </li>`).join('')}</ol>`}
-    <div class="gr-res-acoes">
-      <button type="button" class="btn btn-ghost" data-acao="resortear">🔀 Sortear de novo</button>
-      <button type="button" class="btn btn-primary gr-copiar-tudo" data-acao="copiar-tudo">⧉ Copiar tudo</button>
-    </div>`;
+      </li>`).join('')}</ol>`}`;
   if (grEditando >= 0) {
     const p = box.querySelector('.gr-item.editando .gr-texto');
     if (p) { p.focus(); const r = document.createRange(); r.selectNodeContents(p); r.collapse(false); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
@@ -1716,7 +1733,7 @@ function configurarGerador() {
         registrarAtividade('Gerou copys pro disparo', `${grModelo} · ${grItens.length} copys`);
         toast(`${grItens.length} copys copiadas! Cole no campo de Mensagens.`);
         const b = document.querySelector('#grSaida .gr-copiar-tudo');
-        if (b) { b.classList.add('ok'); b.textContent = '✓ Copiado'; setTimeout(() => abrirGerador(), 1400); }
+        if (b) { b.classList.add('ok'); b.innerHTML = GR_ICO.salvar + '<span>Copiado</span>'; setTimeout(() => abrirGerador(), 1400); }
       });
       return;
     }
