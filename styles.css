@@ -87,7 +87,7 @@ a { color: inherit; }
 .brand-text span { font-size: 12px; color: var(--text-dim); font-weight: 600; }
 .sidebar-close { display: none; margin-left: auto; background: none; border: none; color: var(--text-dim); font-size: 16px; cursor: pointer; }
 
-.nav { position: relative; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.nav { position: relative; display: flex; flex-direction: column; gap: 4px; flex: none; }
 .nav::after {
   content: '';
   position: absolute;
@@ -1654,3 +1654,26 @@ body::before {
   .cp-select { order: 4; flex: 1 1 0; }
 }
 @media (prefers-reduced-motion: reduce) { .copy-item, .copy-item-copiar, .copy-item-acoes .icon-btn, .modelo-avatar, .cp-tab::after { transition: none; } .modelos-faixa { scroll-behavior: auto; } .cp-icone.girando { animation: none; } }
+
+/* ═══════════ MODELOS NA BARRA LATERAL ═══════════ */
+.sb-modelos { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; margin: 18px 0 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+.sb-modelos-head { display: flex; align-items: center; justify-content: space-between; padding: 0 6px; }
+.sb-titulo { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .09em; color: var(--text-dim); }
+.sb-total { font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.sb-busca { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-radius: 10px; background: rgba(255,255,255,.035); border: 1px solid transparent; transition: border-color .15s, background .15s; }
+.sb-busca:focus-within { border-color: rgba(168,85,247,.5); background: rgba(255,255,255,.05); }
+.sb-busca svg { width: 14px; height: 14px; flex: none; fill: none; stroke: var(--text-dim); stroke-width: 2; stroke-linecap: round; }
+.sb-busca input { flex: 1; min-width: 0; height: 100%; margin: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 12.5px; }
+.sb-lista { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; margin: 0 -6px; padding: 0 6px 6px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent; }
+.sb-modelo { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 5px 8px; border: 0; border-radius: 10px; background: transparent; color: var(--text-dim); font: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: background .15s, color .15s; }
+.sb-modelo:hover { background: rgba(255,255,255,.045); color: var(--text); }
+.sb-modelo.ativo { background: rgba(168,85,247,.14); color: #fff; }
+.sb-av { position: relative; overflow: hidden; flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: #fff; background: var(--cor); }
+.sb-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sb-modelo.ativo .sb-av { box-shadow: 0 0 0 2px #0b0911, 0 0 0 3.5px var(--accent); }
+.sb-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-nome-modelo { text-transform: capitalize; }
+.sb-qtd { flex: none; font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.sb-modelo.ativo .sb-qtd { color: #d8b4fe; }
+.sb-vazio { margin: 6px 8px; font-size: 12px; color: var(--text-dim); }
+@media (prefers-reduced-motion: reduce) { .sb-modelo, .sb-busca { transition: none; } }

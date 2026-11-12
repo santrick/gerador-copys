@@ -894,6 +894,7 @@ function irParaTab(tab, opts) {
   }
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'favoritos') renderFavoritos();
+  renderAbasCopys();
 }
 
 function abrirTabDaHash() {
@@ -982,16 +983,18 @@ function configurarMineradas() {
     document.querySelectorAll('#periodoCopys button').forEach((b) => b.classList.toggle('ativo', b === btn));
     aplicarFiltroMineradas();
   });
-  document.querySelectorAll('.faixa-seta').forEach((btn) => btn.addEventListener('click', () => {
-    const faixa = document.getElementById('abasModelos');
-    faixa.scrollBy({ left: Number(btn.dataset.dir) * faixa.clientWidth * 0.8, behavior: 'smooth' });
-  }));
   ['abasModelos', 'abasCategorias'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => {
     const btn = e.target.closest('[data-valor]');
     if (!btn) return;
     const sel = document.getElementById(id === 'abasModelos' ? 'filtroModeloMineradas' : 'filtroTipoMineradas');
     sel.value = btn.dataset.valor;
     paginaMineradas = 1;
+    if (id === 'abasModelos') {
+      // modelo escolhida na barra lateral: abre a aba Copys já filtrada
+      if (!document.getElementById('tab-mineradas').classList.contains('active')) irParaTab('mineradas');
+      else fecharSidebarMobile();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     aplicarFiltroMineradas();
   }));
 }
@@ -1012,19 +1015,24 @@ function renderAbasCopys() {
   const modelos = [...selModelo.options].map((o) => o.value).filter(Boolean)
     .filter((m) => !termo || normTexto(m).includes(termo) || m === selModelo.value)
     .sort((x, y) => (contagem[y] || 0) - (contagem[x] || 0) || x.localeCompare(y));
-  const chip = (valor, nome, qtd, ativa) => {
+  const item = (valor, nome, qtd, ativa) => {
     const foto = valor && avataresModelos[valor];
-    return `<button type="button" class="modelo-chip ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}" title="${escAttr(nome)}">
-      <span class="modelo-avatar" style="--cor:${valor ? corAvatar(nome) : 'var(--accent)'}">${valor ? esc(iniciais(nome)) : '✦'}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
-      <span class="modelo-nome">${esc(valor ? nome.split(/\s+/)[0] : 'Todas')}</span>
-      <span class="modelo-qtd">${qtd}</span>
+    return `<button type="button" class="sb-modelo ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}" role="listitem" title="${escAttr(nome)}" ${ativa ? 'aria-current="true"' : ''}>
+      <span class="sb-av" style="--cor:${valor ? corAvatar(nome) : 'var(--accent)'}">${valor ? esc(iniciais(nome)) : '✦'}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
+      <span class="sb-nome${valor ? ' sb-nome-modelo' : ''}">${esc(valor ? nome : 'Todas as modelos')}</span>
+      <span class="sb-qtd">${qtd}</span>
     </button>`;
   };
-  const faixa = document.getElementById('abasModelos');
-  faixa.innerHTML = (termo ? '' : chip('', 'Todas', vistos.size, !selModelo.value))
-    + modelos.map((m) => chip(m, m, contagem[m] || 0, selModelo.value === m)).join('')
-    + (termo && !modelos.length ? '<span class="modelos-vazio">Nenhuma modelo com esse nome</span>' : '');
-  faixa.querySelectorAll('.modelo-avatar img').forEach((img) => { img.onerror = () => img.remove(); });
+  const lista = document.getElementById('abasModelos');
+  const copysAtivo = document.getElementById('tab-mineradas').classList.contains('active');
+  lista.innerHTML = (termo ? '' : item('', 'Todas', vistos.size, copysAtivo && !selModelo.value))
+    + modelos.map((m) => item(m, m, contagem[m] || 0, copysAtivo && selModelo.value === m)).join('')
+    + (termo && !modelos.length ? '<p class="sb-vazio">Nenhuma modelo com esse nome</p>' : '')
+    + (!todasMineradas.length ? '<p class="sb-vazio">Carregando…</p>' : '');
+  lista.querySelectorAll('.sb-av img').forEach((img) => { img.onerror = () => img.remove(); });
+  document.getElementById('sbTotalModelos').textContent = Object.keys(contagem).length || '';
+  const sub = document.getElementById('pageSubtitle');
+  if (copysAtivo && sub) sub.textContent = selModelo.value ? `Copys de ${selModelo.value}` : PAGE_INFO.mineradas.subtitle;
 
   const daModelo = todasMineradas.filter((c) => !selModelo.value || c.modelo === selModelo.value);
   const extras = [...new Set(daModelo.map((c) => c.tipo).filter((t) => t && !CATEGORIAS_COPYS.includes(t)))];

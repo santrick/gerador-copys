@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=35" />
+  <link rel="stylesheet" href="styles.css?v=36" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -81,6 +81,18 @@
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16M5 15l-1-8 5 4 3-6 3 6 5-4-1 8z"/></svg></span> Admin
         </button>
       </nav>
+
+      <div class="sb-modelos">
+        <div class="sb-modelos-head">
+          <span class="sb-titulo">Modelos</span>
+          <span class="sb-total" id="sbTotalModelos"></span>
+        </div>
+        <label class="sb-busca">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input type="search" id="buscaModelos" placeholder="Buscar modelo" autocomplete="off" />
+        </label>
+        <div class="sb-lista" id="abasModelos" role="list"></div>
+      </div>
 
       <div class="sidebar-foot">
         <div class="usuario-logado" id="usuarioLogado"></div>
@@ -234,18 +246,6 @@
             <select id="filtroTipoMineradas" hidden><option value="">Todas</option></select>
           </div>
 
-          <div class="cp-modelos">
-            <div class="cp-modelos-head">
-              <span class="cp-rotulo">Modelos</span>
-              <input type="search" id="buscaModelos" class="cp-busca-modelo" placeholder="Filtrar modelo…" autocomplete="off" />
-            </div>
-            <div class="modelos-faixa-wrap">
-              <button type="button" class="faixa-seta" data-dir="-1" aria-label="Voltar">&#8249;</button>
-              <div class="modelos-faixa" id="abasModelos"></div>
-              <button type="button" class="faixa-seta" data-dir="1" aria-label="Avançar">&#8250;</button>
-            </div>
-          </div>
-
           <div class="cp-cats">
             <nav class="cp-tabs" id="abasCategorias" aria-label="Categorias"></nav>
             <p class="copys-resumo" id="copysResumo" aria-live="polite"></p>
@@ -357,6 +357,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=46"></script>
+  <script src="app.js?v=47"></script>
 </body>
 </html>
