@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=40" />
+  <link rel="stylesheet" href="styles.css?v=41" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -265,36 +265,50 @@
 
         <!-- GERADOR DE COPYS -->
         <section id="tab-gerador" class="tab-panel copys-page">
-          <div class="gr-config">
-            <div class="pl-modelo">
-              <span class="pl-av" id="grAvatar"></span>
-              <select id="grModelo" class="cp-select pl-select" aria-label="Modelo"></select>
-            </div>
-            <div class="gr-bloco">
-              <div class="gr-bloco-head"><span class="gr-rotulo">Categorias que entram no sorteio</span><button type="button" class="gr-link" id="grTodas">marcar todas</button></div>
-              <div class="gr-cats" id="grCats"></div>
-            </div>
-            <div class="gr-opcoes">
-              <label class="gr-qtd"><span>Quantas copys</span><input type="number" id="grQtd" min="1" max="50" value="10" inputmode="numeric"></label>
-              <label class="gr-check"><input type="checkbox" id="grSemRepetir" checked> Não repetir as que já saíram</label>
-              <button type="button" class="btn btn-primary gr-sortear" id="grSortear">🎲 Sortear copys</button>
-            </div>
-            <p class="gr-hist"><span id="grHistInfo"></span> <button type="button" class="gr-link" id="grLimparHist">liberar todas de novo</button></p>
-          </div>
+          <div class="gr-layout">
+            <aside class="gr-painel">
+              <div class="gr-passo">
+                <div class="gr-passo-head"><span class="gr-n">1</span><span class="gr-rotulo">Modelo</span></div>
+                <div class="gr-modelo">
+                  <span id="grAvatar"></span>
+                  <select id="grModelo" class="cp-select gr-select" aria-label="Modelo"></select>
+                </div>
+              </div>
 
-          <div class="gr-resultado" id="grResultado" hidden>
-            <div class="gr-res-head">
-              <div>
-                <strong id="grResumo"></strong>
-                <p class="gr-dica">Cola no campo <b>✏️ Mensagens (uma por bloco, separe com linha em branco)</b>. Cada copy já vai como um bloco.</p>
+              <div class="gr-passo">
+                <div class="gr-passo-head">
+                  <span class="gr-n">2</span><span class="gr-rotulo">Categorias</span>
+                  <button type="button" class="gr-link" id="grTodas">marcar todas</button>
+                </div>
+                <div class="segmentado gr-modo" id="grModo" role="group" aria-label="Como sortear">
+                  <button type="button" data-modo="misturar" class="ativo">Misturar</button>
+                  <button type="button" data-modo="quantidade">Quantas de cada</button>
+                </div>
+                <div class="gr-cats" id="grCats"></div>
               </div>
-              <div class="gr-res-acoes">
-                <button type="button" class="btn btn-ghost" id="grSortearDnv">🔀 Sortear de novo</button>
-                <button type="button" class="btn btn-primary" id="grCopiarTudo">⧉ Copiar tudo</button>
+
+              <div class="gr-passo" id="grQtdLinha">
+                <div class="gr-passo-head"><span class="gr-n">3</span><span class="gr-rotulo">Quantas copys</span></div>
+                <div class="gr-qtd-linha">
+                  <div class="gr-stepper">
+                    <button type="button" id="grMenos" aria-label="Menos">−</button>
+                    <input type="number" id="grQtd" min="1" max="50" value="10" inputmode="numeric" aria-label="Quantidade de copys">
+                    <button type="button" id="grMais" aria-label="Mais">+</button>
+                  </div>
+                  <div class="gr-presets" id="grPresets">
+                    <button type="button" data-q="5">5</button><button type="button" data-q="10">10</button><button type="button" data-q="20">20</button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <p class="gr-aviso" id="grAviso" hidden></p>
-            <ol class="gr-lista" id="grLista"></ol>
+
+              <div class="gr-rodape">
+                <label class="gr-check"><input type="checkbox" id="grSemRepetir" checked> Não repetir copys que já saíram</label>
+                <p class="gr-hist"><span id="grHistInfo"></span> <button type="button" class="gr-link" id="grLimparHist" hidden>liberar todas</button></p>
+                <button type="button" class="btn btn-primary gr-sortear" id="grSortear">🎲 Sortear copys</button>
+              </div>
+            </aside>
+
+            <section class="gr-saida" id="grSaida" aria-live="polite"></section>
           </div>
         </section>
 
@@ -396,6 +410,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=50"></script>
+  <script src="app.js?v=51"></script>
 </body>
 </html>

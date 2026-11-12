@@ -989,9 +989,6 @@ function configurarMineradas() {
   ['abasModelos', 'abasCategorias'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => {
     const btn = e.target.closest('[data-valor]');
     if (!btn) return;
-    if (id === 'abasModelos' && btn.dataset.valor && document.getElementById('tab-gerador').classList.contains('active')) {
-      grModelo = btn.dataset.valor; grCatsSel = null; grItens = []; fecharSidebarMobile(); abrirGerador(); return;
-    }
     const sel = document.getElementById(id === 'abasModelos' ? 'filtroModeloMineradas' : 'filtroTipoMineradas');
     sel.value = btn.dataset.valor;
     paginaMineradas = 1;
@@ -1086,7 +1083,7 @@ function renderHeroCopys(modelo, daModelo, contagem) {
     ${modelo ? `<button type="button" class="cp-hero-gerar" id="cpHeroGerar">🎲 Gerar copys dela</button>` : ''}`;
   hero.querySelectorAll('img').forEach((img) => { img.onerror = () => img.remove(); });
   const btn = document.getElementById('cpHeroGerar');
-  if (btn) btn.addEventListener('click', () => { grModelo = modelo; grCatsSel = null; grItens = []; irParaTab('gerador'); });
+  if (btn) btn.addEventListener('click', () => { grModelo = modelo; trocouModeloGerador(); irParaTab('gerador'); });
 }
 
 async function carregarMineradas() {
@@ -1645,8 +1642,8 @@ async function chamarOpenRouter(mensagens, opts) {
 }
 
 // ═══════════════════════════════════════════════ GERADOR DE COPYS ═══
-// Sorteia copys reais da modelo, misturando as categorias escolhidas, e monta o texto
-// no formato "uma mensagem por bloco, separadas por linha em branco" pra colar no disparo.
+// Sorteia copys reais da modelo e monta o texto no formato "uma mensagem por bloco,
+// separadas por linha em branco" pra colar no campo de Mensagens do disparo.
 
 const DIAS_SEM_REPETIR = 7;
 // Copys que sugerem menor de idade não entram no sorteio (continuam visíveis na aba Copys)
@@ -1654,15 +1651,20 @@ const TEMAS_PROIBIDOS = /\b(escola|escolar|colegial|colegio|ensino medio|aluna|a
 function temaProibido(texto) { return TEMAS_PROIBIDOS.test(normTexto(texto)); }
 
 let grModelo = '';
-let grCatsSel = null;     // Set de categorias marcadas (null = todas)
-let grItens = [];         // [{texto, categoria}]
+let grCatsSel = null;     // modo "misturar": Set de categorias marcadas (null = todas)
+let grItens = [];         // [{texto, categoria, preco, editada}]
+let grModo = 'misturar';  // 'misturar' | 'quantidade'
+let grQtdCat = {};        // modo "quantidade": categoria -> quantas
+let grVista = 'lista';    // 'lista' | 'texto'
+let grEditando = -1;
+let grAviso = '';
 
 function copysDaModelo(modelo) {
   const mapa = new Map();
   todasMineradas.forEach((c) => {
     if (c.modelo !== modelo || !c.mensagem || !naoEhRuim(c.mensagem) || temaProibido(c.mensagem)) return;
     const k = normTexto(c.mensagem);
-    if (!mapa.has(k)) mapa.set(k, { texto: c.mensagem, categoria: c.tipo || 'Outras' });
+    if (!mapa.has(k)) mapa.set(k, { texto: c.mensagem, categoria: c.tipo || 'Outras', preco: c.preco });
   });
   return [...mapa.values()];
 }
@@ -1689,9 +1691,26 @@ function gravarHistGerador(modelo, textos) {
   try { localStorage.setItem(chaveHistGerador(modelo), JSON.stringify(h)); } catch (e) { /* sem espaço: ignora */ }
 }
 
+// Preferências do gerador (quantidade, modo, quantas por categoria de cada modelo)
+function lerPrefsGerador() { try { return JSON.parse(localStorage.getItem('gerador_prefs')) || {}; } catch (e) { return {}; } }
+function salvarPrefsGerador() {
+  const p = lerPrefsGerador();
+  p.qtd = qtdGerador(); p.modo = grModo; p.semRepetir = document.getElementById('grSemRepetir').checked;
+  p.porCat = p.porCat || {};
+  if (grModelo) p.porCat[normTexto(grModelo)] = grQtdCat;
+  try { localStorage.setItem('gerador_prefs', JSON.stringify(p)); } catch (e) { /* ignora */ }
+}
+function qtdGerador() { return Math.max(1, Math.min(50, Number(document.getElementById('grQtd').value) || 10)); }
+
 function embaralhar(lista) {
   for (let i = lista.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lista[i], lista[j]] = [lista[j], lista[i]]; }
   return lista;
+}
+// Alterna as listas (PPV, Prévias, PPV...) pra não ficar tudo da mesma categoria em sequência
+function intercalar(listas) {
+  const ls = listas.map((l) => l.slice()); const res = [];
+  while (ls.some((l) => l.length)) ls.forEach((l) => { if (l.length) res.push(l.shift()); });
+  return res;
 }
 
 // Uma copy vira um bloco só: linhas em branco dentro dela quebrariam o campo do disparo
@@ -1701,26 +1720,47 @@ function poolGerador(evitar) {
   const semRepetir = document.getElementById('grSemRepetir').checked;
   const hist = semRepetir ? lerHistGerador(grModelo) : {};
   const fora = new Set((evitar || []).map(normTexto));
-  const todas = copysDaModelo(grModelo).filter((c) => (!grCatsSel || grCatsSel.has(c.categoria)) && !fora.has(normTexto(c.texto)));
-  const novas = todas.filter((c) => !hist[normTexto(c.texto)]);
-  return { novas, usadas: todas.filter((c) => hist[normTexto(c.texto)]) };
+  const todas = copysDaModelo(grModelo).filter((c) => (grModo === 'quantidade' || !grCatsSel || grCatsSel.has(c.categoria)) && !fora.has(normTexto(c.texto)));
+  return { novas: todas.filter((c) => !hist[normTexto(c.texto)]), usadas: todas.filter((c) => hist[normTexto(c.texto)]) };
 }
 
-// Sorteia alternando as categorias (PPV, Prévias, PPV...) pra grade não ficar com tudo igual em sequência
-function sortearGerador() {
-  const qtd = Math.max(1, Math.min(50, Number(document.getElementById('grQtd').value) || 10));
-  const { novas, usadas } = poolGerador();
+function categoriasDaModelo() {
   const porCat = {};
-  embaralhar(novas).forEach((c) => { (porCat[c.categoria] = porCat[c.categoria] || []).push(c); });
-  const cats = embaralhar(Object.keys(porCat));
-  const res = [];
-  while (res.length < qtd && cats.some((c) => porCat[c].length)) {
-    cats.forEach((c) => { if (res.length < qtd && porCat[c].length) res.push(porCat[c].shift()); });
+  copysDaModelo(grModelo).forEach((c) => { porCat[c.categoria] = (porCat[c.categoria] || 0) + 1; });
+  const ordem = CATEGORIAS_COPYS.filter((c) => porCat[c]).concat(Object.keys(porCat).filter((c) => !CATEGORIAS_COPYS.includes(c)));
+  return { porCat, ordem };
+}
+
+function sortearGerador() {
+  const { novas, usadas } = poolGerador();
+  const agrupar = (lista) => { const m = {}; embaralhar(lista.slice()).forEach((c) => { (m[c.categoria] = m[c.categoria] || []).push(c); }); return m; };
+  const nv = agrupar(novas), us = agrupar(usadas);
+  let res = [], repetidas = 0, faltaram = 0;
+  if (grModo === 'quantidade') {
+    const listas = [];
+    Object.entries(grQtdCat).forEach(([cat, n]) => {
+      if (!n) return;
+      const a = (nv[cat] || []).slice(0, n);
+      const b = (us[cat] || []).slice(0, n - a.length);
+      repetidas += b.length; faltaram += n - a.length - b.length;
+      listas.push(a.concat(b));
+    });
+    res = intercalar(embaralhar(listas));
+  } else {
+    const qtd = qtdGerador();
+    res = intercalar(embaralhar(Object.keys(nv)).map((c) => nv[c])).slice(0, qtd);
+    const extra = embaralhar(usadas.slice()).slice(0, qtd - res.length);
+    repetidas = extra.length; faltaram = qtd - res.length - extra.length;
+    res = res.concat(extra);
   }
-  const faltou = qtd - res.length;
-  if (faltou > 0) res.push(...embaralhar(usadas).slice(0, faltou));
-  grItens = res;
-  renderGeradorResultado(faltou > 0 && usadas.length ? `Só tinha ${qtd - faltou} copys que ainda não saíram, completei com ${Math.min(faltou, usadas.length)} já usadas.` : '');
+  grItens = res.map((c) => ({ ...c }));
+  grEditando = -1;
+  const avisos = [];
+  if (repetidas) avisos.push(`${repetidas} ${repetidas === 1 ? 'copy já tinha saído' : 'copys já tinham saído'} nos últimos ${DIAS_SEM_REPETIR} dias (não tinha nova suficiente).`);
+  if (faltaram) avisos.push(`Faltaram ${faltaram}: ela não tem tantas copys ${grModo === 'quantidade' ? 'nessas categorias' : 'nas categorias marcadas'}.`);
+  grAviso = avisos.join(' ');
+  salvarPrefsGerador();
+  renderGeradorSaida();
 }
 
 function abrirGerador() {
@@ -1728,89 +1768,213 @@ function abrirGerador() {
   copysPorModeloContagem().forEach(([m, n]) => { contagem[m] = n; });
   const modelos = Object.keys(contagem);
   const sel = document.getElementById('grModelo');
-  if (!modelos.length) { sel.innerHTML = '<option>Carregando…</option>'; document.getElementById('grCats').innerHTML = ''; return; }
+  if (!modelos.length) { sel.innerHTML = '<option>Carregando…</option>'; document.getElementById('grCats').innerHTML = ''; renderGeradorSaida(); return; }
   const daBarra = document.getElementById('filtroModeloMineradas').value;
-  if (!grModelo || !contagem[grModelo]) { grModelo = (daBarra && contagem[daBarra]) ? daBarra : modelos[0]; grCatsSel = null; grItens = []; }
+  if (!grModelo || !contagem[grModelo]) { grModelo = (daBarra && contagem[daBarra]) ? daBarra : modelos[0]; trocouModeloGerador(); }
   sel.innerHTML = modelos.map((m) => `<option value="${escAttr(m)}" ${m === grModelo ? 'selected' : ''}>${esc(m)} · ${contagem[m]} copys</option>`).join('');
   const foto = avataresModelos[grModelo];
-  document.getElementById('grAvatar').innerHTML = `<span class="sb-av" style="--cor:${corAvatar(grModelo)}">${esc(iniciais(grModelo))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
+  document.getElementById('grAvatar').innerHTML = `<span class="gr-av" style="--cor:${corAvatar(grModelo)}">${esc(iniciais(grModelo))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
   document.querySelectorAll('#grAvatar img').forEach((img) => { img.onerror = () => img.remove(); });
-
-  const porCat = {};
-  copysDaModelo(grModelo).forEach((c) => { porCat[c.categoria] = (porCat[c.categoria] || 0) + 1; });
-  const ordem = CATEGORIAS_COPYS.filter((c) => porCat[c]).concat(Object.keys(porCat).filter((c) => !CATEGORIAS_COPYS.includes(c)));
-  document.getElementById('grCats').innerHTML = ordem.length ? ordem.map((c) => {
-    const on = !grCatsSel || grCatsSel.has(c);
-    return `<button type="button" class="gr-cat ${on ? 'on' : ''}" data-cat="${escAttr(c)}" aria-pressed="${on}" style="--cat:${COR_CATEGORIA[c] || 'var(--accent)'}">${esc(c)} <span>${porCat[c]}</span></button>`;
-  }).join('') : '<span class="gr-vazio-txt">Essa modelo ainda não tem copys.</span>';
+  renderGeradorCats();
   const hist = Object.keys(lerHistGerador(grModelo)).length;
-  document.getElementById('grHistInfo').textContent = hist ? `${hist} já saíram nos últimos ${DIAS_SEM_REPETIR} dias` : '';
-  renderGeradorResultado();
+  document.getElementById('grHistInfo').textContent = hist ? `${hist} já ${hist === 1 ? 'saiu' : 'saíram'} nos últimos ${DIAS_SEM_REPETIR} dias` : `Nenhuma copy dela saiu nos últimos ${DIAS_SEM_REPETIR} dias`;
+  document.getElementById('grLimparHist').hidden = !hist;
+  renderGeradorSaida();
+}
+
+// Ao trocar de modelo: limpa o sorteio e carrega as quantidades por categoria salvas pra ela
+function trocouModeloGerador() {
+  grCatsSel = null; grItens = []; grAviso = ''; grEditando = -1;
+  const salvo = (lerPrefsGerador().porCat || {})[normTexto(grModelo)];
+  const { porCat, ordem } = categoriasDaModelo();
+  grQtdCat = {};
+  ordem.forEach((c) => { grQtdCat[c] = salvo && salvo[c] !== undefined ? Math.min(salvo[c], porCat[c]) : (salvo ? 0 : 1); });
+}
+
+function renderGeradorCats() {
+  document.querySelectorAll('#grModo button').forEach((b) => b.classList.toggle('ativo', b.dataset.modo === grModo));
+  const { porCat, ordem } = categoriasDaModelo();
+  const box = document.getElementById('grCats');
+  document.getElementById('grQtdLinha').hidden = grModo === 'quantidade';
+  document.getElementById('grTodas').hidden = grModo === 'quantidade';
+  if (!ordem.length) { box.innerHTML = '<span class="gr-vazio-txt">Essa modelo ainda não tem copys.</span>'; return; }
+  if (grModo === 'quantidade') {
+    const total = ordem.reduce((t, c) => t + (grQtdCat[c] || 0), 0);
+    box.className = 'gr-catsq';
+    box.innerHTML = ordem.map((c) => {
+      const n = grQtdCat[c] || 0;
+      return `<div class="gr-catq ${n ? 'on' : ''}" data-cat="${escAttr(c)}" style="--cat:${COR_CATEGORIA[c] || 'var(--accent)'}">
+        <span class="gr-catq-nome">${esc(c)}<small>${porCat[c]} ${porCat[c] === 1 ? 'copy' : 'copys'}</small></span>
+        <span class="gr-step"><button type="button" data-d="-1" aria-label="Menos ${escAttr(c)}" ${n ? '' : 'disabled'}>−</button><b>${n}</b><button type="button" data-d="1" aria-label="Mais ${escAttr(c)}" ${n >= porCat[c] ? 'disabled' : ''}>+</button></span>
+      </div>`;
+    }).join('') + `<p class="gr-total">Total: <strong>${total}</strong> ${total === 1 ? 'copy' : 'copys'}</p>`;
+  } else {
+    box.className = 'gr-cats';
+    box.innerHTML = ordem.map((c) => {
+      const on = !grCatsSel || grCatsSel.has(c);
+      return `<button type="button" class="gr-cat ${on ? 'on' : ''}" data-cat="${escAttr(c)}" aria-pressed="${on}" style="--cat:${COR_CATEGORIA[c] || 'var(--accent)'}">${esc(c)} <span>${porCat[c]}</span></button>`;
+    }).join('');
+  }
 }
 
 function textoGerador() { return grItens.map((c) => blocoCopy(c.texto)).join('\n\n'); }
 
-function renderGeradorResultado(aviso) {
-  const box = document.getElementById('grResultado');
-  box.hidden = !grItens.length;
-  if (!grItens.length) return;
-  document.getElementById('grResumo').textContent = `${grItens.length} ${grItens.length === 1 ? 'copy sorteada' : 'copys sorteadas'}`;
-  document.getElementById('grAviso').textContent = aviso || '';
-  document.getElementById('grAviso').hidden = !aviso;
-  document.getElementById('grLista').innerHTML = grItens.map((c, i) => `<li class="gr-item" data-i="${i}" style="--cat:${COR_CATEGORIA[c.categoria] || 'var(--accent)'}">
-      <span class="gr-num">${i + 1}</span>
-      <div class="gr-corpo"><span class="gr-tag">${esc(c.categoria)}</span><p class="gr-texto">${esc(blocoCopy(c.texto))}</p></div>
-      <div class="gr-botoes">
-        <button type="button" class="pl-btn" data-acao="trocar" title="Trocar só essa">🔀</button>
-        <button type="button" class="pl-btn" data-acao="remover" title="Tirar essa">✕</button>
+function renderGeradorSaida() {
+  const box = document.getElementById('grSaida');
+  if (!grItens.length) {
+    box.innerHTML = `<div class="gr-vazio">
+      <span class="gr-vazio-ico" aria-hidden="true">🎲</span>
+      <strong>${grModelo ? `Pronto pra sortear as copys de ${esc(grModelo.split(/\s+/)[0])}` : 'Carregando as modelos…'}</strong>
+      <p>Escolha as categorias e clique em <b>Sortear copys</b>. Elas vêm prontas pro campo <b>✏️ Mensagens</b>: uma por bloco, com linha em branco entre elas.</p>
+    </div>`;
+    return;
+  }
+  const n = grItens.length;
+  const txt = textoGerador();
+  box.innerHTML = `<div class="gr-res-head">
+      <div class="gr-res-titulo"><strong>${n} ${n === 1 ? 'copy' : 'copys'}</strong><span>de <b>${esc(grModelo)}</b></span></div>
+      <div class="segmentado gr-vista" role="group" aria-label="Ver como">
+        <button type="button" data-vista="lista" class="${grVista === 'lista' ? 'ativo' : ''}">Lista</button>
+        <button type="button" data-vista="texto" class="${grVista === 'texto' ? 'ativo' : ''}">Texto final</button>
       </div>
-    </li>`).join('');
+    </div>
+    ${grAviso ? `<p class="gr-aviso">${esc(grAviso)}</p>` : ''}
+    ${grVista === 'texto'
+      ? `<pre class="gr-preview">${esc(txt)}</pre><p class="gr-preview-info">${n} blocos · ${txt.length} caracteres</p>`
+      : `<ol class="gr-lista">${grItens.map((c, i) => `<li class="gr-item ${grEditando === i ? 'editando' : ''}" data-i="${i}" style="--cat:${COR_CATEGORIA[c.categoria] || 'var(--accent)'}">
+        <div class="gr-ordem">
+          <button type="button" data-acao="subir" aria-label="Subir" ${i ? '' : 'disabled'}>▴</button>
+          <span class="gr-num">${i + 1}</span>
+          <button type="button" data-acao="descer" aria-label="Descer" ${i < n - 1 ? '' : 'disabled'}>▾</button>
+        </div>
+        <div class="gr-corpo">
+          <div class="gr-meta"><span class="gr-tag">${esc(c.categoria)}</span>${precoCopy(c.preco) ? `<span class="gr-preco">${precoCopy(c.preco)}</span>` : ''}${c.editada ? '<span class="gr-editada">editada</span>' : ''}</div>
+          <p class="gr-texto" ${grEditando === i ? 'contenteditable="plaintext-only" spellcheck="false"' : ''}>${esc(blocoCopy(c.texto))}</p>
+        </div>
+        <div class="gr-botoes">
+          <button type="button" class="gr-ico" data-acao="copiar" title="Copiar só essa" aria-label="Copiar só essa">⧉</button>
+          <button type="button" class="gr-ico" data-acao="editar" title="${grEditando === i ? 'Salvar' : 'Editar'}" aria-label="${grEditando === i ? 'Salvar' : 'Editar'}">${grEditando === i ? '✓' : '✎'}</button>
+          <button type="button" class="gr-ico" data-acao="trocar" title="Trocar por outra" aria-label="Trocar por outra">🔀</button>
+          <button type="button" class="gr-ico" data-acao="remover" title="Tirar essa" aria-label="Tirar essa">✕</button>
+        </div>
+      </li>`).join('')}</ol>`}
+    <div class="gr-res-acoes">
+      <button type="button" class="btn btn-ghost" data-acao="resortear">🔀 Sortear de novo</button>
+      <button type="button" class="btn btn-primary gr-copiar-tudo" data-acao="copiar-tudo">⧉ Copiar tudo</button>
+    </div>`;
+  if (grEditando >= 0) {
+    const p = box.querySelector('.gr-item.editando .gr-texto');
+    if (p) { p.focus(); const r = document.createRange(); r.selectNodeContents(p); r.collapse(false); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+  }
+}
+
+function salvarEdicaoGerador() {
+  if (grEditando < 0) return;
+  const p = document.querySelector('#grSaida .gr-item.editando .gr-texto');
+  const item = grItens[grEditando];
+  if (p && item) {
+    const novo = p.innerText.trim();
+    if (novo && novo !== blocoCopy(item.texto)) { item.texto = novo; item.editada = true; }
+  }
+  grEditando = -1;
 }
 
 function configurarGerador() {
-  document.getElementById('grModelo').addEventListener('change', (e) => { grModelo = e.target.value; grCatsSel = null; grItens = []; abrirGerador(); });
+  const prefs = lerPrefsGerador();
+  if (prefs.qtd) document.getElementById('grQtd').value = prefs.qtd;
+  if (prefs.modo) grModo = prefs.modo;
+  if (prefs.semRepetir === false) document.getElementById('grSemRepetir').checked = false;
+
+  document.getElementById('grModelo').addEventListener('change', (e) => { grModelo = e.target.value; trocouModeloGerador(); abrirGerador(); });
+  document.getElementById('grModo').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-modo]'); if (!btn) return;
+    grModo = btn.dataset.modo; salvarPrefsGerador(); renderGeradorCats();
+  });
   document.getElementById('grCats').addEventListener('click', (e) => {
+    const step = e.target.closest('[data-d]');
+    if (step) {
+      const c = step.closest('.gr-catq').dataset.cat;
+      const max = categoriasDaModelo().porCat[c] || 0;
+      grQtdCat[c] = Math.max(0, Math.min(max, (grQtdCat[c] || 0) + Number(step.dataset.d)));
+      salvarPrefsGerador(); renderGeradorCats(); return;
+    }
     const btn = e.target.closest('.gr-cat'); if (!btn) return;
     const todas = [...document.querySelectorAll('#grCats .gr-cat')].map((b) => b.dataset.cat);
     if (!grCatsSel) grCatsSel = new Set(todas);
     const c = btn.dataset.cat;
     if (grCatsSel.has(c)) { if (grCatsSel.size === 1) return toast('Deixe pelo menos uma categoria.'); grCatsSel.delete(c); } else grCatsSel.add(c);
     if (grCatsSel.size === todas.length) grCatsSel = null;
-    abrirGerador();
+    renderGeradorCats();
   });
-  document.getElementById('grTodas').addEventListener('click', () => { grCatsSel = null; abrirGerador(); });
+  document.getElementById('grTodas').addEventListener('click', () => { grCatsSel = null; renderGeradorCats(); });
+  const qtd = document.getElementById('grQtd');
+  const mudarQtd = (v) => { qtd.value = Math.max(1, Math.min(50, v)); marcarPreset(); salvarPrefsGerador(); };
+  const marcarPreset = () => document.querySelectorAll('#grPresets button').forEach((b) => b.classList.toggle('ativo', Number(b.dataset.q) === qtdGerador()));
+  document.getElementById('grMenos').addEventListener('click', () => mudarQtd(qtdGerador() - 1));
+  document.getElementById('grMais').addEventListener('click', () => mudarQtd(qtdGerador() + 1));
+  document.getElementById('grPresets').addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (b) mudarQtd(Number(b.dataset.q)); });
+  qtd.addEventListener('change', () => mudarQtd(qtdGerador()));
+  marcarPreset();
+  document.getElementById('grSemRepetir').addEventListener('change', salvarPrefsGerador);
+
   document.getElementById('grSortear').addEventListener('click', () => {
     if (!copysDaModelo(grModelo).length) return toast('Essa modelo ainda não tem copys.');
+    if (grModo === 'quantidade' && !Object.values(grQtdCat).some(Boolean)) return toast('Coloque pelo menos 1 copy em alguma categoria.');
     sortearGerador();
-    document.getElementById('grResultado').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-  document.getElementById('grSortearDnv').addEventListener('click', sortearGerador);
-  document.getElementById('grCopiarTudo').addEventListener('click', () => {
-    if (!grItens.length) return;
-    copiarTexto(textoGerador()).then(() => {
-      gravarHistGerador(grModelo, grItens.map((c) => c.texto));
-      registrarAtividade('Gerou copys pro disparo', `${grModelo} · ${grItens.length} copys`);
-      toast(`${grItens.length} copys copiadas! Cole no campo de Mensagens.`);
-      const hist = Object.keys(lerHistGerador(grModelo)).length;
-      document.getElementById('grHistInfo').textContent = `${hist} já saíram nos últimos ${DIAS_SEM_REPETIR} dias`;
-    });
+    if (window.innerWidth < 900) document.getElementById('grSaida').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   document.getElementById('grLimparHist').addEventListener('click', () => {
     localStorage.removeItem(chaveHistGerador(grModelo));
-    document.getElementById('grHistInfo').textContent = '';
-    toast('Pronto, todas as copys podem sair de novo.');
+    abrirGerador();
+    toast('Pronto, todas as copys dela podem sair de novo.');
   });
-  document.getElementById('grLista').addEventListener('click', (e) => {
+
+  const saida = document.getElementById('grSaida');
+  saida.addEventListener('focusout', (e) => {
+    if (!e.target.matches('.gr-texto[contenteditable]')) return;
+    if (e.relatedTarget && e.relatedTarget.closest('.gr-item.editando')) return; // clicou no ✓ da mesma copy
+    salvarEdicaoGerador(); renderGeradorSaida();
+  });
+  saida.addEventListener('keydown', (e) => {
+    if (e.target.matches('.gr-texto[contenteditable]') && (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey)))) { e.preventDefault(); e.target.blur(); }
+  });
+  saida.addEventListener('click', (e) => {
+    const vista = e.target.closest('[data-vista]');
+    if (vista) { salvarEdicaoGerador(); grVista = vista.dataset.vista; renderGeradorSaida(); return; }
     const btn = e.target.closest('[data-acao]'); if (!btn) return;
-    const i = Number(btn.closest('.gr-item').dataset.i);
-    if (btn.dataset.acao === 'remover') { grItens.splice(i, 1); renderGeradorResultado(); return; }
-    const atual = grItens[i];
-    const { novas, usadas } = poolGerador(grItens.map((c) => c.texto));
-    const mesmaCat = (l) => l.filter((c) => c.categoria === atual.categoria);
-    const op = [mesmaCat(novas), novas, mesmaCat(usadas), usadas].find((l) => l.length);
-    if (!op) return toast('Não tem outra copy pra trocar.');
-    grItens[i] = op[Math.floor(Math.random() * op.length)];
-    renderGeradorResultado();
+    const acao = btn.dataset.acao;
+    if (acao === 'resortear') { sortearGerador(); return; }
+    if (acao === 'copiar-tudo') {
+      salvarEdicaoGerador();
+      copiarTexto(textoGerador()).then(() => {
+        gravarHistGerador(grModelo, grItens.map((c) => c.texto));
+        registrarAtividade('Gerou copys pro disparo', `${grModelo} · ${grItens.length} copys`);
+        toast(`${grItens.length} copys copiadas! Cole no campo de Mensagens.`);
+        const b = document.querySelector('#grSaida .gr-copiar-tudo');
+        if (b) { b.classList.add('ok'); b.textContent = '✓ Copiado'; setTimeout(() => abrirGerador(), 1400); }
+      });
+      return;
+    }
+    const li = btn.closest('.gr-item'); if (!li) return;
+    const i = Number(li.dataset.i);
+    if (acao === 'editar') {
+      if (grEditando === i) { salvarEdicaoGerador(); } else { salvarEdicaoGerador(); grEditando = i; }
+      renderGeradorSaida(); return;
+    }
+    salvarEdicaoGerador();
+    if (acao === 'copiar') { copiarTexto(blocoCopy(grItens[i].texto)).then(() => toast('Copy copiada!')); }
+    if (acao === 'remover') grItens.splice(i, 1);
+    if (acao === 'subir' && i > 0) [grItens[i - 1], grItens[i]] = [grItens[i], grItens[i - 1]];
+    if (acao === 'descer' && i < grItens.length - 1) [grItens[i + 1], grItens[i]] = [grItens[i], grItens[i + 1]];
+    if (acao === 'trocar') {
+      const atual = grItens[i];
+      const { novas, usadas } = poolGerador(grItens.map((c) => c.texto));
+      const mesmaCat = (l) => l.filter((c) => c.categoria === atual.categoria);
+      const op = [mesmaCat(novas), novas, mesmaCat(usadas), usadas].find((l) => l.length);
+      if (!op) { toast('Não tem outra copy pra trocar.'); return; }
+      grItens[i] = { ...op[Math.floor(Math.random() * op.length)] };
+    }
+    renderGeradorSaida();
   });
 }
 
