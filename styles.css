@@ -2670,3 +2670,7 @@ body.ag-folha-aberta { overflow: hidden; }
   .gr2-corpo .gr-chat { height: 72vh; }
   .gr2-corpo .gr-preview { max-height: 72vh; }
 }
+/* PPV: botão Desbloquear com a mesma largura do balão */
+.gr2-corpo .gr-chat .is-ppv .gr-bolha { flex: none; width: min(340px, calc(100% - 84px)); max-width: none; }
+.gr2-corpo .gr-ppv-btn { width: min(340px, calc(100% - 84px)); height: 40px; font-size: 14px; }
+.gr2-corpo .gr-ppv-acao .gr-av { margin-right: 2px; }
