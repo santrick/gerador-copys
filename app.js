@@ -1523,7 +1523,7 @@ function cardCopyModeloHtml(c, mostrarModelo) {
   const foto = avataresModelos[c.modelo];
   const nova = novidades.mineradas.has(idMinerada(c));
   const preco = precoCopy(c.preco);
-  const longa = texto.length > 260 || (texto.match(/\n/g) || []).length > 5;
+  const longa = texto.length > 480 || (texto.match(/\n/g) || []).length > 9;
   return `<article class="copy-item ${nova ? 'is-nova' : ''}" style="--cat:${cor}">
     <header class="copy-item-top">
       ${mostrarModelo ? `<span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(c.modelo || '')}">${esc(iniciais(c.modelo))}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>${esc((c.modelo || '').split(/\s+/)[0])}</span>` : ''}
