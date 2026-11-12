@@ -1525,5 +1525,8 @@ body::before {
   background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 12px;
 }
 
-/* Planilha das mineradas desligada */
-.sem-planilha { display: none !important; }
+/* Aba Copys: abas de modelo e de categoria */
+.abas-copys { display: grid; gap: 6px; margin-bottom: 16px; }
+.abas-copys-rotulo { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); }
+.abas-copys .estilos-row { margin-bottom: 6px; }
+.abas-copys .fav-count { opacity: .7; margin-left: 2px; }

@@ -855,7 +855,7 @@ function salvarConfig(cfg) {
 const PAGE_INFO = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
   favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou — do banco, das mineradas e da IA' },
-  mineradas: { title: 'Mineradas', subtitle: 'Copys reais coletadas da planilha' },
+  mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto do Google Docs' },
   disparos: { title: 'Disparos', subtitle: 'Banco de copys prontas + grade manual do dia' },
   grade: { title: 'Grade do Dia', subtitle: 'Sorteie ou gere com IA em horários aleatórios do dia' },
   gerador: { title: 'Gerador', subtitle: 'Gere uma copy avulsa ou um script por tipo' },
@@ -921,6 +921,10 @@ const POR_PAGINA = 24;
 let todasMineradas = [];
 let mineradasFiltradas = [];
 let paginaMineradas = 1;
+// Script do Google Docs (extensão copys-privacy grava lá; o site só lê)
+const DOCS_URL = 'https://script.google.com/macros/s/AKfycbxUX3Td_gexi_Dk8GJjzf6nGnDJnNeoM1OKo9hF4PHVj3RQI4bOWWkT5_M6AQK7gKl3Vg/exec';
+const DOCS_TOKEN = '300106';
+const CATEGORIAS_COPYS = ['PPV', 'Prévias', 'Boas-vindas', 'Remarketing', 'Expirados', 'Promoções', 'VIP', 'Chamadas', 'Disparos em massa', 'Pós-venda', 'Reengajamento', 'Testes'];
 
 let bancoDisparos = null;
 let disparosFiltrados = [];
@@ -1146,25 +1150,45 @@ function configurarMineradas() {
   document.getElementById('buscaMineradas').addEventListener('input', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('filtroModeloMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('filtroTipoMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
+  ['abasModelos', 'abasCategorias'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-valor]');
+    if (!btn) return;
+    const sel = document.getElementById(id === 'abasModelos' ? 'filtroModeloMineradas' : 'filtroTipoMineradas');
+    sel.value = btn.dataset.valor;
+    paginaMineradas = 1;
+    aplicarFiltroMineradas();
+  }));
+}
+
+// Abas de modelo e de categoria (contagem respeita a modelo escolhida)
+function renderAbasCopys() {
+  const selModelo = document.getElementById('filtroModeloMineradas');
+  const selTipo = document.getElementById('filtroTipoMineradas');
+  const modelos = [...selModelo.options].map((o) => o.value).filter(Boolean);
+  const daModelo = todasMineradas.filter((c) => !selModelo.value || c.modelo === selModelo.value);
+  const contaModelo = (m) => todasMineradas.filter((c) => c.modelo === m).length;
+  const aba = (valor, rotulo, qtd, ativa) => `<button type="button" class="estilo-btn ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}">${esc(rotulo)} <span class="fav-count">${qtd}</span></button>`;
+  document.getElementById('abasModelos').innerHTML = aba('', 'Todas', todasMineradas.length, !selModelo.value)
+    + modelos.map((m) => aba(m, m, contaModelo(m), selModelo.value === m)).join('');
+  const extras = [...new Set(daModelo.map((c) => c.tipo).filter((t) => t && !CATEGORIAS_COPYS.includes(t)))];
+  const cats = CATEGORIAS_COPYS.concat(extras);
+  const atualTipo = selTipo.value;
+  selTipo.innerHTML = '<option value="">Todas</option>' + cats.map((c) => `<option value="${escAttr(c)}">${esc(c)}</option>`).join('');
+  selTipo.value = cats.includes(atualTipo) ? atualTipo : '';
+  document.getElementById('abasCategorias').innerHTML = aba('', 'Todas', daModelo.length, !selTipo.value)
+    + cats.map((c) => aba(c, c, daModelo.filter((x) => x.tipo === c).length, selTipo.value === c)).join('');
 }
 
 async function carregarMineradas() {
-  return; // planilha desligada
-  const cfg = getConfig();
-  if (!cfg.sheetsUrl) {
-    setStatus('Configure a URL do Apps Script primeiro', 'erro');
-    document.getElementById('modalBackdrop').classList.add('open');
-    return;
-  }
   const btn = document.getElementById('btnRecarregarMineradas');
   btn.disabled = true;
   const textoOriginal = btn.textContent;
   btn.textContent = 'Atualizando…';
   if (!todasMineradas.length) renderMineradas();
-  setStatus(todasMineradas.length ? `${todasMineradas.length} copys (versão salva) — atualizando a planilha…` : 'Buscando copys da planilha…', 'aviso');
+  setStatus(todasMineradas.length ? `${todasMineradas.length} copys (versão salva) — atualizando…` : 'Buscando copys do Google Docs…', 'aviso');
 
   try {
-    const resp = await fetch(cfg.sheetsUrl, { redirect: 'follow' });
+    const resp = await fetch(`${DOCS_URL}?acao=mineradas&token=${encodeURIComponent(DOCS_TOKEN)}`, { redirect: 'follow' });
     if (!resp.ok) throw new Error('Servidor retornou erro ' + resp.status);
     const data = await resp.json();
     if (data.status === 'erro') throw new Error(data.msg || data.mensagem);
@@ -1172,10 +1196,10 @@ async function carregarMineradas() {
     aplicarDadosMineradas(data.copys || [], data.modelos);
     try { localStorage.setItem('gerador_mineradas_cache', JSON.stringify({ ts: Date.now(), copys: todasMineradas, modelos: data.modelos || null })); } catch (e) { /* cota cheia: segue sem cache */ }
     const qtdNovas = novidades.mineradas.size;
-    setStatus(`${todasMineradas.length} copys carregadas da planilha` + (qtdNovas ? ` · ${qtdNovas} nova${qtdNovas > 1 ? 's' : ''} desde sua última visita` : ' · nenhuma nova desde sua última visita'), 'ok');
+    setStatus(`${todasMineradas.length} copys carregadas do Google Docs` + (qtdNovas ? ` · ${qtdNovas} nova${qtdNovas > 1 ? 's' : ''} desde sua última visita` : ' · nenhuma nova desde sua última visita'), 'ok');
   } catch (err) {
     if (todasMineradas.length) {
-      setStatus('Não deu pra atualizar a planilha agora (' + err.message + '). Mostrando a última versão salva.', 'aviso');
+      setStatus('Não deu pra atualizar as copys agora (' + err.message + '). Mostrando a última versão salva.', 'aviso');
     } else {
       setStatus('Erro: ' + err.message, 'erro');
       document.getElementById('listaMineradas').innerHTML = `<div class="empty-state"><p>Erro ao carregar: ${esc(err.message)}</p></div>`;
@@ -1216,6 +1240,7 @@ function carregarMineradasDoCache() {
 }
 
 function aplicarFiltroMineradas() {
+  renderAbasCopys();
   const termo = (document.getElementById('buscaMineradas').value || '').toLowerCase().trim();
   const modelo = document.getElementById('filtroModeloMineradas').value;
   const tipo = document.getElementById('filtroTipoMineradas').value;
@@ -1239,7 +1264,7 @@ function renderMineradas() {
       ? '<div class="empty-state"><p>Nenhuma copy encontrada com esses filtros.</p></div>'
       : (document.getElementById('btnRecarregarMineradas').disabled
         ? '<div class="grid-copys">' + '<div class="skeleton"></div>'.repeat(6) + '</div>'
-        : '<div class="empty-state"><span class="empty-ico">▤</span><p>Clique em <strong>“Carregar copys”</strong> pra trazer os exemplos da planilha.</p></div>');
+        : '<div class="empty-state"><span class="empty-ico">▤</span><p>Nenhuma copy no Google Docs ainda. Elas aparecem aqui assim que a extensão enviar.</p></div>');
     return;
   }
 
@@ -2495,8 +2520,8 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDashboard();
   carregarBancoDisparos();
 
-  // Planilha das mineradas desligada: o site não busca mais copys nela.
-  try { localStorage.removeItem('gerador_mineradas_cache'); } catch (e) { /* ok */ }
+  carregarMineradasDoCache();
+  carregarMineradas();
 
   abrirTabDaHash();
   window.addEventListener('hashchange', abrirTabDaHash);

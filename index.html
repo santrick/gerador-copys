@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=25" />
+  <link rel="stylesheet" href="styles.css?v=26" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -71,22 +71,22 @@
         <button class="nav-item active" data-tab="dashboard">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Dashboard
         </button>
-        <button class="nav-item sem-planilha" data-tab="mineradas">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Mineradas <span class="nav-badge" hidden></span>
+        <button class="nav-item" data-tab="mineradas">
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Copys <span class="nav-badge" hidden></span>
         </button>
-        <button class="nav-item sem-planilha" data-tab="disparos">
+        <button class="nav-item" data-tab="disparos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5L4 12z"/></svg></span> Disparos <span class="nav-badge" hidden></span>
         </button>
         <button class="nav-item" data-tab="favoritos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> Favoritos
         </button>
-        <button class="nav-item sem-planilha" data-tab="grade">
+        <button class="nav-item" data-tab="grade">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span> Grade do Dia
         </button>
-        <button class="nav-item sem-planilha" data-tab="gerador">
+        <button class="nav-item" data-tab="gerador">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></svg></span> Gerador
         </button>
-        <button class="nav-item sem-planilha" data-tab="treinar">
+        <button class="nav-item" data-tab="treinar">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg></span> Treinar IA
         </button>
         <button class="nav-item hidden" data-tab="admin" id="navAdmin">
@@ -122,7 +122,7 @@
       </header>
 
       <div class="status-bar" id="statusBar">
-        <span class="status-dot"></span> <span id="statusTexto">Configure a URL do Apps Script</span>
+        <span class="status-dot"></span> <span id="statusTexto">Carregando copys…</span>
       </div>
 
       <div class="content">
@@ -130,11 +130,11 @@
         <!-- DASHBOARD -->
         <section id="tab-dashboard" class="tab-panel active">
           <div class="kpi-grid">
-            <div class="kpi-card sem-planilha">
-              <span class="kpi-label">Copys Mineradas</span>
+            <div class="kpi-card">
+              <span class="kpi-label">Copys</span>
               <span class="kpi-value" id="kpiMineradas">0</span>
               <span class="kpi-novas" id="kpiNovasMineradas" hidden></span>
-              <span class="kpi-tag accent">planilha</span>
+              <span class="kpi-tag accent">Google Docs</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-label">Banco de Disparos</span>
@@ -146,15 +146,15 @@
               <span class="kpi-value" id="kpiFavoritas">0</span>
               <span class="kpi-tag amber">⭐ da equipe</span>
             </div>
-            <div class="kpi-card sem-planilha">
+            <div class="kpi-card">
               <span class="kpi-label">Modelos Ativos</span>
               <span class="kpi-value" id="kpiModelos">0</span>
-              <span class="kpi-tag green">na planilha</span>
+              <span class="kpi-tag green">no Google Docs</span>
             </div>
           </div>
 
           <div class="dash-grid">
-            <div class="panel sem-planilha">
+            <div class="panel">
               <div class="panel-head">
                 <h2>Copys por tipo</h2>
                 <span class="panel-sub">mineradas</span>
@@ -162,7 +162,7 @@
               <div id="chartTipos" class="bar-chart"></div>
             </div>
 
-            <div class="panel sem-planilha">
+            <div class="panel">
               <div class="panel-head">
                 <h2>Top modelos</h2>
                 <span class="panel-sub">volume de copys</span>
@@ -178,7 +178,7 @@
               <div id="maisCopiadas" class="rank-list"></div>
             </div>
 
-            <div class="panel sem-planilha">
+            <div class="panel">
               <div class="panel-head">
                 <h2>Atividade recente</h2>
                 <span class="panel-sub">últimas mineradas</span>
@@ -221,36 +221,30 @@
         </section>
 
         <!-- MINERADAS -->
-        <section id="tab-mineradas" class="tab-panel sem-planilha">
+        <section id="tab-mineradas" class="tab-panel">
           <div class="toolbar">
-            <input type="text" id="buscaMineradas" placeholder="Buscar por modelo, tipo ou texto..." />
+            <input type="text" id="buscaMineradas" placeholder="Buscar por modelo, categoria ou texto..." />
             <button type="button" class="chip-novas" id="chipNovas-mineradas" hidden><span class="chip-novas-dot"></span><span>Só novas (<span class="chip-novas-qtd">0</span>)</span><span class="chip-novas-ok" title="Marcar todas como vistas">✓ vistas</span></button>
-            <select id="filtroModeloMineradas"><option value="">Todas as modelos</option></select>
-            <select id="filtroTipoMineradas">
-              <option value="">Todos os tipos</option>
-              <option value="Venda">Venda</option>
-              <option value="Aquecimento">Aquecimento</option>
-              <option value="Chamada">Chamada</option>
-              <option value="Pergunta">Pergunta</option>
-              <option value="Saudacao">Saudacao</option>
-              <option value="Engajamento">Engajamento</option>
-              <option value="Reengajamento">Reengajamento</option>
-              <option value="Conteudo">Conteudo</option>
-              <option value="Upsell">Upsell</option>
-              <option value="Outro">Outro</option>
-            </select>
+            <select id="filtroModeloMineradas" hidden><option value="">Todas as modelos</option></select>
+            <select id="filtroTipoMineradas" hidden><option value="">Todas</option></select>
             <button id="btnRecarregarMineradas" class="btn btn-secondary">↻ Atualizar</button>
+          </div>
+          <div class="abas-copys">
+            <span class="abas-copys-rotulo">Modelo</span>
+            <div class="estilos-row" id="abasModelos"></div>
+            <span class="abas-copys-rotulo">Categoria</span>
+            <div class="estilos-row" id="abasCategorias"></div>
           </div>
           <div id="listaMineradas" class="grid-copys">
             <div class="empty-state">
               <span class="empty-ico">▤</span>
-              <p>Clique em <strong>“Carregar Copys”</strong> pra trazer os exemplos da planilha.</p>
+              <p>Carregando copys do Google Docs…</p>
             </div>
           </div>
         </section>
 
         <!-- DISPAROS -->
-        <section id="tab-disparos" class="tab-panel sem-planilha">
+        <section id="tab-disparos" class="tab-panel">
 
           <div class="panel grade-manual" id="gradeManualPanel">
             <div class="panel-head">
@@ -293,7 +287,7 @@
             <div class="comprimento-row" id="filtroOrigemFav">
               <button class="estilo-btn ativo" data-origem="todas">Todas <span class="fav-count">0</span></button>
               <button class="estilo-btn" data-origem="disparo">Banco <span class="fav-count">0</span></button>
-              <button class="estilo-btn sem-planilha" data-origem="minerada">Mineradas <span class="fav-count">0</span></button>
+              <button class="estilo-btn" data-origem="minerada">Mineradas <span class="fav-count">0</span></button>
               <button class="estilo-btn" data-origem="ia">IA <span class="fav-count">0</span></button>
             </div>
           </div>
@@ -301,7 +295,7 @@
         </section>
 
         <!-- GRADE DO DIA -->
-        <section id="tab-grade" class="tab-panel sem-planilha">
+        <section id="tab-grade" class="tab-panel">
 
           <div class="panel">
             <div class="panel-head"><h2>Grade do dia</h2></div>
@@ -414,7 +408,7 @@
         </section>
 
         <!-- GERADOR DE COPY AVULSA -->
-        <section id="tab-gerador" class="tab-panel sem-planilha">
+        <section id="tab-gerador" class="tab-panel">
           <div class="gerador-layout">
           <div class="panel">
             <div class="panel-head"><h2>Gerador de copy</h2><button type="button" class="link-btn persona-link" data-ir-tab="grade" id="geradorPersonaInfo"></button></div>
@@ -506,7 +500,7 @@
         </section>
 
         <!-- TREINAR IA -->
-        <section id="tab-treinar" class="tab-panel sem-planilha">
+        <section id="tab-treinar" class="tab-panel">
           <div class="panel panel-wide prompt-base-card">
             <div class="panel-head">
               <h2>Prompt base do Gerador</h2>
@@ -633,8 +627,8 @@
         <h2>Configurações</h2>
         <button class="icon-btn" id="btnFecharConfig">✕</button>
       </div>
-      <label class="field sem-planilha">
-        <span>URL do Apps Script (Google Sheets)</span>
+      <label class="field" style="display:none">
+        <span>URL do Apps Script (Privacy)</span>
         <input type="url" id="appsScriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" />
       </label>
       <div class="modal-sep">OpenRouter (IA)</div>
@@ -662,6 +656,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=30"></script>
+  <script src="app.js?v=31"></script>
 </body>
 </html>
