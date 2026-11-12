@@ -922,7 +922,7 @@ let todasMineradas = [];
 let mineradasFiltradas = [];
 let paginaMineradas = 1;
 // Script do Google Docs (extensão copys-privacy grava lá; o site só lê)
-const DOCS_URL = 'https://script.google.com/macros/s/AKfycbxUX3Td_gexi_Dk8GJjzf6nGnDJnNeoM1OKo9hF4PHVj3RQI4bOWWkT5_M6AQK7gKl3Vg/exec';
+const DOCS_URL = 'https://script.google.com/macros/s/AKfycbw8mKU3ofDryjjD9mqEgXivuJPqaLt8O0Isqi9HrI5M70qH7AlAYZYmgqzXB8uqhE4WKw/exec';
 const DOCS_TOKEN = '300106';
 const CATEGORIAS_COPYS = ['PPV', 'Prévias', 'Boas-vindas', 'Remarketing', 'Expirados', 'Promoções', 'VIP', 'Chamadas', 'Disparos em massa', 'Pós-venda', 'Reengajamento', 'Testes'];
 
