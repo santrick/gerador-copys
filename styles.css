@@ -2654,3 +2654,10 @@ body.ag-folha-aberta { overflow: hidden; }
   .gr2-corpo { grid-template-columns: minmax(0, 1fr); }
   .gr2-corpo .gr2-ctrl { position: static; }
 }
+/* chat do Gerador mais estreito, como no celular */
+.gr2-corpo { grid-template-columns: 340px minmax(0, 600px); justify-content: start; }
+.gr2-corpo .gr-chat .gr-bolha, .gr2-corpo .gr-chat .is-ppv .gr-bolha, .gr2-corpo .gr-ppv-btn { max-width: none; width: auto; }
+.gr2-corpo .gr-chat .gr-bolha { max-width: calc(100% - 84px); }
+.gr2-corpo .gr-chat .is-ppv .gr-bolha, .gr2-corpo .gr-ppv-btn { width: calc(100% - 84px); }
+@media (max-width: 1100px) { .gr2-corpo { grid-template-columns: 300px minmax(0, 560px); } }
+@media (max-width: 900px) { .gr2-corpo { grid-template-columns: minmax(0, 1fr); } }
