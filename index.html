@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=47" />
+  <link rel="stylesheet" href="styles.css?v=48" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -196,50 +196,44 @@
             <button type="button" data-modo="todas">Extrair</button>
           </div>
           <div class="dp-painel" id="dpSortear">
-          <div class="gr-layout">
-            <aside class="gr-painel">
-              <div class="gr-passo">
-                <div class="gr-passo-head"><span class="gr-rotulo">Modelo</span></div>
-                <label class="gr-modelo">
-                  <span id="grAvatar"></span>
-                  <span class="gr-modelo-txt"><b id="grModeloNome">—</b><small id="grModeloInfo"></small></span>
-                  <svg class="gr-modelo-seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 10l4 4 4-4"/></svg>
-                  <select id="grModelo" class="gr-select" aria-label="Modelo"></select>
-                </label>
-              </div>
+          <div class="gr2">
+            <div class="gr2-modelos-wrap">
+              <div class="gr2-modelos" id="grModelos" role="listbox" aria-label="Escolha a modelo"></div>
+            </div>
+            <select id="grModelo" hidden aria-hidden="true" tabindex="-1"></select>
 
-              <div class="gr-passo">
-                <div class="gr-passo-head">
+            <div class="gr2-ctrl">
+              <div class="gr2-bloco gr2-cats">
+                <div class="gr2-head">
                   <span class="gr-rotulo">Categorias</span>
+                  <div class="segmentado gr-modo" id="grModo" role="group" aria-label="Como sortear">
+                    <button type="button" data-modo="misturar" class="ativo">Misturar</button>
+                    <button type="button" data-modo="quantidade">Quantas de cada</button>
+                  </div>
                   <button type="button" class="gr-link" id="grTodas">marcar todas</button>
-                </div>
-                <div class="segmentado gr-modo" id="grModo" role="group" aria-label="Como sortear">
-                  <button type="button" data-modo="misturar" class="ativo">Misturar</button>
-                  <button type="button" data-modo="quantidade">Quantas de cada</button>
                 </div>
                 <div class="gr-cats" id="grCats"></div>
               </div>
 
-              <div class="gr-passo" id="grQtdLinha">
-                <div class="gr-passo-head"><span class="gr-rotulo">Quantas copys</span></div>
-                <div class="gr-qtd-linha">
-                  <div class="gr-stepper">
-                    <button type="button" id="grMenos" aria-label="Menos">−</button>
-                    <input type="number" id="grQtd" min="1" max="50" value="10" inputmode="numeric" aria-label="Quantidade de copys">
-                    <button type="button" id="grMais" aria-label="Mais">+</button>
-                  </div>
-                  <div class="gr-presets" id="grPresets">
-                    <button type="button" data-q="5">5</button><button type="button" data-q="10">10</button><button type="button" data-q="20">20</button>
+              <div class="gr2-bloco gr2-lado">
+                <div class="gr2-qtd" id="grQtdLinha">
+                  <span class="gr-rotulo">Quantas copys</span>
+                  <div class="gr-qtd-linha">
+                    <div class="gr-stepper">
+                      <button type="button" id="grMenos" aria-label="Menos">−</button>
+                      <input type="number" id="grQtd" min="1" max="50" value="10" inputmode="numeric" aria-label="Quantidade de copys">
+                      <button type="button" id="grMais" aria-label="Mais">+</button>
+                    </div>
+                    <div class="gr-presets" id="grPresets">
+                      <button type="button" data-q="5">5</button><button type="button" data-q="10">10</button><button type="button" data-q="20">20</button>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              <div class="gr-rodape">
                 <label class="gr-check"><span class="gr-check-txt">Não repetir copys que já saíram</span><input type="checkbox" id="grSemRepetir" class="gr-switch" role="switch" checked></label>
                 <p class="gr-hist"><span id="grHistInfo"></span> <button type="button" class="gr-link" id="grLimparHist" hidden>liberar todas</button></p>
                 <button type="button" class="gr-sortear" id="grSortear"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3"/><circle cx="15.5" cy="15.5" r="1.3"/><circle cx="12" cy="12" r="1.3"/></svg>Sortear copys</button>
               </div>
-            </aside>
+            </div>
 
             <section class="gr-saida" id="grSaida" aria-live="polite"></section>
           </div>
@@ -355,6 +349,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=58"></script>
+  <script src="app.js?v=59"></script>
 </body>
 </html>

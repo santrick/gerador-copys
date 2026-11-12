@@ -1537,11 +1537,18 @@ function abrirGerador() {
   const daBarra = document.getElementById('filtroModeloMineradas').value;
   if (!grModelo || !contagem[grModelo]) { grModelo = (daBarra && contagem[daBarra]) ? daBarra : modelos[0]; trocouModeloGerador(); }
   sel.innerHTML = modelos.map((m) => `<option value="${escAttr(m)}" ${m === grModelo ? 'selected' : ''}>${esc(nomeModelo(m))} · ${contagem[m]} copys</option>`).join('');
-  const foto = avataresModelos[grModelo];
-  document.getElementById('grAvatar').innerHTML = `<span class="gr-av" style="--cor:${corAvatar(grModelo)}">${esc(iniciais(grModelo))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
-  document.querySelectorAll('#grAvatar img').forEach((img) => { img.onerror = () => img.remove(); });
-  document.getElementById('grModeloNome').textContent = nomeModelo(grModelo);
-  document.getElementById('grModeloInfo').textContent = `${contagem[grModelo]} copys · ${modelos.length} ${modelos.length === 1 ? 'modelo' : 'modelos'} na lista`;
+  const faixa = document.getElementById('grModelos');
+  faixa.innerHTML = modelos.map((m) => {
+    const foto = avataresModelos[m];
+    const on = m === grModelo;
+    return `<button type="button" class="gr2-mod ${on ? 'ativo' : ''}" data-m="${escAttr(m)}" role="option" aria-selected="${on}" title="${escAttr(nomeModelo(m))}">
+      <span class="gr-av" style="--cor:${corAvatar(m)}">${esc(iniciais(m))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>
+      <span class="gr2-mod-txt"><b>${esc(nomeModelo(m).split(/\s+/)[0])}</b><small>${contagem[m]} copys</small></span>
+    </button>`;
+  }).join('');
+  faixa.querySelectorAll('img').forEach((img) => { img.onerror = () => img.remove(); });
+  const ativa = faixa.querySelector('.gr2-mod.ativo');
+  if (ativa && faixa.scrollWidth > faixa.clientWidth) ativa.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   renderGeradorCats();
   const hist = Object.keys(lerHistGerador(grModelo)).length;
   document.getElementById('grHistInfo').textContent = hist ? `${hist} já ${hist === 1 ? 'saiu' : 'saíram'} nos últimos ${DIAS_SEM_REPETIR} dias` : `Nenhuma copy dela saiu nos últimos ${DIAS_SEM_REPETIR} dias`;
@@ -1602,10 +1609,10 @@ function renderGeradorSaida() {
     const nome = grModelo ? esc(nomeModelo(grModelo).split(/\s+/)[0]) : '';
     box.innerHTML = `<div class="gr-vazio">
       <div class="gr-vazio-ilustra" aria-hidden="true">
-        <span style="--w:78%"></span><span style="--w:92%"></span><span style="--w:64%"></span>
+        <span style="--w:70%"></span><span style="--w:86%"></span><span style="--w:52%"></span>
       </div>
       <strong>${grModelo ? `Sorteie as copys de ${nome}` : 'Carregando as modelos…'}</strong>
-      <p>Escolha as categorias e a quantidade ao lado e clique em <b>Sortear copys</b>. Elas saem prontas pro campo <b>Mensagens</b> do disparo: uma por bloco, com linha em branco entre elas.</p>
+      <p>Escolha as categorias e a quantidade acima e clique em <b>Sortear copys</b>. Elas saem prontas pro campo <b>Mensagens</b> do disparo: uma por bloco, com linha em branco entre elas.</p>
     </div>`;
     return;
   }
@@ -1617,7 +1624,7 @@ function renderGeradorSaida() {
         <span>${esc(nomeModelo(grModelo))} · ${txt.length.toLocaleString('pt-BR')} caracteres</span>
       </div>
       <div class="segmentado gr-vista" role="group" aria-label="Ver como">
-        <button type="button" data-vista="lista" class="${grVista === 'lista' ? 'ativo' : ''}">Lista</button>
+        <button type="button" data-vista="lista" class="${grVista === 'lista' ? 'ativo' : ''}">Chat</button>
         <button type="button" data-vista="texto" class="${grVista === 'texto' ? 'ativo' : ''}">Texto final</button>
       </div>
       <div class="gr-topo-acoes">
@@ -1628,22 +1635,28 @@ function renderGeradorSaida() {
     ${grAviso ? `<p class="gr-aviso">${esc(grAviso)}</p>` : ''}
     ${grVista === 'texto'
       ? `<pre class="gr-preview">${esc(txt)}</pre>`
-      : `<ol class="gr-lista">${grItens.map((c, i) => `<li class="gr-item ${grEditando === i ? 'editando' : ''}" data-i="${i}" style="--cat:${COR_CATEGORIA[c.categoria] || 'var(--accent)'}">
-        <span class="gr-num">${String(i + 1).padStart(2, '0')}</span>
-        <div class="gr-corpo">
-          <div class="gr-meta"><span class="gr-tag">${esc(c.categoria)}</span>${precoCopy(c.preco) ? `<span class="gr-preco">${precoCopy(c.preco)}</span>` : ''}${c.editada ? '<span class="gr-editada">editada</span>' : ''}</div>
-          <p class="gr-texto" ${grEditando === i ? 'contenteditable="plaintext-only" spellcheck="false"' : ''}>${esc(blocoCopy(c.texto))}</p>
+      : `<div class="gr-chat">
+        <div class="gr-chat-topo">
+          <span class="gr-av" style="--cor:${corAvatar(grModelo)}">${esc(iniciais(grModelo))}${avataresModelos[grModelo] ? `<img src="${escAttr(avataresModelos[grModelo])}" alt="" referrerpolicy="no-referrer">` : ''}</span>
+          <span class="gr-chat-quem"><b>${esc(nomeModelo(grModelo))}</b><small>Prévia de como chega pro assinante</small></span>
         </div>
-        <div class="gr-botoes">
-          <button type="button" class="gr-ico" data-acao="subir" title="Subir" aria-label="Subir" ${i ? '' : 'disabled'}>${GR_ICO.subir}</button>
-          <button type="button" class="gr-ico" data-acao="descer" title="Descer" aria-label="Descer" ${i < n - 1 ? '' : 'disabled'}>${GR_ICO.descer}</button>
-          <span class="gr-sep" aria-hidden="true"></span>
-          <button type="button" class="gr-ico" data-acao="copiar" title="Copiar só essa" aria-label="Copiar só essa">${GR_ICO.copiar}</button>
-          <button type="button" class="gr-ico" data-acao="editar" title="${grEditando === i ? 'Salvar' : 'Editar'}" aria-label="${grEditando === i ? 'Salvar' : 'Editar'}">${grEditando === i ? GR_ICO.salvar : GR_ICO.editar}</button>
-          <button type="button" class="gr-ico" data-acao="trocar" title="Trocar por outra" aria-label="Trocar por outra">${GR_ICO.trocar}</button>
-          <button type="button" class="gr-ico gr-ico-x" data-acao="remover" title="Tirar essa" aria-label="Tirar essa">${GR_ICO.remover}</button>
-        </div>
-      </li>`).join('')}</ol>`}`;
+        <ol class="gr-lista gr-chat-lista">${grItens.map((c, i) => `<li class="gr-item ${grEditando === i ? 'editando' : ''}" data-i="${i}" style="--cat:${COR_CATEGORIA[c.categoria] || 'var(--accent)'}">
+          <div class="gr-bolha">
+            <p class="gr-texto" ${grEditando === i ? 'contenteditable="plaintext-only" spellcheck="false"' : ''}>${esc(blocoCopy(c.texto))}</p>
+            ${precoCopy(c.preco) ? `<div class="gr-bloq"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><span>Conteúdo bloqueado</span><b>${precoCopy(c.preco)}</b></div>` : ''}
+            <span class="gr-bolha-meta"><span class="gr-tag">${esc(c.categoria)}</span>${c.editada ? '<span class="gr-editada">editada</span>' : ''}<span class="gr-num">${i + 1}/${n}</span></span>
+          </div>
+          <div class="gr-botoes">
+            <button type="button" class="gr-ico" data-acao="subir" title="Subir" aria-label="Subir" ${i ? '' : 'disabled'}>${GR_ICO.subir}</button>
+            <button type="button" class="gr-ico" data-acao="descer" title="Descer" aria-label="Descer" ${i < n - 1 ? '' : 'disabled'}>${GR_ICO.descer}</button>
+            <button type="button" class="gr-ico" data-acao="copiar" title="Copiar só essa" aria-label="Copiar só essa">${GR_ICO.copiar}</button>
+            <button type="button" class="gr-ico" data-acao="editar" title="${grEditando === i ? 'Salvar' : 'Editar'}" aria-label="${grEditando === i ? 'Salvar' : 'Editar'}">${grEditando === i ? GR_ICO.salvar : GR_ICO.editar}</button>
+            <button type="button" class="gr-ico" data-acao="trocar" title="Trocar por outra" aria-label="Trocar por outra">${GR_ICO.trocar}</button>
+            <button type="button" class="gr-ico gr-ico-x" data-acao="remover" title="Tirar essa" aria-label="Tirar essa">${GR_ICO.remover}</button>
+          </div>
+        </li>`).join('')}</ol>
+      </div>`}`;
+  box.querySelectorAll('.gr-chat-topo img').forEach((img) => { img.onerror = () => img.remove(); });
   if (grEditando >= 0) {
     const p = box.querySelector('.gr-item.editando .gr-texto');
     if (p) { p.focus(); const r = document.createRange(); r.selectNodeContents(p); r.collapse(false); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
@@ -1668,6 +1681,10 @@ function configurarGerador() {
   if (prefs.semRepetir === false) document.getElementById('grSemRepetir').checked = false;
 
   document.getElementById('grModelo').addEventListener('change', (e) => { grModelo = e.target.value; trocouModeloGerador(); abrirGerador(); });
+  document.getElementById('grModelos').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-m]'); if (!b || b.dataset.m === grModelo) return;
+    grModelo = b.dataset.m; trocouModeloGerador(); abrirGerador();
+  });
   document.getElementById('grModo').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-modo]'); if (!btn) return;
     grModo = btn.dataset.modo; salvarPrefsGerador(); renderGeradorCats();

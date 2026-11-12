@@ -2140,3 +2140,83 @@ body:not(.aba-copys) .sidebar-foot { margin-top: auto; }
   .gr-vista { order: 3; }
   .gr-topo-acoes { order: 2; }
 }
+
+/* ═══════════ GERADOR v3: MODELOS NO TOPO + PRÉVIA EM CHAT ═══════════ */
+.gr2 { display: grid; gap: 16px; }
+
+/* faixa de modelos */
+.gr2-modelos-wrap { position: relative; }
+.gr2-modelos { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent; }
+.gr2-mod { flex: none; display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 16px 0 9px; border-radius: 16px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.025); color: var(--text-dim); font: inherit; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.gr2-mod:hover { border-color: rgba(255,255,255,.16); color: #fff; }
+.gr2-mod .gr-av { width: 40px; height: 40px; box-shadow: none; filter: grayscale(.55) brightness(.8); transition: filter .15s; }
+.gr2-mod:hover .gr-av, .gr2-mod.ativo .gr-av { filter: none; }
+.gr2-mod-txt { display: grid; text-align: left; line-height: 1.25; }
+.gr2-mod-txt b { font-size: 14px; font-weight: 600; }
+.gr2-mod-txt small { font-size: 11.5px; opacity: .75; font-variant-numeric: tabular-nums; }
+.gr2-mod.ativo { color: #fff; border-color: rgba(168,85,247,.55); background: linear-gradient(180deg, rgba(168,85,247,.16), rgba(168,85,247,.07)); box-shadow: inset 0 0 0 1px rgba(168,85,247,.25); }
+.gr2-mod.ativo .gr-av { box-shadow: 0 0 0 2px #14111d, 0 0 0 3.5px var(--accent); }
+
+/* controles */
+.gr2-ctrl { display: grid; grid-template-columns: minmax(0, 1fr) 300px; border-radius: 18px; border: 1px solid rgba(255,255,255,.07); background: #120f19; overflow: hidden; }
+.gr2-bloco { display: grid; align-content: start; gap: 12px; padding: 18px 20px; }
+.gr2-lado { border-left: 1px solid rgba(255,255,255,.06); background: rgba(255,255,255,.015); align-content: space-between; }
+.gr2-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.gr2-head .gr-modo { width: auto; height: 32px; }
+.gr2-head .gr-modo button { flex: none; padding: 0 12px; font-size: 12.5px; }
+.gr2-head .gr-link { margin-left: auto; }
+.gr2-qtd { display: grid; gap: 10px; }
+.gr2-qtd[hidden] { display: none; }
+.gr2-lado .gr-check { margin-top: 2px; }
+.gr2-lado .gr-hist { margin: -6px 0 0; }
+.gr-catsq { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+
+/* resultado */
+.gr-saida { margin-top: 4px; }
+.gr-topo { position: sticky; top: 0; }
+.gr-vazio { padding: 64px 24px; }
+
+/* prévia em chat */
+.gr-chat { max-width: 760px; margin: 0 auto; border-radius: 22px; border: 1px solid rgba(255,255,255,.07); overflow: hidden;
+  background: radial-gradient(120% 60% at 50% 0%, rgba(168,85,247,.08), transparent 60%), #0e0b14; }
+.gr-chat-topo { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,.06); background: rgba(20,17,29,.9); }
+.gr-chat-topo .gr-av { width: 38px; height: 38px; box-shadow: none; }
+.gr-chat-quem { display: grid; line-height: 1.3; }
+.gr-chat-quem b { font-size: 14.5px; font-weight: 600; }
+.gr-chat-quem small { font-size: 11.5px; color: var(--text-dim); }
+.gr-chat-lista { display: grid; gap: 10px; padding: 22px 18px 26px; border: 0; border-radius: 0; background: none; overflow: visible; }
+.gr-chat-lista .gr-item { display: flex; align-items: flex-end; gap: 6px; padding: 0; border: 0 !important; background: none !important; }
+.gr-chat-lista .gr-item:hover { background: none; }
+.gr-bolha { position: relative; max-width: min(78%, 520px); display: grid; gap: 8px; padding: 11px 14px 8px; border-radius: 18px 18px 18px 6px; background: #221d2c; border: 1px solid rgba(255,255,255,.05); box-shadow: 0 1px 0 rgba(0,0,0,.25); transition: border-color .15s, background .15s; }
+.gr-item:hover .gr-bolha { border-color: rgba(255,255,255,.12); }
+.gr-item.editando .gr-bolha { border-color: rgba(168,85,247,.6); background: #261f33; }
+.gr-chat-lista .gr-texto { font-size: 14.5px; line-height: 1.55; color: #f1f0f6; }
+.gr-chat-lista .gr-texto[contenteditable] { padding: 0; background: none; box-shadow: none; }
+.gr-bloq { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-radius: 12px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.06); font-size: 12.5px; color: var(--text-dim); }
+.gr-bloq svg { width: 17px; height: 17px; flex: none; fill: none; stroke: #c4b5fd; stroke-width: 1.8; stroke-linecap: round; }
+.gr-bloq b { margin-left: auto; padding: 3px 10px; border-radius: 99px; background: var(--accent); color: #fff; font-size: 12px; font-variant-numeric: tabular-nums; }
+.gr-bolha-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(255,255,255,.4); }
+.gr-bolha-meta .gr-tag { font-size: 11px; color: rgba(255,255,255,.5); }
+.gr-bolha-meta .gr-num { margin-left: auto; padding: 0; width: auto; height: auto; font-size: 11px; color: rgba(255,255,255,.3); font-variant-numeric: tabular-nums; }
+.gr-chat-lista .gr-botoes { align-self: center; margin: 0; padding: 3px; gap: 0; border-radius: 11px; background: rgba(20,17,29,.95); border: 1px solid rgba(255,255,255,.08); opacity: 0; transform: translateX(-4px); transition: opacity .15s, transform .15s; }
+.gr-chat-lista .gr-item:hover .gr-botoes, .gr-chat-lista .gr-item:focus-within .gr-botoes, .gr-chat-lista .gr-item.editando .gr-botoes { opacity: 1; transform: none; }
+.gr-chat-lista .gr-ico { width: 30px; height: 30px; }
+
+@media (max-width: 1000px) {
+  .gr2-ctrl { grid-template-columns: minmax(0, 1fr); }
+  .gr2-lado { border-left: 0; border-top: 1px solid rgba(255,255,255,.06); }
+}
+@media (max-width: 720px) {
+  .gr2-mod { height: 52px; padding: 0 12px 0 7px; }
+  .gr2-mod .gr-av { width: 36px; height: 36px; }
+  .gr2-bloco { padding: 16px; }
+  .gr2-head .gr-modo { order: 3; width: 100%; } .gr2-head .gr-modo button { flex: 1; }
+  .gr-chat { border-radius: 18px; }
+  .gr-chat-lista { padding: 16px 10px 20px; gap: 12px; }
+  .gr-chat-lista .gr-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .gr-bolha { max-width: 92%; }
+  .gr-chat-lista .gr-botoes { opacity: 1; transform: none; align-self: flex-start; background: none; border: 0; padding: 0; margin-left: 2px; }
+}
+@media (prefers-reduced-motion: reduce) { .gr2-mod, .gr2-mod .gr-av, .gr-bolha, .gr-chat-lista .gr-botoes { transition: none; } }
+.gr2 > *, .gr2-ctrl > * { min-width: 0; }
+.gr2 { grid-template-columns: minmax(0, 1fr); }
