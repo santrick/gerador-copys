@@ -2661,3 +2661,12 @@ body.ag-folha-aberta { overflow: hidden; }
 .gr2-corpo .gr-chat .is-ppv .gr-bolha, .gr2-corpo .gr-ppv-btn { width: calc(100% - 84px); }
 @media (max-width: 1100px) { .gr2-corpo { grid-template-columns: 300px minmax(0, 560px); } }
 @media (max-width: 900px) { .gr2-corpo { grid-template-columns: minmax(0, 1fr); } }
+/* Gerador: o chat é uma caixa com rolagem própria (a página não rola) */
+.gr2-corpo .gr-chat { display: flex; flex-direction: column; height: max(420px, calc(100vh - 400px)); }
+.gr2-corpo .gr-chat-topo { flex: none; }
+.gr2-corpo .gr-chat-corpo { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.25) transparent; }
+.gr2-corpo .gr-preview { max-height: max(420px, calc(100vh - 400px)); overflow: auto; }
+@media (max-width: 900px) {
+  .gr2-corpo .gr-chat { height: 72vh; }
+  .gr2-corpo .gr-preview { max-height: 72vh; }
+}
