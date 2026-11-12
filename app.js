@@ -697,7 +697,7 @@ function salvarConfig(cfg) {
 
 const PAGE_INFO = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
-  planejador: { title: 'Planejador', subtitle: 'O dia de disparos de cada modelo: horários, copy sugerida e o que já foi enviado' },
+  gerador: { title: 'Gerador', subtitle: 'Sorteia copys da modelo prontas pra colar no disparo' },
   favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou' },
   mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto do Google Docs' },
   admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
@@ -895,7 +895,7 @@ function irParaTab(tab, opts) {
   }
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'favoritos') renderFavoritos();
-  if (tab === 'planejador') abrirPlanejador();
+  if (tab === 'gerador') abrirGerador();
   renderAbasCopys();
 }
 
@@ -988,6 +988,9 @@ function configurarMineradas() {
   ['abasModelos', 'abasCategorias'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => {
     const btn = e.target.closest('[data-valor]');
     if (!btn) return;
+    if (id === 'abasModelos' && btn.dataset.valor && document.getElementById('tab-gerador').classList.contains('active')) {
+      grModelo = btn.dataset.valor; grCatsSel = null; grItens = []; fecharSidebarMobile(); abrirGerador(); return;
+    }
     const sel = document.getElementById(id === 'abasModelos' ? 'filtroModeloMineradas' : 'filtroTipoMineradas');
     sel.value = btn.dataset.valor;
     paginaMineradas = 1;
@@ -1094,7 +1097,7 @@ function aplicarDadosMineradas(copys, modelosServidor) {
   pill.hidden = false;
   aplicarFiltroMineradas();
   renderDashboard();
-  if (document.getElementById('tab-planejador').classList.contains('active')) abrirPlanejador();
+  if (document.getElementById('tab-gerador').classList.contains('active')) abrirGerador();
 }
 
 // Repopula um <select> mantendo o valor escolhido, se ainda existir
@@ -1606,134 +1609,27 @@ async function chamarOpenRouter(mensagens, opts) {
   return texto;
 }
 
-// ═══════════════════════════════════════════════ PLANEJADOR DE DISPAROS ═══
-// Um plano por modelo por dia (horário + categoria + copy). Fica no Firestore pra equipe ver o "enviado"
-// em tempo real; sem login (ou se as regras do Firestore recusarem), cai no localStorage deste navegador.
+// ═══════════════════════════════════════════════ GERADOR DE COPYS ═══
+// Sorteia copys reais da modelo, misturando as categorias escolhidas, e monta o texto
+// no formato "uma mensagem por bloco, separadas por linha em branco" pra colar no disparo.
 
-const PLANO_PADRAO = [
-  { hora: '09:00', categoria: 'Prévias' }, { hora: '12:00', categoria: 'PPV' }, { hora: '15:00', categoria: 'Reengajamento' },
-  { hora: '18:00', categoria: 'PPV' }, { hora: '21:00', categoria: 'Remarketing' }, { hora: '23:00', categoria: 'Chamadas' }
-];
 const DIAS_SEM_REPETIR = 7;
-// Copys que sugerem menor de idade não são sugeridas automaticamente (continuam visíveis na aba Copys)
+// Copys que sugerem menor de idade não entram no sorteio (continuam visíveis na aba Copys)
 const TEMAS_PROIBIDOS = /\b(escola|escolar|colegial|colegio|ensino medio|aluna|aluno|alunas|alunos|novinha|novinhas|novinho|ninfeta|lolita|menor de idade|menores|virgindade|virgem|sala de aula|uniforme|primeira vez|1[0-7] ?anos|teen|adolescente|crianca)\b/;
 function temaProibido(texto) { return TEMAS_PROIBIDOS.test(normTexto(texto)); }
 
-let plModelo = '';
-let plDia = inicioDoDia(Date.now());
-let plSlots = [];
-let plUnsub = null;
-let plUsaLocal = false;      // true = Firestore recusou: guarda só neste navegador
-let plHistorico = {};        // texto normalizado -> dia (ms) em que essa modelo usou
-let plSalvando = null;
-
-function dataISO(ts) { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
-function idPlano(modelo, ts) { return normTexto(modelo).replace(/[^a-z0-9]+/g, '-') + '__' + dataISO(ts); }
-function refPlano(id) { return db.collection('metricas').doc('plano__' + id); } // "metricas" já é liberada pras regras do Firestore
-function idSlot() { return Math.random().toString(36).slice(2, 9); }
+let grModelo = '';
+let grCatsSel = null;     // Set de categorias marcadas (null = todas)
+let grItens = [];         // [{texto, categoria}]
 
 function copysDaModelo(modelo) {
   const mapa = new Map();
   todasMineradas.forEach((c) => {
     if (c.modelo !== modelo || !c.mensagem || !naoEhRuim(c.mensagem) || temaProibido(c.mensagem)) return;
     const k = normTexto(c.mensagem);
-    const atual = mapa.get(k);
-    if (atual) atual.vezes++; else mapa.set(k, { texto: c.mensagem, categoria: c.tipo, preco: c.preco, vezes: 1 });
+    if (!mapa.has(k)) mapa.set(k, { texto: c.mensagem, categoria: c.tipo || 'Outras' });
   });
   return [...mapa.values()];
-}
-
-function usadaHaDias(texto) {
-  const dia = plHistorico[normTexto(texto)];
-  if (dia === undefined) return null;
-  return Math.round((plDia - dia) / 86400000);
-}
-
-// Sugere a copy mais usada da categoria que a modelo não mandou nos últimos dias e que não está em outro horário do plano
-function sugerirCopy(categoria, evitar) {
-  const usadasNoPlano = new Set(plSlots.map((s) => normTexto(s.texto || '')).concat((evitar || []).map(normTexto)));
-  const candidatas = copysDaModelo(plModelo).filter((c) => c.categoria === categoria && !usadasNoPlano.has(normTexto(c.texto)));
-  const livres = candidatas.filter((c) => { const d = usadaHaDias(c.texto); return d === null || d >= DIAS_SEM_REPETIR || d < 0; });
-  const base = (livres.length ? livres : candidatas).sort((a, b) => b.vezes - a.vezes);
-  if (!base.length) return null;
-  // sorteia entre as 5 melhores pra não ser sempre a mesma
-  return base[Math.floor(Math.random() * Math.min(5, base.length))].texto;
-}
-
-function padraoDaModelo(modelo) {
-  try { const p = JSON.parse(localStorage.getItem('plano_padrao__' + normTexto(modelo))); if (Array.isArray(p) && p.length) return p; } catch (e) { /* usa o geral */ }
-  return PLANO_PADRAO;
-}
-
-function lerPlanoLocal(id) { try { return JSON.parse(localStorage.getItem('plano__' + id)); } catch (e) { return null; } }
-
-function salvarPlano() {
-  const id = idPlano(plModelo, plDia);
-  const dados = { modelo: plModelo, data: dataISO(plDia), slots: plSlots, atualizadoEm: Date.now() };
-  if (plUsaLocal || !usuarioAtual) { localStorage.setItem('plano__' + id, JSON.stringify(dados)); renderPlanejador(); return; }
-  document.getElementById('plSync').textContent = 'salvando…';
-  clearTimeout(plSalvando);
-  plSalvando = setTimeout(() => {
-    refPlano(id).set(dados).then(() => { document.getElementById('plSync').textContent = '✓ salvo pra equipe'; })
-      .catch((err) => {
-        console.warn('[planejador]', err.message);
-        plUsaLocal = true; localStorage.setItem('plano__' + id, JSON.stringify(dados));
-        document.getElementById('plSync').textContent = 'salvo só neste navegador';
-      });
-  }, 250);
-  renderPlanejador();
-}
-
-// Últimos 7 dias dessa modelo: o que já foi enviado (pra não repetir)
-async function carregarHistorico() {
-  plHistorico = {};
-  const dias = [];
-  for (let i = 1; i <= DIAS_SEM_REPETIR; i++) dias.push(plDia - i * 86400000);
-  const lidos = await Promise.all(dias.map(async (ts) => {
-    const id = idPlano(plModelo, ts);
-    if (plUsaLocal || !usuarioAtual) return { ts, plano: lerPlanoLocal(id) };
-    try { const doc = await refPlano(id).get(); return { ts, plano: doc.exists ? doc.data() : null }; } catch (e) { return { ts, plano: lerPlanoLocal(id) }; }
-  }));
-  lidos.forEach(({ ts, plano }) => (plano?.slots || []).forEach((s) => {
-    if (s.enviado && s.texto) { const k = normTexto(s.texto); plHistorico[k] = Math.max(plHistorico[k] || 0, ts); }
-  }));
-}
-
-function novoPlano() {
-  plSlots = padraoDaModelo(plModelo).map((p) => ({ id: idSlot(), hora: p.hora, categoria: p.categoria, texto: '', enviado: null }));
-  plSlots.forEach((s) => { s.texto = sugerirCopy(s.categoria) || ''; });
-}
-
-async function abrirPlanejador() {
-  const sel = document.getElementById('plModelo');
-  const contagem = {};
-  copysPorModeloContagem().forEach(([m, n]) => { contagem[m] = n; });
-  const modelos = Object.keys(contagem);
-  if (!modelos.length) { document.getElementById('plLista').innerHTML = '<li class="pl-vazio">Carregando as copys das modelos…</li>'; return; }
-  const daBarra = document.getElementById('filtroModeloMineradas').value;
-  if (!plModelo || !contagem[plModelo]) plModelo = (daBarra && contagem[daBarra]) ? daBarra : modelos[0];
-  sel.innerHTML = modelos.map((m) => `<option value="${escAttr(m)}" ${m === plModelo ? 'selected' : ''}>${esc(m)} · ${contagem[m]} copys</option>`).join('');
-
-  if (plUnsub) { plUnsub(); plUnsub = null; }
-  const id = idPlano(plModelo, plDia);
-  const modeloAberto = plModelo, diaAberto = plDia;
-  await carregarHistorico();
-  if (modeloAberto !== plModelo || diaAberto !== plDia) return; // trocou no meio
-  const aplicar = (plano) => {
-    if (plano && Array.isArray(plano.slots)) plSlots = plano.slots;
-    else { novoPlano(); if (plDia >= inicioDoDia(Date.now())) salvarPlano(); }
-    renderPlanejador();
-  };
-  if (plUsaLocal || !usuarioAtual) { aplicar(lerPlanoLocal(id)); document.getElementById('plSync').textContent = usuarioAtual ? 'salvo só neste navegador' : ''; return; }
-  plUnsub = refPlano(id).onSnapshot((doc) => {
-    if (doc.metadata.hasPendingWrites) return;
-    aplicar(doc.exists ? doc.data() : null);
-    document.getElementById('plSync').textContent = '✓ sincronizado com a equipe';
-  }, (err) => {
-    console.warn('[planejador]', err.message);
-    plUsaLocal = true; aplicar(lerPlanoLocal(id));
-    document.getElementById('plSync').textContent = 'salvo só neste navegador';
-  });
 }
 
 function copysPorModeloContagem() {
@@ -1742,99 +1638,145 @@ function copysPorModeloContagem() {
   return Object.entries(contagem).sort((a, b) => b[1] - a[1]);
 }
 
-function renderPlanejador() {
-  const hoje = inicioDoDia(Date.now());
-  const d = new Date(plDia);
-  const dias = Math.round((plDia - hoje) / 86400000);
-  document.getElementById('plDiaTxt').textContent = dias === 0 ? 'Hoje' : dias === 1 ? 'Amanhã' : dias === -1 ? 'Ontem' : d.toLocaleDateString('pt-BR', { weekday: 'long' }).replace(/^./, (x) => x.toUpperCase());
-  document.getElementById('plDiaSub').textContent = d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
-  const foto = avataresModelos[plModelo];
-  document.getElementById('plAvatar').innerHTML = `<span class="sb-av" style="--cor:${corAvatar(plModelo || '?')}">${esc(iniciais(plModelo || '?'))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
-  document.querySelectorAll('#plAvatar img').forEach((img) => { img.onerror = () => img.remove(); });
-
-  plSlots.sort((a, b) => a.hora.localeCompare(b.hora));
-  const enviados = plSlots.filter((s) => s.enviado).length;
-  document.getElementById('plBarra').style.width = plSlots.length ? (enviados / plSlots.length * 100) + '%' : '0';
-  document.getElementById('plProgTxt').innerHTML = `<strong>${enviados}</strong> de ${plSlots.length} enviados`;
-
-  const agora = new Date(); const horaAgora = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`;
-  const proximo = dias === 0 ? plSlots.find((s) => !s.enviado && s.hora >= horaAgora) : null;
-  const opcoesCat = (atual) => CATEGORIAS_COPYS.map((c) => `<option ${c === atual ? 'selected' : ''}>${esc(c)}</option>`).join('');
-  document.getElementById('plLista').innerHTML = plSlots.length ? plSlots.map((s) => {
-    const atrasado = dias === 0 && !s.enviado && s.hora < horaAgora;
-    const repetida = s.texto && !s.enviado ? usadaHaDias(s.texto) : null;
-    const quando = s.enviado ? new Date(s.enviado.em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
-    return `<li class="pl-slot ${s.enviado ? 'is-enviado' : ''} ${s === proximo ? 'is-proximo' : ''} ${atrasado ? 'is-atrasado' : ''}" data-id="${s.id}" style="--cat:${COR_CATEGORIA[s.categoria] || 'var(--accent)'}">
-      <div class="pl-quando">
-        <input type="time" class="pl-hora" value="${escAttr(s.hora)}" aria-label="Horário" ${s.enviado ? 'disabled' : ''}>
-        ${s === proximo ? '<span class="pl-tag">próximo</span>' : atrasado ? '<span class="pl-tag atrasado">atrasado</span>' : ''}
-      </div>
-      <div class="pl-corpo">
-        <div class="pl-linha1">
-          <select class="pl-cat" aria-label="Categoria" ${s.enviado ? 'disabled' : ''}>${opcoesCat(s.categoria)}</select>
-          ${repetida !== null && repetida >= 0 && repetida < DIAS_SEM_REPETIR ? `<span class="pl-aviso" title="Essa modelo já mandou essa copy">⚠ usada há ${repetida === 0 ? 'hoje' : repetida + (repetida === 1 ? ' dia' : ' dias')}</span>` : ''}
-          ${s.enviado ? `<span class="pl-ok">✓ enviado por ${esc((s.enviado.por || '').split(/[\s@]/)[0])} às ${quando}</span>` : ''}
-        </div>
-        ${s.texto ? `<p class="pl-texto">${esc(s.texto)}</p>` : `<p class="pl-texto vazio">Sem copy dessa categoria pra ${esc(plModelo.split(/\s+/)[0])}. Troque a categoria ou cole uma copy.</p>`}
-      </div>
-      <div class="pl-botoes">
-        ${s.enviado ? '<button type="button" class="pl-btn" data-acao="desfazer" title="Desmarcar enviado">↩</button>' : `
-        <button type="button" class="pl-btn" data-acao="trocar" title="Sugerir outra copy">🔀</button>
-        <button type="button" class="pl-btn" data-acao="colar" title="Colar uma copy minha">✎</button>
-        <button type="button" class="pl-btn" data-acao="remover" title="Remover horário">✕</button>
-        <button type="button" class="copy-item-copiar" data-acao="copiar" ${s.texto ? '' : 'disabled'}><span aria-hidden="true">⧉</span> Copiar</button>
-        <button type="button" class="pl-enviar" data-acao="enviar" ${s.texto ? '' : 'disabled'}>✓ Enviado</button>`}
-      </div>
-    </li>`;
-  }).join('') : '<li class="pl-vazio">Nenhum horário. Clique em "+ Adicionar horário".</li>';
+// Histórico do que já foi copiado no gerador (por modelo, neste navegador)
+function chaveHistGerador(modelo) { return 'gerador_sorteadas__' + normTexto(modelo); }
+function lerHistGerador(modelo) {
+  try {
+    const h = JSON.parse(localStorage.getItem(chaveHistGerador(modelo))) || {};
+    const limite = Date.now() - DIAS_SEM_REPETIR * 86400000;
+    Object.keys(h).forEach((k) => { if (h[k] < limite) delete h[k]; });
+    return h;
+  } catch (e) { return {}; }
+}
+function gravarHistGerador(modelo, textos) {
+  const h = lerHistGerador(modelo);
+  textos.forEach((t) => { h[normTexto(t)] = Date.now(); });
+  try { localStorage.setItem(chaveHistGerador(modelo), JSON.stringify(h)); } catch (e) { /* sem espaço: ignora */ }
 }
 
-function configurarPlanejador() {
-  document.getElementById('plModelo').addEventListener('change', (e) => { plModelo = e.target.value; abrirPlanejador(); });
-  const mudarDia = (n) => { plDia = n === 0 ? inicioDoDia(Date.now()) : plDia + n * 86400000; abrirPlanejador(); };
-  document.getElementById('plDiaAnt').addEventListener('click', () => mudarDia(-1));
-  document.getElementById('plDiaProx').addEventListener('click', () => mudarDia(1));
-  document.getElementById('plDiaHoje').addEventListener('click', () => mudarDia(0));
-  document.getElementById('plAdd').addEventListener('click', () => {
-    const ultima = plSlots[plSlots.length - 1];
-    const h = ultima ? Math.min(23, Number(ultima.hora.slice(0, 2)) + 1) : 9;
-    const slot = { id: idSlot(), hora: String(h).padStart(2, '0') + ':00', categoria: 'PPV', texto: '', enviado: null };
-    slot.texto = sugerirCopy(slot.categoria) || '';
-    plSlots.push(slot); salvarPlano();
+function embaralhar(lista) {
+  for (let i = lista.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lista[i], lista[j]] = [lista[j], lista[i]]; }
+  return lista;
+}
+
+// Uma copy vira um bloco só: linhas em branco dentro dela quebrariam o campo do disparo
+function blocoCopy(texto) { return String(texto).replace(/\r/g, '').replace(/\n[ \t]*(\n[ \t]*)+/g, '\n').trim(); }
+
+function poolGerador(evitar) {
+  const semRepetir = document.getElementById('grSemRepetir').checked;
+  const hist = semRepetir ? lerHistGerador(grModelo) : {};
+  const fora = new Set((evitar || []).map(normTexto));
+  const todas = copysDaModelo(grModelo).filter((c) => (!grCatsSel || grCatsSel.has(c.categoria)) && !fora.has(normTexto(c.texto)));
+  const novas = todas.filter((c) => !hist[normTexto(c.texto)]);
+  return { novas, usadas: todas.filter((c) => hist[normTexto(c.texto)]) };
+}
+
+// Sorteia alternando as categorias (PPV, Prévias, PPV...) pra grade não ficar com tudo igual em sequência
+function sortearGerador() {
+  const qtd = Math.max(1, Math.min(50, Number(document.getElementById('grQtd').value) || 10));
+  const { novas, usadas } = poolGerador();
+  const porCat = {};
+  embaralhar(novas).forEach((c) => { (porCat[c.categoria] = porCat[c.categoria] || []).push(c); });
+  const cats = embaralhar(Object.keys(porCat));
+  const res = [];
+  while (res.length < qtd && cats.some((c) => porCat[c].length)) {
+    cats.forEach((c) => { if (res.length < qtd && porCat[c].length) res.push(porCat[c].shift()); });
+  }
+  const faltou = qtd - res.length;
+  if (faltou > 0) res.push(...embaralhar(usadas).slice(0, faltou));
+  grItens = res;
+  renderGeradorResultado(faltou > 0 && usadas.length ? `Só tinha ${qtd - faltou} copys que ainda não saíram, completei com ${Math.min(faltou, usadas.length)} já usadas.` : '');
+}
+
+function abrirGerador() {
+  const contagem = {};
+  copysPorModeloContagem().forEach(([m, n]) => { contagem[m] = n; });
+  const modelos = Object.keys(contagem);
+  const sel = document.getElementById('grModelo');
+  if (!modelos.length) { sel.innerHTML = '<option>Carregando…</option>'; document.getElementById('grCats').innerHTML = ''; return; }
+  const daBarra = document.getElementById('filtroModeloMineradas').value;
+  if (!grModelo || !contagem[grModelo]) { grModelo = (daBarra && contagem[daBarra]) ? daBarra : modelos[0]; grCatsSel = null; grItens = []; }
+  sel.innerHTML = modelos.map((m) => `<option value="${escAttr(m)}" ${m === grModelo ? 'selected' : ''}>${esc(m)} · ${contagem[m]} copys</option>`).join('');
+  const foto = avataresModelos[grModelo];
+  document.getElementById('grAvatar').innerHTML = `<span class="sb-av" style="--cor:${corAvatar(grModelo)}">${esc(iniciais(grModelo))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
+  document.querySelectorAll('#grAvatar img').forEach((img) => { img.onerror = () => img.remove(); });
+
+  const porCat = {};
+  copysDaModelo(grModelo).forEach((c) => { porCat[c.categoria] = (porCat[c.categoria] || 0) + 1; });
+  const ordem = CATEGORIAS_COPYS.filter((c) => porCat[c]).concat(Object.keys(porCat).filter((c) => !CATEGORIAS_COPYS.includes(c)));
+  document.getElementById('grCats').innerHTML = ordem.length ? ordem.map((c) => {
+    const on = !grCatsSel || grCatsSel.has(c);
+    return `<button type="button" class="gr-cat ${on ? 'on' : ''}" data-cat="${escAttr(c)}" aria-pressed="${on}" style="--cat:${COR_CATEGORIA[c] || 'var(--accent)'}">${esc(c)} <span>${porCat[c]}</span></button>`;
+  }).join('') : '<span class="gr-vazio-txt">Essa modelo ainda não tem copys.</span>';
+  const hist = Object.keys(lerHistGerador(grModelo)).length;
+  document.getElementById('grHistInfo').textContent = hist ? `${hist} já saíram nos últimos ${DIAS_SEM_REPETIR} dias` : '';
+  renderGeradorResultado();
+}
+
+function textoGerador() { return grItens.map((c) => blocoCopy(c.texto)).join('\n\n'); }
+
+function renderGeradorResultado(aviso) {
+  const box = document.getElementById('grResultado');
+  box.hidden = !grItens.length;
+  if (!grItens.length) return;
+  document.getElementById('grResumo').textContent = `${grItens.length} ${grItens.length === 1 ? 'copy sorteada' : 'copys sorteadas'}`;
+  document.getElementById('grAviso').textContent = aviso || '';
+  document.getElementById('grAviso').hidden = !aviso;
+  document.getElementById('grLista').innerHTML = grItens.map((c, i) => `<li class="gr-item" data-i="${i}" style="--cat:${COR_CATEGORIA[c.categoria] || 'var(--accent)'}">
+      <span class="gr-num">${i + 1}</span>
+      <div class="gr-corpo"><span class="gr-tag">${esc(c.categoria)}</span><p class="gr-texto">${esc(blocoCopy(c.texto))}</p></div>
+      <div class="gr-botoes">
+        <button type="button" class="pl-btn" data-acao="trocar" title="Trocar só essa">🔀</button>
+        <button type="button" class="pl-btn" data-acao="remover" title="Tirar essa">✕</button>
+      </div>
+    </li>`).join('');
+}
+
+function configurarGerador() {
+  document.getElementById('grModelo').addEventListener('change', (e) => { grModelo = e.target.value; grCatsSel = null; grItens = []; abrirGerador(); });
+  document.getElementById('grCats').addEventListener('click', (e) => {
+    const btn = e.target.closest('.gr-cat'); if (!btn) return;
+    const todas = [...document.querySelectorAll('#grCats .gr-cat')].map((b) => b.dataset.cat);
+    if (!grCatsSel) grCatsSel = new Set(todas);
+    const c = btn.dataset.cat;
+    if (grCatsSel.has(c)) { if (grCatsSel.size === 1) return toast('Deixe pelo menos uma categoria.'); grCatsSel.delete(c); } else grCatsSel.add(c);
+    if (grCatsSel.size === todas.length) grCatsSel = null;
+    abrirGerador();
   });
-  document.getElementById('plResortear').addEventListener('click', () => {
-    plSlots.forEach((s) => { if (!s.enviado) s.texto = ''; });
-    plSlots.forEach((s) => { if (!s.enviado) s.texto = sugerirCopy(s.categoria) || ''; });
-    salvarPlano(); toast('Novas sugestões pras copys não enviadas.');
+  document.getElementById('grTodas').addEventListener('click', () => { grCatsSel = null; abrirGerador(); });
+  document.getElementById('grSortear').addEventListener('click', () => {
+    if (!copysDaModelo(grModelo).length) return toast('Essa modelo ainda não tem copys.');
+    sortearGerador();
+    document.getElementById('grResultado').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
-  document.getElementById('plPadrao').addEventListener('click', () => {
-    localStorage.setItem('plano_padrao__' + normTexto(plModelo), JSON.stringify(plSlots.map((s) => ({ hora: s.hora, categoria: s.categoria }))));
-    toast(`Horários salvos como padrão da ${plModelo.split(/\s+/)[0]} (neste navegador).`);
+  document.getElementById('grSortearDnv').addEventListener('click', sortearGerador);
+  document.getElementById('grCopiarTudo').addEventListener('click', () => {
+    if (!grItens.length) return;
+    copiarTexto(textoGerador()).then(() => {
+      gravarHistGerador(grModelo, grItens.map((c) => c.texto));
+      registrarAtividade('Gerou copys pro disparo', `${grModelo} · ${grItens.length} copys`);
+      toast(`${grItens.length} copys copiadas! Cole no campo de Mensagens.`);
+      const hist = Object.keys(lerHistGerador(grModelo)).length;
+      document.getElementById('grHistInfo').textContent = `${hist} já saíram nos últimos ${DIAS_SEM_REPETIR} dias`;
+    });
   });
-  const lista = document.getElementById('plLista');
-  const slotDe = (el) => plSlots.find((s) => s.id === el.closest('.pl-slot')?.dataset.id);
-  lista.addEventListener('change', (e) => {
-    const s = slotDe(e.target); if (!s) return;
-    if (e.target.classList.contains('pl-hora') && e.target.value) { s.hora = e.target.value; salvarPlano(); }
-    if (e.target.classList.contains('pl-cat')) { s.categoria = e.target.value; s.texto = sugerirCopy(s.categoria) || ''; salvarPlano(); }
+  document.getElementById('grLimparHist').addEventListener('click', () => {
+    localStorage.removeItem(chaveHistGerador(grModelo));
+    document.getElementById('grHistInfo').textContent = '';
+    toast('Pronto, todas as copys podem sair de novo.');
   });
-  lista.addEventListener('click', (e) => {
+  document.getElementById('grLista').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-acao]'); if (!btn) return;
-    const s = slotDe(btn); if (!s) return;
-    const acao = btn.dataset.acao;
-    if (acao === 'copiar') copiarTexto(s.texto).then(() => toast('Copy copiada!'));
-    if (acao === 'trocar') { const nova = sugerirCopy(s.categoria, [s.texto]); if (nova) { s.texto = nova; salvarPlano(); } else toast('Não tem outra copy dessa categoria pra ela.'); }
-    if (acao === 'colar') { const t = prompt('Cole a copy pra esse horário:', s.texto || ''); if (t !== null && t.trim()) { s.texto = t.trim(); salvarPlano(); } }
-    if (acao === 'remover') { plSlots = plSlots.filter((x) => x !== s); salvarPlano(); }
-    if (acao === 'enviar') {
-      s.enviado = { por: usuarioAtual ? (usuarioAtual.displayName || usuarioAtual.email) : 'você', em: Date.now() };
-      registrarAtividade('Marcou disparo enviado', `${plModelo} · ${s.hora} · ${s.categoria}`);
-      salvarPlano();
-    }
-    if (acao === 'desfazer') { s.enviado = null; salvarPlano(); }
+    const i = Number(btn.closest('.gr-item').dataset.i);
+    if (btn.dataset.acao === 'remover') { grItens.splice(i, 1); renderGeradorResultado(); return; }
+    const atual = grItens[i];
+    const { novas, usadas } = poolGerador(grItens.map((c) => c.texto));
+    const mesmaCat = (l) => l.filter((c) => c.categoria === atual.categoria);
+    const op = [mesmaCat(novas), novas, mesmaCat(usadas), usadas].find((l) => l.length);
+    if (!op) return toast('Não tem outra copy pra trocar.');
+    grItens[i] = op[Math.floor(Math.random() * op.length)];
+    renderGeradorResultado();
   });
-  // atualiza "próximo/atrasado" com o passar do tempo
-  setInterval(() => { if (document.getElementById('tab-planejador').classList.contains('active')) renderPlanejador(); }, 60000);
 }
 
 // ═══════════════════════════════════════════════ DASHBOARD ═══
@@ -1910,7 +1852,7 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarNav();
   configurarConfigModal();
   configurarMineradas();
-  configurarPlanejador();
+  configurarGerador();
   configurarFavoritos();
   configurarNovidades();
 

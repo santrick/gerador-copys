@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=37" />
+  <link rel="stylesheet" href="styles.css?v=38" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -74,8 +74,8 @@
         <button class="nav-item" data-tab="mineradas">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Copys <span class="nav-badge" hidden></span>
         </button>
-        <button class="nav-item" data-tab="planejador">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h3M8 17h6"/></svg></span> Planejador
+        <button class="nav-item" data-tab="gerador">
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r=".9" fill="currentColor"/><circle cx="15" cy="15" r=".9" fill="currentColor"/><circle cx="15" cy="9" r=".9" fill="currentColor"/><circle cx="9" cy="15" r=".9" fill="currentColor"/></svg></span> Gerador
         </button>
         <button class="nav-item" data-tab="favoritos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> Favoritos
@@ -262,32 +262,38 @@
           </div>
         </section>
 
-        <!-- PLANEJADOR DE DISPAROS -->
-        <section id="tab-planejador" class="tab-panel copys-page">
-          <div class="pl-topo">
+        <!-- GERADOR DE COPYS -->
+        <section id="tab-gerador" class="tab-panel copys-page">
+          <div class="gr-config">
             <div class="pl-modelo">
-              <span class="pl-av" id="plAvatar"></span>
-              <select id="plModelo" class="cp-select pl-select" aria-label="Modelo"></select>
+              <span class="pl-av" id="grAvatar"></span>
+              <select id="grModelo" class="cp-select pl-select" aria-label="Modelo"></select>
             </div>
-            <div class="pl-dia">
-              <button type="button" class="cp-icone" id="plDiaAnt" aria-label="Dia anterior">&#8249;</button>
-              <button type="button" class="pl-dia-rotulo" id="plDiaHoje" title="Voltar pra hoje"><strong id="plDiaTxt"></strong><span id="plDiaSub"></span></button>
-              <button type="button" class="cp-icone" id="plDiaProx" aria-label="Próximo dia">&#8250;</button>
+            <div class="gr-bloco">
+              <div class="gr-bloco-head"><span class="gr-rotulo">Categorias que entram no sorteio</span><button type="button" class="gr-link" id="grTodas">marcar todas</button></div>
+              <div class="gr-cats" id="grCats"></div>
             </div>
+            <div class="gr-opcoes">
+              <label class="gr-qtd"><span>Quantas copys</span><input type="number" id="grQtd" min="1" max="50" value="10" inputmode="numeric"></label>
+              <label class="gr-check"><input type="checkbox" id="grSemRepetir" checked> Não repetir as que já saíram</label>
+              <button type="button" class="btn btn-primary gr-sortear" id="grSortear">🎲 Sortear copys</button>
+            </div>
+            <p class="gr-hist"><span id="grHistInfo"></span> <button type="button" class="gr-link" id="grLimparHist">liberar todas de novo</button></p>
           </div>
 
-          <div class="pl-progresso">
-            <div class="pl-barra"><span id="plBarra"></span></div>
-            <span id="plProgTxt"></span>
-            <span class="pl-sync" id="plSync"></span>
-          </div>
-
-          <ol class="pl-lista" id="plLista"></ol>
-
-          <div class="pl-acoes">
-            <button type="button" class="btn btn-secondary" id="plAdd">+ Adicionar horário</button>
-            <button type="button" class="btn btn-ghost" id="plResortear">🔀 Sugerir de novo as não enviadas</button>
-            <button type="button" class="btn btn-ghost" id="plPadrao">Salvar horários como padrão da modelo</button>
+          <div class="gr-resultado" id="grResultado" hidden>
+            <div class="gr-res-head">
+              <div>
+                <strong id="grResumo"></strong>
+                <p class="gr-dica">Cola no campo <b>✏️ Mensagens (uma por bloco, separe com linha em branco)</b>. Cada copy já vai como um bloco.</p>
+              </div>
+              <div class="gr-res-acoes">
+                <button type="button" class="btn btn-ghost" id="grSortearDnv">🔀 Sortear de novo</button>
+                <button type="button" class="btn btn-primary" id="grCopiarTudo">⧉ Copiar tudo</button>
+              </div>
+            </div>
+            <p class="gr-aviso" id="grAviso" hidden></p>
+            <ol class="gr-lista" id="grLista"></ol>
           </div>
         </section>
 
@@ -389,6 +395,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=48"></script>
+  <script src="app.js?v=49"></script>
 </body>
 </html>
