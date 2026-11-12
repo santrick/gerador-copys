@@ -1251,6 +1251,8 @@ async function carregarMineradas() {
 }
 
 function aplicarDadosMineradas(copys, modelosServidor) {
+  // o Google Docs guarda a quebra de linha da copy como quebra suave (\u000b): volta pra quebra normal
+  copys.forEach((c) => { if (c.mensagem) c.mensagem = String(c.mensagem).replace(/[\u000b\r]/g, '\n'); });
   todasMineradas = copys;
   calcularNovidades('mineradas', todasMineradas.map(idMinerada));
   const modelos = modelosServidor || [...new Set(todasMineradas.map((c) => c.modelo).filter(Boolean))].sort();
