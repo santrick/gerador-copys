@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=42" />
+  <link rel="stylesheet" href="styles.css?v=43" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -68,17 +68,11 @@
 
       <nav class="nav" id="nav">
         <div class="nav-glider" id="navGlider"></div>
-        <button class="nav-item active" data-tab="dashboard">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Dashboard
-        </button>
-        <button class="nav-item" data-tab="mineradas">
+        <button class="nav-item active" data-tab="mineradas">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Copys <span class="nav-badge" hidden></span>
         </button>
-        <button class="nav-item" data-tab="gerador">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r=".9" fill="currentColor"/><circle cx="15" cy="15" r=".9" fill="currentColor"/><circle cx="15" cy="9" r=".9" fill="currentColor"/><circle cx="9" cy="15" r=".9" fill="currentColor"/></svg></span> Gerador
-        </button>
-        <button class="nav-item" data-tab="extrair">
-          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19h14"/></svg></span> Extrair
+        <button class="nav-item" data-tab="disparo">
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/></svg></span> Disparo
         </button>
         <button class="nav-item" data-tab="favoritos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> Favoritos
@@ -102,7 +96,6 @@
 
       <div class="sidebar-foot">
         <div class="usuario-logado" id="usuarioLogado"></div>
-        <button class="btn btn-ghost btn-block" id="btnAbrirConfig">⚙ Configurações</button>
         <button class="btn btn-ghost btn-block" id="btnLogout">↪ Sair</button>
         <div class="sidebar-status" id="sidebarStatus">
           <span class="dot"></span> <span id="sidebarStatusTxt">Carregando…</span>
@@ -118,9 +111,8 @@
       <header class="topbar">
         <button class="menu-btn" id="menuBtn" aria-label="Abrir menu">☰</button>
         <div class="topbar-title">
-          <span class="page-eyebrow" id="pageEyebrow">01 / Dashboard</span>
-          <h1 id="pageTitle">Dashboard</h1>
-          <p id="pageSubtitle">Visão geral do seu banco de copys</p>
+          <h1 id="pageTitle">Copys</h1>
+          <p id="pageSubtitle">Copys das modelos, direto do Google Docs</p>
         </div>
         <div class="topbar-actions">
           <span class="pill" id="pillCopys" hidden></span>
@@ -133,102 +125,17 @@
 
       <div class="content">
 
-        <!-- DASHBOARD -->
-        <section id="tab-dashboard" class="tab-panel active">
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <span class="kpi-label">Copys</span>
-              <span class="kpi-value" id="kpiMineradas">0</span>
-              <span class="kpi-novas" id="kpiNovasMineradas" hidden></span>
-              <span class="kpi-tag accent">Google Docs</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-label">Favoritadas</span>
-              <span class="kpi-value" id="kpiFavoritas">0</span>
-              <span class="kpi-tag amber">⭐ da equipe</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-label">Modelos Ativos</span>
-              <span class="kpi-value" id="kpiModelos">0</span>
-              <span class="kpi-tag green">no Google Docs</span>
-            </div>
-          </div>
-
-          <div class="dash-grid">
-            <div class="panel">
-              <div class="panel-head">
-                <h2>Copys por tipo</h2>
-                <span class="panel-sub">mineradas</span>
-              </div>
-              <div id="chartTipos" class="bar-chart"></div>
-            </div>
-
-            <div class="panel">
-              <div class="panel-head">
-                <h2>Top modelos</h2>
-                <span class="panel-sub">volume de copys</span>
-              </div>
-              <div id="topModelos" class="rank-list"></div>
-            </div>
-
-            <div class="panel">
-              <div class="panel-head">
-                <h2>Mais copiadas</h2>
-                <span class="panel-sub">nesta sessão / navegador</span>
-              </div>
-              <div id="maisCopiadas" class="rank-list"></div>
-            </div>
-
-            <div class="panel">
-              <div class="panel-head">
-                <h2>Atividade recente</h2>
-                <span class="panel-sub">últimas mineradas</span>
-              </div>
-              <div id="atividadeRecente" class="activity-list"></div>
-            </div>
-
-            <div class="panel panel-wide">
-              <div class="panel-head">
-                <h2>Métricas de IA</h2>
-                <span class="panel-sub">geral da equipe</span>
-              </div>
-              <div class="kpi-grid kpi-grid-mini">
-                <div class="kpi-card">
-                  <span class="kpi-label">Copys Geradas</span>
-                  <span class="kpi-value" id="kpiCopysGeradas">0</span>
-                </div>
-                <div class="kpi-card">
-                  <span class="kpi-label">Copys Copiadas</span>
-                  <span class="kpi-value" id="kpiCopysCopiadas">0</span>
-                </div>
-                <div class="kpi-card">
-                  <span class="kpi-label">Taxa de Uso</span>
-                  <span class="kpi-value" id="kpiTaxaUso">0%</span>
-                </div>
-                <div class="kpi-card">
-                  <span class="kpi-label">Melhor Horário</span>
-                  <span class="kpi-value" id="kpiMelhorHorario">—</span>
-                </div>
-              </div>
-              <div class="feedback-equipe">
-                <div class="feedback-bar"><div class="feedback-bar-boa" id="feedbackBarBoa"></div></div>
-                <div class="feedback-legenda">
-                  <span>👍 <b id="feedbackPctBoa">0%</b> boas</span>
-                  <span>👎 <b id="feedbackPctRuim">0%</b> ruins</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <!-- MINERADAS -->
-        <section id="tab-mineradas" class="tab-panel copys-page">
+        <section id="tab-mineradas" class="tab-panel copys-page active">
           <div class="cp-hero" id="cpHero"></div>
           <div class="cp-toolbar">
             <label class="cp-busca">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
               <input type="search" id="buscaMineradas" placeholder="Buscar no texto das copys…" autocomplete="off" />
             </label>
+            <button type="button" class="cp-icone cp-filtros-btn" id="btnFiltrosCopys" aria-expanded="false" aria-controls="periodoCopys" title="Filtros">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><i class="cp-filtros-dot" hidden></i>
+            </button>
             <div class="segmentado" id="periodoCopys" role="group" aria-label="Período">
               <button type="button" data-periodo="tudo" class="ativo">Tudo</button>
               <button type="button" data-periodo="hoje">Hoje</button>
@@ -266,8 +173,13 @@
           </div>
         </section>
 
-        <!-- GERADOR DE COPYS -->
-        <section id="tab-gerador" class="tab-panel copys-page">
+        <!-- DISPARO: SORTEAR + TODAS -->
+        <section id="tab-disparo" class="tab-panel copys-page">
+          <div class="segmentado dp-modo" id="dpModo" role="group" aria-label="Como pegar as copys">
+            <button type="button" data-modo="sortear" class="ativo"><b>🎲 Sortear</b><span>algumas copys pro disparo</span></button>
+            <button type="button" data-modo="todas"><b>⇩ Todas</b><span>extrair tudo de uma vez</span></button>
+          </div>
+          <div class="dp-painel" id="dpSortear">
           <div class="gr-layout">
             <aside class="gr-painel">
               <div class="gr-passo">
@@ -313,10 +225,9 @@
 
             <section class="gr-saida" id="grSaida" aria-live="polite"></section>
           </div>
-        </section>
+          </div>
 
-        <!-- EXTRAIR -->
-        <section id="tab-extrair" class="tab-panel copys-page">
+          <div class="dp-painel" id="dpTodas" hidden>
           <div class="gr-layout">
             <aside class="gr-painel">
               <div class="gr-passo">
@@ -360,6 +271,7 @@
             </aside>
             <section class="gr-saida" id="exSaida" aria-live="polite"></section>
           </div>
+          </div>
         </section>
 
         <!-- FAVORITOS -->
@@ -369,7 +281,6 @@
             <div class="comprimento-row" id="filtroOrigemFav">
               <button class="estilo-btn ativo" data-origem="todas">Todas <span class="fav-count">0</span></button>
               <button class="estilo-btn" data-origem="minerada">Copys <span class="fav-count">0</span></button>
-              <button class="estilo-btn" data-origem="ia">IA <span class="fav-count">0</span></button>
             </div>
           </div>
           <div id="listaFavoritos" class="grid-copys"></div>
@@ -424,42 +335,8 @@
     </div>
   </div>
 
-  <!-- MODAL CONFIG -->
-  <div class="modal-backdrop" id="modalBackdrop">
-    <div class="modal">
-      <div class="modal-head">
-        <h2>Configurações</h2>
-        <button class="icon-btn" id="btnFecharConfig">✕</button>
-      </div>
-      <label class="field" style="display:none">
-        <span>URL do Apps Script (Privacy)</span>
-        <input type="url" id="appsScriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" />
-      </label>
-      <div class="modal-sep">OpenRouter (IA)</div>
-      <label class="field">
-        <span>API Key do OpenRouter</span>
-        <input type="password" id="openRouterKeyInput" placeholder="sk-or-v1-..." />
-      </label>
-      <label class="field">
-        <span>Modelo</span>
-        <input type="text" id="openRouterModelInput" placeholder="google/gemini-2.5-flash" list="modelosSugeridos" />
-        <datalist id="modelosSugeridos">
-          <option value="google/gemini-2.5-flash">Rápido e barato (padrão)</option>
-          <option value="google/gemini-2.5-pro">Escreve melhor, mais caro</option>
-          <option value="deepseek/deepseek-chat-v3-0324">Barato, bom em português</option>
-          <option value="openai/gpt-4o-mini">Alternativa barata</option>
-        </datalist>
-      </label>
-      <div class="modal-actions">
-        <button id="btnSalvarConfigHeader" class="btn btn-primary">Salvar</button>
-        <button id="btnTestarConfig" class="btn btn-secondary">Testar IA</button>
-      </div>
-      <div id="msgConfig" class="msg-config hidden"></div>
-    </div>
-  </div>
-
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=52"></script>
+  <script src="app.js?v=53"></script>
 </body>
 </html>

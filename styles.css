@@ -1857,3 +1857,51 @@ body:not(.aba-copys) .sidebar-foot { margin-top: auto; }
 .ex-parte-head .ex-copiar-parte { margin-left: auto; height: 32px; padding: 0 12px; font-size: 12.5px; }
 .ex-copiar-parte.ex-feito { border-color: rgba(52,211,153,.5); color: #6ee7b7; }
 .ex-preview { max-height: 460px; overflow: auto; }
+
+/* ═══════════ v3: TOPO ENXUTO, ABA DISPARO, CELULAR ═══════════ */
+/* topo: título numa linha, aviso só quando dá problema */
+.topbar { padding: 14px 28px; }
+.topbar-title h1 { font-size: 20px; letter-spacing: 0; }
+.topbar-title p { margin-top: 3px; }
+.status-bar.ok { display: none; }
+.pill { cursor: default; }
+
+/* aba Disparo: escolha entre sortear e extrair todas */
+.dp-modo { display: inline-grid; grid-template-columns: 1fr 1fr; width: min(100%, 520px); height: auto; margin-bottom: 18px; padding: 4px; }
+.dp-modo button { display: grid; gap: 1px; justify-items: start; height: auto; padding: 9px 14px; text-align: left; }
+.dp-modo button b { font-size: 13.5px; font-weight: 600; }
+.dp-modo button span { font-size: 11.5px; font-weight: 400; color: var(--text-dim); }
+.dp-modo button.ativo span { color: inherit; opacity: .8; }
+
+/* pilha de fotos do cabeçalho: menos sobreposição, iniciais legíveis */
+.cp-hero-av.mini + .cp-hero-av.mini { margin-left: -6px; }
+
+/* botão de filtros (só no celular) */
+.cp-filtros-btn { display: none; position: relative; place-items: center; }
+.cp-filtros-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.cp-filtros-btn[aria-expanded="true"] { color: #fff; border-color: rgba(168,85,247,.6); background: rgba(168,85,247,.14); }
+.cp-filtros-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+@media (max-width: 720px) {
+  .topbar { padding: 12px 16px; }
+  .topbar-title h1 { font-size: 18px; }
+  .topbar-title p { font-size: 12px; }
+  .topbar-actions { display: none; }
+  /* números da modelo numa faixa só */
+  .cp-hero { padding: 14px; gap: 12px; }
+  .cp-hero-av { width: 46px; height: 46px; }
+  .cp-hero-av.mini { width: 34px; height: 34px; }
+  .cp-hero-nome { font-size: 18px; }
+  .cp-hero-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .cp-stat { display: flex; align-items: baseline; gap: 4px; min-width: 0; padding: 0; background: none; border: 0; }
+  .cp-stat strong { font-size: 13.5px; }
+  .cp-stat span { font-size: 12px; }
+  .cp-hero-gerar { height: 38px; }
+  /* filtros recolhidos atrás do botão */
+  .cp-filtros-btn { display: grid; order: 1; }
+  .cp-toolbar:not(.filtros-abertos) #periodoCopys,
+  .cp-toolbar:not(.filtros-abertos) .cp-cal-wrap,
+  .cp-toolbar:not(.filtros-abertos) #ordemCopys { display: none; }
+  .dp-modo button span { display: none; }
+  .dp-modo button { justify-items: center; }
+}

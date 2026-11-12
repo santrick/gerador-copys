@@ -76,20 +76,16 @@ function configurarLogin() {
     if (unsubFuncionarios) { unsubFuncionarios(); unsubFuncionarios = null; }
     if (unsubFavoritos) { unsubFavoritos(); unsubFavoritos = null; }
     if (unsubFeedbackCopy) { unsubFeedbackCopy(); unsubFeedbackCopy = null; }
-    if (unsubRegrasIA) { unsubRegrasIA(); unsubRegrasIA = null; }
-    if (unsubPromptBase) { unsubPromptBase(); unsubPromptBase = null; }
-    if (unsubMetricas) { unsubMetricas(); unsubMetricas = null; }
     feedAdminAtivo = false;
     feedFuncionariosAtivo = false;
     favoritos = [];
     feedbackCopy = {};
-    regrasIA = [];
-    metricasGlobais = { copysGeradas: 0, copysCopiadas: 0, porHora: {} };
     const listaFunc = document.getElementById('listaFuncionarios');
     const listaAtiv = document.getElementById('atividadeEquipe');
     if (listaFunc) listaFunc.innerHTML = '';
     if (listaAtiv) listaAtiv.innerHTML = '';
-    irParaTab('dashboard', { semHash: true });
+    irParaTab('mineradas', { semHash: true });
+    abrirTabDaHash();
 
     if (!user) {
       souAdmin = false;
@@ -127,9 +123,6 @@ function configurarLogin() {
     registrarAtividade('Entrou no sistema', '');
     iniciarFeedFavoritos();
     iniciarFeedFeedbackCopy();
-    iniciarFeedRegrasIA();
-    iniciarFeedPromptBase(false);
-    iniciarFeedMetricas();
     if (souAdmin) { iniciarFeedAdmin(); iniciarFeedFuncionarios(); limparCopysFirestore(); }
   });
 }
@@ -306,7 +299,6 @@ function iniciarFeedFavoritos() {
     favoritosDocs = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((d) => d.texto)
       .sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
     favoritos = favoritosDocs.map((d) => d.texto);
-    renderDashboard();
     renderFavoritos();
   }, (err) => console.error('[favoritos]', err));
 }
@@ -427,7 +419,7 @@ function renderFavoritos() {
     return (filtroOrigemFav === 'todas' || o === filtroOrigemFav) && (!termo || d.texto.toLowerCase().includes(termo) || (d.categoria || '').toLowerCase().includes(termo));
   });
   if (!lista.length) {
-    container.innerHTML = `<div class="empty-state"><span class="empty-ico">⭐</span><p>${favoritosDocs.length ? 'Nenhum favorito com esse filtro.' : 'Nenhuma copy favoritada ainda. Toque na ⭐ de qualquer copy (da aba Copys ou gerada pela IA) pra guardar aqui.'}</p></div>`;
+    container.innerHTML = `<div class="empty-state"><span class="empty-ico">⭐</span><p>${favoritosDocs.length ? 'Nenhum favorito com esse filtro.' : 'Nenhuma copy favoritada ainda. Toque na ⭐ de qualquer copy da aba Copys pra guardar aqui.'}</p></div>`;
     return;
   }
   container.innerHTML = lista.map((d) => {
@@ -472,74 +464,6 @@ function iniciarFeedFeedbackCopy() {
     if (typeof todasMineradas !== 'undefined' && todasMineradas.length) aplicarFiltroMineradas();
   }, (err) => console.error('[feedback_copy]', err));
 }
-
-function avaliarCopy(texto, avaliacao) {
-  if (!usuarioAtual) return;
-  const id = hashTexto(texto);
-  const ref = db.collection('feedback_copy').doc(id);
-  const atual = feedbackCopy[id];
-  if (atual === avaliacao) {
-    ref.delete().catch((err) => toast('Erro: ' + err.message));
-    registrarAtividade('Removeu avaliação de copy', texto.slice(0, 80));
-  } else {
-    ref.set({
-      texto: texto.slice(0, 300),
-      avaliacao,
-      avaliadoPor: usuarioAtual.displayName || usuarioAtual.email,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch((err) => toast('Erro: ' + err.message));
-    registrarAtividade(avaliacao === 'boa' ? 'Marcou copy como boa' : 'Marcou copy como ruim', texto.slice(0, 80));
-    incrementarContadorFuncionario(avaliacao === 'boa' ? 'feedbackBoa' : 'feedbackRuim', 1);
-  }
-}
-
-// Busca as últimas 40 avaliadas (cache de 5 min) e sorteia uma amostra, pra IA não ver sempre os mesmos exemplos
-const cacheExemplos = {};
-async function buscarExemplosAvaliados(avaliacao, limite) {
-  const c = cacheExemplos[avaliacao];
-  if (!c || Date.now() - c.ts > 5 * 60 * 1000) {
-    try {
-      const snap = await db.collection('feedback_copy').where('avaliacao', '==', avaliacao).orderBy('timestamp', 'desc').limit(40).get();
-      cacheExemplos[avaliacao] = { ts: Date.now(), textos: snap.docs.map((d) => d.data().texto).filter(Boolean) };
-    } catch (err) {
-      console.error('[buscarExemplosAvaliados]', err);
-      return [];
-    }
-  }
-  return amostra(cacheExemplos[avaliacao].textos, limite);
-}
-
-
-function amostra(lista, n) {
-  const copia = lista.slice();
-  for (let i = copia.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [copia[i], copia[j]] = [copia[j], copia[i]]; }
-  return copia.slice(0, n);
-}
-
-
-// ═══════════════════════════════════════════════ REGRAS DA IA (Treinar IA) ═══
-
-function iniciarFeedRegrasIA() {
-  if (unsubRegrasIA) return;
-  unsubRegrasIA = db.collection('regras_ia').orderBy('timestamp', 'desc').onSnapshot((snap) => {
-    regrasIA = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  }, (err) => console.error('[regras_ia]', err));
-}
-
-
-
-
-
-// ═══════════════════════════════════════════════ MÉTRICAS COMPARTILHADAS ═══
-
-function iniciarFeedMetricas() {
-  if (unsubMetricas) return;
-  unsubMetricas = db.collection('metricas').doc('global').onSnapshot((doc) => {
-    metricasGlobais = doc.exists ? { copysGeradas: 0, copysCopiadas: 0, porHora: {}, ...doc.data() } : { copysGeradas: 0, copysCopiadas: 0, porHora: {} };
-    renderDashboard();
-  }, (err) => console.error('[metricas]', err));
-}
-
 
 function incrementarContadorFuncionario(campo, valor) {
   if (!usuarioAtual) return;
@@ -618,89 +542,10 @@ function configurarCriarAtendente() {
   });
 }
 
-// ═══════════════════════════════════════════════ CONFIG (localStorage) ═══
-
-const CONFIG_PADRAO = {
-  sheetsUrl: '',
-  openrouterKey: '',
-  openrouterModel: 'google/gemini-2.5-flash',
-  persona: 'Letícia Vargas, 18 anos, universitária, vocabulário: "vida", "corre lá", "prévia", "amor", "bb"',
-  personaTipo: 'universitaria',
-  comprimento: 'medio',
-  emoji: '2',
-  tom: 'natural',
-  abreviacoes: 'sim',
-  personaAtivaId: 'default'
-};
-
-// ═══════════════════════════════════════════════ PERSONAS SALVAS (presets) ═══
-
-function uid() { return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-
-
-
-const TIPO_PERSONA_DESC = {
-  universitaria: 'Universitária, patricinha de família tradicional/rígida — comportada e certinha por fora, safadinha por dentro, faz tudo escondido.',
-  novinha: 'Novinha traquina e curiosa, adora provocar, testar limites e brincar com a curiosidade do lead.',
-  casada: 'Casada discreta, safada escondido do marido — a adrenalina do proibido é o gatilho principal.',
-  dominadora: 'Dominadora — assume o controle da conversa, manda, testa e submete o lead ao seu ritmo.',
-  carente: 'Carente e romântica — busca conexão emocional e afeto antes de esquentar o papo.',
-  vizinha: 'Vizinha gostosa e disponível — tom informal, brincalhão, de quem "mora ali do lado".',
-  coroa: 'Mulher mais velha e segura de si, sem joguinho — ensina e guia o lead com confiança e experiência.',
-  timida: 'Tímida e insegura, primeira vez nesse tipo de conteúdo — desperta vontade de incentivar e sensação de exclusividade por ser "a primeira vez dela".',
-  executiva: 'Executiva estressada, trabalha o dia todo — busca o papo como válvula de escape e recompensa depois de um dia puxado.',
-  professora: 'Postura de comando com verniz educacional — "ensina" o lead, fantasia de autoridade e aprendizado.',
-  proibida: 'Está online escondida (do namorado, da família) — sensação de risco, urgência e proibido.',
-  popstar: 'Vida badalada e exclusiva — poucos têm acesso a ela, gera senso de status e sorte por ser escolhido.',
-  interiorana: 'Jeito caseiro e simples do interior — contraste entre inocência e safadeza foge do padrão "sofisticada".',
-  sortuda: 'Acabou de ganhar algo bom e está eufórica/generosa — usa o clima bom como gancho pra mimar e ser mimada.',
-  custom: ''
-};
-
-const COMPRIMENTO_TOKENS = { curto: 120, medio: 350, longo: 650 };
-function tokensParaComprimento(mult = 1) {
-  const cfg = getConfig();
-  return (COMPRIMENTO_TOKENS[cfg.comprimento] || COMPRIMENTO_TOKENS.medio) * mult;
-}
-
-const COMPRIMENTO_DESC = {
-  curto: 'Escreva BEM curto: 1 linha só, direta, sem enrolação.',
-  medio: 'Escreva médio: 2 a 3 linhas, no ritmo de uma mensagem real de zap.',
-  longo: 'Escreva mais longo: 4 a 6 linhas, com um mini storytelling antes do gancho final.'
-};
-
-const EMOJI_DESC = {
-  nenhum: 'Não use nenhum emoji.',
-  '1': 'Use no máximo 1 emoji na copy toda.',
-  '2': 'Use no máximo 2 emojis na copy toda.'
-};
-
-const TOM_DESC = {
-  natural: 'Tom natural, conversa como uma pessoa real, sem forçar personagem.',
-  provocante: 'Tom mais provocante e ousado, insinua e provoca mais que o normal.',
-  carinhosa: 'Tom mais carinhoso e afetuoso, busca conexão emocional antes de qualquer coisa.',
-  direta: 'Tom direto e sem rodeios, vai direto ao ponto.'
-};
-
-const ABREV_DESC = {
-  sim: 'Pode usar abreviações comuns de zap: "vc", "pq", "tb", "blz", "kkk".',
-  nao: 'Não use abreviações — escreva as palavras por extenso.'
-};
-
-function getConfig() {
-  try { return { ...CONFIG_PADRAO, ...JSON.parse(localStorage.getItem('gerador_config') || '{}') }; }
-  catch (e) { return { ...CONFIG_PADRAO }; }
-}
-function salvarConfig(cfg) {
-  localStorage.setItem('gerador_config', JSON.stringify({ ...getConfig(), ...cfg }));
-}
-
 const PAGE_INFO = {
-  dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
-  gerador: { title: 'Gerador', subtitle: 'Sorteia copys da modelo prontas pra colar no disparo' },
-  extrair: { title: 'Extrair', subtitle: 'Todas as copys de uma vez, no formato do disparo' },
-  favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou' },
   mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto do Google Docs' },
+  disparo: { title: 'Disparo', subtitle: 'Copys prontas pro campo ✏️ Mensagens do disparo' },
+  favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou' },
   admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
 };
 
@@ -711,51 +556,6 @@ const COR_TIPO = {
   Conteudo: '#a855f7', Upsell: '#ec4899', Aquecimento: '#f472b6', Chamada: '#06b6d4',
   Pergunta: '#84cc16', Outro: '#64748b'
 };
-
-// Arquétipos possíveis de horário da grade — sem horário fixo, a grade sorteia
-// entre 5 e 8 desses, em horários aleatórios do dia (veja gerarSlotsAleatorios()).
-const TIPOS_GRADE = [
-  { nome: 'Primeiro Contato', categorias: ['Primeiro Contato'], tipoMinerada: 'Saudacao' },
-  { nome: 'Bom Dia', categorias: ['Bom Dia'], tipoMinerada: 'Saudacao' },
-  { nome: 'Boa Noite', categorias: ['Boa Noite'], tipoMinerada: 'Aquecimento' },
-  { nome: 'Gatilhos Sensuais', categorias: ['Gatilhos Sensuais'], tipoMinerada: 'Conteudo' },
-  { nome: 'Gatilhos de Banho', categorias: ['Gatilhos de Banho'], tipoMinerada: 'Conteudo' },
-  { nome: 'Gatilhos Temáticos', categorias: ['Gatilhos Temáticos'], tipoMinerada: 'Conteudo' },
-  { nome: 'Reengajamento', categorias: ['Reengajamento'], tipoMinerada: 'Reengajamento' },
-  { nome: 'Remarketing', categorias: ['Remarketing'], tipoMinerada: 'Reengajamento' },
-  { nome: 'Aquecimento pra Pack', categorias: ['Aquecimento pra Pack'], tipoMinerada: 'Aquecimento' },
-  { nome: 'Escassez e Urgência', categorias: ['Escassez e Urgência'], tipoMinerada: 'Venda' },
-  { nome: 'Desconto e Bônus', categorias: ['Desconto e Bônus'], tipoMinerada: 'Venda' },
-  { nome: 'Chamada com Preço', categorias: ['Chamada com Preço'], tipoMinerada: 'Venda' },
-  { nome: 'Venda de Conteúdo', categorias: ['Venda de Conteúdo'], tipoMinerada: 'Venda' },
-  { nome: 'Chamada de Vídeo', categorias: ['Chamada de Vídeo'], tipoMinerada: 'Chamada' }
-];
-
-function gerarSlotsAleatorios() {
-  const qtd = 5 + Math.floor(Math.random() * 4); // 5 a 8
-  const inicioMin = 8 * 60; // 08:00
-  const fimMin = 23 * 60 + 30; // 23:30
-  const janela = (fimMin - inicioMin) / qtd;
-  const embaralhados = [...TIPOS_GRADE].sort(() => Math.random() - 0.5);
-  const slots = [];
-  for (let i = 0; i < qtd; i++) {
-    const base = inicioMin + i * janela;
-    const minuto = Math.round(base + Math.random() * Math.max(janela - 15, 5));
-    const hh = String(Math.floor(minuto / 60)).padStart(2, '0');
-    const mm = String(minuto % 60).padStart(2, '0');
-    const arquetipo = embaralhados[i % embaralhados.length];
-    slots.push({
-      tag: 'S' + i,
-      hora: `${hh}:${mm}`,
-      tipo: arquetipo.nome,
-      cor: COR_TIPO[arquetipo.tipoMinerada] || 'var(--accent)',
-      categorias: arquetipo.categorias,
-      tipoMinerada: arquetipo.tipoMinerada
-    });
-  }
-  return slots;
-}
-
 
 let todasMineradas = [];
 let mineradasFiltradas = [];
@@ -771,10 +571,6 @@ let favoritosDocs = []; // mesmos favoritos com origem/categoria/quem salvou, pr
 let feedbackCopy = {}; // hash(texto) -> 'boa' | 'ruim', compartilhado via Firestore (coleção "feedback_copy")
 let unsubFavoritos = null;
 let unsubFeedbackCopy = null;
-let regrasIA = []; // compartilhado via Firestore (coleção "regras_ia")
-let unsubRegrasIA = null;
-let metricasGlobais = { copysGeradas: 0, copysCopiadas: 0, porHora: {} }; // compartilhado via Firestore (metricas/global)
-let unsubMetricas = null;
 let copyCounts = safeParse('gerador_copy_counts', {});
 
 function safeParse(key, fallback) {
@@ -847,20 +643,14 @@ function setStatus(texto, tipo) {
   bar.classList.remove('ok', 'erro', 'aviso');
   if (tipo) bar.classList.add(tipo);
   document.getElementById('statusTexto').textContent = texto;
+  const pill = document.getElementById('pillCopys');
+  if (pill) pill.title = texto;
   const sidebarStatus = document.getElementById('sidebarStatus');
   sidebarStatus.classList.remove('ok', 'warn');
   if (tipo === 'ok') sidebarStatus.classList.add('ok');
   else if (tipo === 'erro' || tipo === 'aviso') sidebarStatus.classList.add('warn');
   document.getElementById('sidebarStatusTxt').textContent = texto;
 }
-
-const ESTILOS_REESCRITA = {
-  romantica: 'Reescreva no estilo ABERTURA ROMÂNTICA: carinhosa, vulnerável, cria conexão emocional e curiosidade afetiva.',
-  safada: 'Reescreva no estilo ABERTURA SAFADA: direta, provocante, ativa o tesão imediato.',
-  ego: 'Reescreva no estilo QUEBRA DE EGO: provoca o lead, faz ele querer provar valor, desafia ele.',
-  controle: 'Reescreva no estilo ABERTURA DE CONTROLE: firme, decidida, modelo no comando.',
-  curta: 'Reescreva em no máximo 1-2 linhas. Vai direto ao ponto, mantendo o tom provocante.'
-};
 
 // ═══════════════════════════════════════════════ TABS / NAV / SIDEBAR ═══
 
@@ -874,37 +664,31 @@ function atualizarNavGlider() {
 }
 window.addEventListener('resize', atualizarNavGlider);
 
-let abaAtual = 'dashboard';
+let abaAtual = 'mineradas';
 function irParaTab(tab, opts) {
+  if (tab === 'gerador' || tab === 'extrair') { dpModo = tab === 'gerador' ? 'sortear' : 'todas'; tab = 'disparo'; opts = {}; }
   if (!PAGE_INFO[tab]) return;
-  if (tab === 'admin' && !souAdmin) tab = 'dashboard';
+  if (tab === 'admin' && !souAdmin) tab = 'mineradas';
   if (abaAtual !== tab && novidades[abaAtual]) marcarComoVistas(abaAtual);
   abaAtual = tab;
   document.body.classList.toggle('aba-copys', tab === 'mineradas');
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
   atualizarNavGlider();
-  // Título no estilo da referência: etiqueta "0N / SEÇÃO" + última palavra em destaque
-  const ordem = [...document.querySelectorAll('.nav-item')].map((b) => b.dataset.tab);
-  const titulo = PAGE_INFO[tab].title.split(' ');
-  const ultima = titulo.pop();
-  document.getElementById('pageEyebrow').textContent = String(ordem.indexOf(tab) + 1).padStart(2, '0') + ' / ' + PAGE_INFO[tab].title;
-  document.getElementById('pageTitle').innerHTML = titulo.length ? esc(titulo.join(' ')) + ' <span class="titulo-destaque">' + esc(ultima) + '</span>' : esc(ultima);
+  document.getElementById('pageTitle').textContent = PAGE_INFO[tab].title;
   document.getElementById('pageSubtitle').textContent = PAGE_INFO[tab].subtitle;
   fecharSidebarMobile();
   if (!opts || !opts.semHash) {
     history.replaceState(null, '', '#' + tab);
   }
-  if (tab === 'dashboard') renderDashboard();
   if (tab === 'favoritos') renderFavoritos();
-  if (tab === 'gerador') abrirGerador();
-  if (tab === 'extrair') abrirExtrair();
+  if (tab === 'disparo') abrirDisparo();
   renderAbasCopys();
 }
 
 function abrirTabDaHash() {
   const tab = (location.hash || '').replace('#', '');
-  if (PAGE_INFO[tab]) irParaTab(tab, { semHash: true });
+  if (PAGE_INFO[tab] || tab === 'gerador' || tab === 'extrair') irParaTab(tab, { semHash: tab !== 'gerador' && tab !== 'extrair' });
 }
 
 function abrirSidebarMobile() { document.getElementById('sidebar').classList.add('open'); document.getElementById('scrim').classList.add('show'); }
@@ -917,59 +701,6 @@ function configurarNav() {
   document.getElementById('scrim').addEventListener('click', fecharSidebarMobile);
 }
 
-function configurarConfigModal() {
-  const backdrop = document.getElementById('modalBackdrop');
-  document.getElementById('btnAbrirConfig').addEventListener('click', () => {
-    const cfg = getConfig();
-    document.getElementById('appsScriptUrlInput').value = cfg.sheetsUrl || '';
-    document.getElementById('openRouterKeyInput').value = cfg.openrouterKey || '';
-    document.getElementById('openRouterModelInput').value = cfg.openrouterModel || '';
-    backdrop.classList.add('open');
-  });
-  document.getElementById('btnFecharConfig').addEventListener('click', () => backdrop.classList.remove('open'));
-  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) backdrop.classList.remove('open'); });
-
-  document.getElementById('btnSalvarConfigHeader').addEventListener('click', () => {
-    salvarConfig({
-      sheetsUrl: document.getElementById('appsScriptUrlInput').value.trim(),
-      openrouterKey: document.getElementById('openRouterKeyInput').value.trim(),
-      openrouterModel: document.getElementById('openRouterModelInput').value.trim() || CONFIG_PADRAO.openrouterModel
-    });
-    mostrarMsgConfig('Configurações salvas!', 'ok');
-    toast('Configurações salvas.');
-  });
-
-  document.getElementById('btnTestarConfig').addEventListener('click', async () => {
-    const key = document.getElementById('openRouterKeyInput').value.trim();
-    if (!key) { mostrarMsgConfig('Cole a API Key do OpenRouter primeiro.', 'erro'); return; }
-    const btn = document.getElementById('btnTestarConfig');
-    btn.disabled = true;
-    btn.textContent = 'Testando…';
-    try {
-      const modelo = document.getElementById('openRouterModelInput').value.trim() || CONFIG_PADRAO.openrouterModel;
-      const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: modelo, messages: [{ role: 'user', content: 'Responda apenas "OK".' }], max_tokens: 10 })
-      });
-      if (resp.ok) mostrarMsgConfig('IA conectada! Modelo: ' + modelo, 'ok');
-      else { const err = await resp.json().catch(() => ({})); mostrarMsgConfig('Erro: ' + (err.error?.message || resp.status), 'erro'); }
-    } catch (err) {
-      mostrarMsgConfig('Falha: ' + err.message, 'erro');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Testar IA';
-    }
-  });
-}
-function mostrarMsgConfig(texto, tipo) {
-  const el = document.getElementById('msgConfig');
-  el.textContent = texto;
-  el.className = 'msg-config ' + (tipo === 'ok' ? 'ok' : 'erro');
-  el.classList.remove('hidden');
-  setTimeout(() => el.classList.add('hidden'), 4000);
-}
-
 // ═══════════════════════════════════════════════ MINERADAS ═══
 
 function configurarMineradas() {
@@ -979,6 +710,11 @@ function configurarMineradas() {
   document.getElementById('filtroTipoMineradas').addEventListener('change', () => { paginaMineradas = 1; aplicarFiltroMineradas(); });
   document.getElementById('buscaModelos').addEventListener('input', renderAbasCopys);
   configurarCalendario();
+  document.getElementById('btnFiltrosCopys').addEventListener('click', (e) => {
+    const bar = e.currentTarget.closest('.cp-toolbar');
+    const aberto = bar.classList.toggle('filtros-abertos');
+    e.currentTarget.setAttribute('aria-expanded', aberto);
+  });
   document.getElementById('ordemCopys').addEventListener('change', (e) => { ordemCopys = e.target.value; aplicarFiltroMineradas(); });
   document.getElementById('periodoCopys').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-periodo]');
@@ -1006,6 +742,7 @@ function configurarMineradas() {
 
 // Faixa de modelos (fotos da Privacy) e de categorias (contagem respeita a modelo escolhida)
 let avataresModelos = {};
+function nomeModelo(m) { return String(m || '').toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (x, a, b) => a + b.toUpperCase()); }
 function normTexto(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
 function renderAbasCopys() {
   const selModelo = document.getElementById('filtroModeloMineradas');
@@ -1018,9 +755,11 @@ function renderAbasCopys() {
   const vistos = new Set();
   todasMineradas.forEach((c) => { const k = chaveCopy(c); if (vistos.has(k)) return; vistos.add(k); contagem[c.modelo] = (contagem[c.modelo] || 0) + 1; });
   const modelos = [...selModelo.options].map((o) => o.value).filter(Boolean)
+    .filter((m) => (contagem[m] || 0) > 0 || m === selModelo.value)
     .filter((m) => !termo || normTexto(m).includes(termo) || m === selModelo.value)
     .sort((x, y) => (contagem[y] || 0) - (contagem[x] || 0) || x.localeCompare(y));
-  const item = (valor, nome, qtd, ativa) => {
+  const item = (valor, nomeOrig, qtd, ativa) => {
+    const nome = valor ? nomeModelo(nomeOrig) : nomeOrig;
     const foto = valor && avataresModelos[valor];
     return `<button type="button" class="sb-modelo ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}" role="listitem" title="${escAttr(nome)}" ${ativa ? 'aria-current="true"' : ''}>
       <span class="sb-av" style="--cor:${valor ? corAvatar(nome) : 'var(--accent)'}">${valor ? esc(iniciais(nome)) : '✦'}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
@@ -1037,7 +776,7 @@ function renderAbasCopys() {
   lista.querySelectorAll('.sb-av img').forEach((img) => { img.onerror = () => img.remove(); });
   document.getElementById('sbTotalModelos').textContent = Object.keys(contagem).length || '';
   const sub = document.getElementById('pageSubtitle');
-  if (copysAtivo && sub) sub.textContent = selModelo.value ? `Copys de ${selModelo.value}` : PAGE_INFO.mineradas.subtitle;
+  if (copysAtivo && sub) sub.textContent = selModelo.value ? `Copys de ${nomeModelo(selModelo.value)}` : PAGE_INFO.mineradas.subtitle;
 
   const daModelo = todasMineradas.filter((c) => !selModelo.value || c.modelo === selModelo.value);
   renderHeroCopys(selModelo.value, daModelo, contagem);
@@ -1069,7 +808,7 @@ function renderHeroCopys(modelo, daModelo, contagem) {
   let ident;
   if (modelo) {
     ident = `${av(modelo, 'cp-hero-av')}
-      <div class="cp-hero-txt"><span class="cp-hero-eyebrow">Modelo</span><h2 class="cp-hero-nome">${esc(modelo)}</h2></div>`;
+      <div class="cp-hero-txt"><span class="cp-hero-eyebrow">Modelo</span><h2 class="cp-hero-nome">${esc(nomeModelo(modelo))}</h2></div>`;
   } else {
     const top = Object.entries(contagem).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([m]) => m);
     ident = `<div class="cp-hero-pilha">${top.map((m) => av(m, 'cp-hero-av mini')).join('')}</div>
@@ -1085,7 +824,7 @@ function renderHeroCopys(modelo, daModelo, contagem) {
     ${modelo ? `<button type="button" class="cp-hero-gerar" id="cpHeroGerar">🎲 Gerar copys dela</button>` : ''}`;
   hero.querySelectorAll('img').forEach((img) => { img.onerror = () => img.remove(); });
   const btn = document.getElementById('cpHeroGerar');
-  if (btn) btn.addEventListener('click', () => { grModelo = modelo; trocouModeloGerador(); irParaTab('gerador'); });
+  if (btn) btn.addEventListener('click', () => { grModelo = modelo; trocouModeloGerador(); dpModo = 'sortear'; irParaTab('disparo'); });
 }
 
 async function carregarMineradas() {
@@ -1129,13 +868,12 @@ function aplicarDadosMineradas(copys, modelosServidor) {
   const modelos = modelosServidor || [...new Set(todasMineradas.map((c) => c.modelo).filter(Boolean))].sort();
   preencherSelect('filtroModeloMineradas', 'Todas as modelos', modelos);
   preencherSelect('filtroTipoMineradas', 'Todos os tipos', [...new Set(todasMineradas.map((c) => c.tipo).filter(Boolean))].sort());
+  const porModelo = copysPorModeloContagem();
   const pill = document.getElementById('pillCopys');
-  pill.textContent = `${todasMineradas.length} copys · ${modelos.length} modelos`;
+  pill.textContent = `${porModelo.reduce((t, [, n]) => t + n, 0)} copys · ${porModelo.length} modelos`;
   pill.hidden = false;
   aplicarFiltroMineradas();
-  renderDashboard();
-  if (document.getElementById('tab-gerador').classList.contains('active')) abrirGerador();
-  if (document.getElementById('tab-extrair').classList.contains('active')) abrirExtrair();
+  if (document.getElementById('tab-disparo').classList.contains('active')) abrirDisparo();
 }
 
 // Repopula um <select> mantendo o valor escolhido, se ainda existir
@@ -1318,6 +1056,8 @@ function aplicarFiltroMineradas() {
   else mineradasFiltradas.sort(porData);
 
   limiteCopys = PASSO_COPYS;
+  const dot = document.querySelector('.cp-filtros-dot');
+  if (dot) dot.hidden = periodoCopys === 'tudo' && ordemCopys === 'recentes';
   renderMineradas();
 }
 
@@ -1396,7 +1136,7 @@ function cardCopyModeloHtml(c, mostrarModelo) {
   const longa = texto.length > 300 || (texto.match(/\n/g) || []).length > 6;
   return `<article class="copy-item ${nova ? 'is-nova' : ''}" style="--cat:${cor}">
     <header class="copy-item-top">
-      ${mostrarModelo ? `<span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(c.modelo || '')}">${esc(iniciais(c.modelo))}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>${esc((c.modelo || '').split(/\s+/)[0])}</span>` : ''}
+      ${mostrarModelo ? `<span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(c.modelo || '')}">${esc(iniciais(c.modelo))}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>${esc(nomeModelo(c.modelo).split(/\s+/)[0])}</span>` : ''}
       <span class="copy-item-cat">${esc(c.tipo || '')}</span>
       ${nova ? '<span class="copy-item-nova">nova</span>' : ''}
       ${preco ? `<span class="copy-item-preco">${preco}</span>` : ''}
@@ -1407,17 +1147,6 @@ function cardCopyModeloHtml(c, mostrarModelo) {
       <span class="copy-item-data">${esc(c.hora || dataCurtaCopy(c.data))}${c.vezes > 1 ? `<span class="copy-item-vezes" title="Mandou essa mesma copy ${c.vezes} vezes">enviada ${c.vezes}×</span>` : ''}</span>
       <div class="copy-item-acoes">
         ${botaoFavHtml(texto, 'minerada', c.tipo)}
-        <div class="ia-wrap" title="Reescrever com IA">
-          <button class="icon-btn btn-reescrever" data-texto="${escAttr(texto)}">✨</button>
-          <select class="select-estilo-ia" data-texto="${escAttr(texto)}">
-            <option value="">Estilo…</option>
-            <option value="romantica">Romântica</option>
-            <option value="safada">Safada</option>
-            <option value="ego">Quebra de Ego</option>
-            <option value="controle">Controle</option>
-            <option value="curta">Mais curta</option>
-          </select>
-        </div>
         <button type="button" class="copy-item-copiar" data-texto="${escAttr(texto)}"><span aria-hidden="true">⧉</span> Copiar</button>
       </div>
     </footer>
@@ -1449,8 +1178,6 @@ function ligarEventosCopyItem(container) {
 
 function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA, origem, origemFav, custom, nova }) {
   const cor = COR_TIPO[tag] || 'var(--accent)';
-  const idFeedback = hashTexto(texto);
-  const avaliacao = feedbackCopy[idFeedback];
   return `<div class="copy-card ${nova ? 'copy-card-nova' : ''}" data-origem="${origem}">
     <div class="copy-card-header">
       ${nova ? '<span class="tag-nova">Nova</span>' : ''}
@@ -1462,20 +1189,7 @@ function cardCopyHtml({ texto, tag, modelo, categoria, icone, data, preco, comIA
       <span class="copy-card-meta">${preco ? `<b>${esc(preco)}</b> · ` : ''}${data ? esc(data) : ''}</span>
       <div class="copy-card-actions">
         ${custom ? `<button class="icon-btn btn-del-custom" title="Apagar" data-texto="${escAttr(texto)}">🗑</button>` : ''}
-        ${comIA ? `<button class="icon-btn btn-avaliar ${avaliacao === 'boa' ? 'avaliacao-boa' : ''}" title="Marcar como boa (treina a IA)" data-texto="${escAttr(texto)}" data-avaliacao="boa">👍</button>
-        <button class="icon-btn btn-avaliar ${avaliacao === 'ruim' ? 'avaliacao-ruim' : ''}" title="Marcar como ruim" data-texto="${escAttr(texto)}" data-avaliacao="ruim">👎</button>` : ''}
         ${botaoFavHtml(texto, origemFav || origem, categoria || tag)}
-        ${comIA ? `<div class="ia-wrap" title="Reescrever com IA">
-          <button class="icon-btn btn-reescrever" data-texto="${escAttr(texto)}">✨</button>
-          <select class="select-estilo-ia" data-texto="${escAttr(texto)}">
-            <option value="">Estilo…</option>
-            <option value="romantica">Romântica</option>
-            <option value="safada">Safada</option>
-            <option value="ego">Quebra de Ego</option>
-            <option value="controle">Controle</option>
-            <option value="curta">Mais curta</option>
-          </select>
-        </div>` : ''}
         <button class="icon-btn btn-copiar" title="Copiar" data-texto="${escAttr(texto)}">📋</button>
       </div>
     </div>
@@ -1486,162 +1200,6 @@ function ligarEventosCard(container) {
   container.querySelectorAll('.btn-copiar').forEach((btn) => btn.addEventListener('click', () => {
     copiarTexto(btn.dataset.texto).then(() => { toast('Copy copiada!'); btn.textContent = '✅'; setTimeout(() => (btn.textContent = '📋'), 1400); });
   }));
-  container.querySelectorAll('.btn-avaliar').forEach((btn) => btn.addEventListener('click', () => {
-    avaliarCopy(btn.dataset.texto, btn.dataset.avaliacao);
-    if (btn.dataset.avaliacao === 'ruim') {
-      const card = btn.closest('.copy-card');
-      if (card) { card.style.transition = 'opacity 0.3s ease'; card.style.opacity = '0'; setTimeout(() => card.remove(), 300); }
-    }
-  }));
-  container.querySelectorAll('.btn-reescrever').forEach((btn) => btn.addEventListener('click', () => reescreverCopy(btn.dataset.texto, 'safada', btn)));
-  container.querySelectorAll('.select-estilo-ia').forEach((sel) => sel.addEventListener('change', () => {
-    if (sel.value) { const btn = sel.closest('.ia-wrap').querySelector('.btn-reescrever'); reescreverCopy(sel.dataset.texto, sel.value, btn); sel.value = ''; }
-  }));
-}
-
-// ═══════════════════════════════════════════════ REESCREVER COPY (IA, usado nos cards) ═══
-
-async function reescreverCopy(texto, estilo, btnEl) {
-  const cfg = getConfig();
-  if (!cfg.openrouterKey) { toast('Configure sua API Key do OpenRouter nas Configurações.'); document.getElementById('modalBackdrop').classList.add('open'); return; }
-
-  const original = btnEl.textContent;
-  btnEl.disabled = true;
-  btnEl.textContent = '…';
-
-  try {
-    const resultado = await chamarOpenRouter([
-      { role: 'system', content: montarPromptBase() },
-      { role: 'user', content: (ESTILOS_REESCRITA[estilo] || ESTILOS_REESCRITA.safada) + '\n\nCopy original:\n' + texto }
-    ], { maxTokens: tokensParaComprimento(1) });
-    mostrarResultadoIA(btnEl, texto, resultado.trim());
-  } catch (err) {
-    toast('Erro IA: ' + err.message);
-  } finally {
-    btnEl.disabled = false;
-    btnEl.textContent = original;
-  }
-}
-
-function mostrarResultadoIA(btnEl, original, resultado) {
-  const card = btnEl.closest('.copy-card, .copy-item');
-  const antigo = card.querySelector('.ia-resultado');
-  if (antigo) antigo.remove();
-
-  const div = document.createElement('div');
-  div.className = 'ia-resultado';
-  div.innerHTML = `<div class="ia-resultado-header">✨ Reescrita pela IA</div>
-    <div class="ia-resultado-texto">${esc(resultado)}</div>
-    <div class="ia-resultado-acoes">
-      <button class="btn btn-sm btn-primary btn-copiar-ia">Copiar</button>
-      <button class="btn btn-sm btn-ghost btn-ia-fechar">Fechar</button>
-    </div>`;
-  card.appendChild(div);
-  div.querySelector('.btn-copiar-ia').addEventListener('click', () => copiarTexto(resultado).then(() => toast('Copy copiada!')));
-  div.querySelector('.btn-ia-fechar').addEventListener('click', () => div.remove());
-}
-
-// ═══════════════════════════════════════════════ OPENROUTER ═══
-
-// Parte editável do prompt (aba Treinar IA). O resto (persona, configurações, regras aprendidas) é montado em volta.
-const PROMPT_BASE_PADRAO = 'Você é uma chatter profissional que escreve copys de disparo e mensagens pra atrair, engajar e converter leads em compradores de conteúdo exclusivo.\n\n'
-  + 'REGRAS DE ESTILO:\n'
-  + '- Escreva como pessoa real mandando mensagem, nunca como robô/marketing.\n'
-  + '- Linguagem informal brasileira.\n'
-  + '- Nunca marcar encontro presencial, nunca pedir pagamento direto (use sempre lógica de "mimo"), nunca dar dados pessoais reais.\n'
-  + '- Proibido usar: "imperdível", "última chance", "não perca", "primo", superlativos exagerados.\n'
-  + '- Proibido incluir rótulos, títulos, aspas ou comentários antes/depois da copy — responda só com a mensagem pura.\n'
-  + '- Toda copy deve terminar gerando curiosidade.';
-
-let promptBaseEquipe = null; // { texto, atualizadoPor, timestamp } vindo do Firestore; null = usa o padrão
-
-function promptBaseAtual() {
-  return (promptBaseEquipe && promptBaseEquipe.texto && promptBaseEquipe.texto.trim()) || PROMPT_BASE_PADRAO;
-}
-
-function montarPromptBase() {
-  const cfg = getConfig();
-  const persona = (cfg.persona || '').trim();
-  const arquetipo = TIPO_PERSONA_DESC[cfg.personaTipo] || '';
-  const comprimento = COMPRIMENTO_DESC[cfg.comprimento] || COMPRIMENTO_DESC.medio;
-  const emoji = EMOJI_DESC[cfg.emoji] || EMOJI_DESC['2'];
-  const tom = TOM_DESC[cfg.tom] || TOM_DESC.natural;
-  const abrev = ABREV_DESC[cfg.abreviacoes] || ABREV_DESC.sim;
-
-  let bloco = promptBaseAtual() + '\n\n';
-
-  if (persona || arquetipo) {
-    bloco += 'PERSONA:\n';
-    if (persona) bloco += '- ' + persona + '\n';
-    if (arquetipo) bloco += '- Arquétipo: ' + arquetipo + '\n';
-    bloco += '\n';
-  }
-
-  bloco += 'CONFIGURAÇÃO DESTA COPY (obrigatório):\n'
-    + '- ' + comprimento + '\n'
-    + '- ' + tom + '\n'
-    + '- ' + abrev + '\n'
-    + '- ' + emoji + '\n'
-    + '- A persona é sempre uma mulher adulta (18+). Nunca sugira que ela ou o lead seja menor de idade.';
-
-  if (regrasIA.length) {
-    bloco += '\n\nREGRAS APRENDIDAS DA EQUIPE (siga à risca, têm prioridade sobre o estilo genérico acima):\n'
-      + regrasIA.slice(0, 15).map((r) => '- ' + r.texto).join('\n');
-  }
-
-  return bloco;
-}
-
-// ═══════════════════════════════════════════════ PROMPT BASE (Treinar IA) ═══
-// Fica em config/prompt_base; se as regras do Firestore não liberarem "config", usa metricas/prompt_base.
-
-let refPromptBase = null;
-let unsubPromptBase = null;
-
-function iniciarFeedPromptBase(usarReserva) {
-  if (unsubPromptBase) unsubPromptBase();
-  refPromptBase = usarReserva ? db.collection('metricas').doc('prompt_base') : db.collection('config').doc('prompt_base');
-  unsubPromptBase = refPromptBase.onSnapshot((doc) => {
-    promptBaseEquipe = doc.exists ? doc.data() : null;
-  }, (err) => {
-    console.warn('[prompt_base]', err.message);
-    if (!usarReserva) iniciarFeedPromptBase(true);
-  });
-}
-
-
-
-
-
-async function chamarOpenRouter(mensagens, opts) {
-  const cfg = getConfig();
-  if (!cfg.openrouterKey) throw new Error('Configure sua API Key do OpenRouter nas Configurações.');
-  const modelo = opts?.modelo || cfg.openrouterModel || CONFIG_PADRAO.openrouterModel;
-
-  const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: 'Bearer ' + cfg.openrouterKey,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': window.location.href,
-      'X-Title': 'Synora Copys'
-    },
-    body: JSON.stringify({
-      model: modelo,
-      messages: mensagens,
-      max_tokens: opts?.maxTokens || 400,
-      temperature: opts?.temperature ?? 0.9
-    })
-  });
-  if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error?.message || 'Erro ' + resp.status + ' no OpenRouter'); }
-  const data = await resp.json();
-  let texto = data.choices?.[0]?.message?.content || '';
-  if (opts?.cru) return texto;
-  texto = texto.replace(/^(ABERTURA\s+(ROMÂNTICA|SAFADA|DE CONTROLE)|QUEBRA DE EGO|Bom dia|Conteúdo exclusivo)\s*[—:\-]+\s*/gim, '');
-  // Tira rótulo tipo "Copy:" e aspas em volta da mensagem inteira, que alguns modelos insistem em colocar
-  texto = texto.trim().replace(/^(copy|mensagem|resposta)\s*\d*\s*:\s*/i, '');
-  if (/^["“][\s\S]*["”]$/.test(texto) && !/["“”]/.test(texto.slice(1, -1))) texto = texto.slice(1, -1);
-  return texto;
 }
 
 // ═══════════════════════════════════════════════ GERADOR DE COPYS ═══
@@ -1774,7 +1332,7 @@ function abrirGerador() {
   if (!modelos.length) { sel.innerHTML = '<option>Carregando…</option>'; document.getElementById('grCats').innerHTML = ''; renderGeradorSaida(); return; }
   const daBarra = document.getElementById('filtroModeloMineradas').value;
   if (!grModelo || !contagem[grModelo]) { grModelo = (daBarra && contagem[daBarra]) ? daBarra : modelos[0]; trocouModeloGerador(); }
-  sel.innerHTML = modelos.map((m) => `<option value="${escAttr(m)}" ${m === grModelo ? 'selected' : ''}>${esc(m)} · ${contagem[m]} copys</option>`).join('');
+  sel.innerHTML = modelos.map((m) => `<option value="${escAttr(m)}" ${m === grModelo ? 'selected' : ''}>${esc(nomeModelo(m))} · ${contagem[m]} copys</option>`).join('');
   const foto = avataresModelos[grModelo];
   document.getElementById('grAvatar').innerHTML = `<span class="gr-av" style="--cor:${corAvatar(grModelo)}">${esc(iniciais(grModelo))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
   document.querySelectorAll('#grAvatar img').forEach((img) => { img.onerror = () => img.remove(); });
@@ -1827,7 +1385,7 @@ function renderGeradorSaida() {
   if (!grItens.length) {
     box.innerHTML = `<div class="gr-vazio">
       <span class="gr-vazio-ico" aria-hidden="true">🎲</span>
-      <strong>${grModelo ? `Pronto pra sortear as copys de ${esc(grModelo.split(/\s+/)[0])}` : 'Carregando as modelos…'}</strong>
+      <strong>${grModelo ? `Pronto pra sortear as copys de ${esc(nomeModelo(grModelo).split(/\s+/)[0])}` : 'Carregando as modelos…'}</strong>
       <p>Escolha as categorias e clique em <b>Sortear copys</b>. Elas vêm prontas pro campo <b>✏️ Mensagens</b>: uma por bloco, com linha em branco entre elas.</p>
     </div>`;
     return;
@@ -1835,7 +1393,7 @@ function renderGeradorSaida() {
   const n = grItens.length;
   const txt = textoGerador();
   box.innerHTML = `<div class="gr-res-head">
-      <div class="gr-res-titulo"><strong>${n} ${n === 1 ? 'copy' : 'copys'}</strong><span>de <b>${esc(grModelo)}</b></span></div>
+      <div class="gr-res-titulo"><strong>${n} ${n === 1 ? 'copy' : 'copys'}</strong><span>de <b>${esc(nomeModelo(grModelo))}</b></span></div>
       <div class="segmentado gr-vista" role="group" aria-label="Ver como">
         <button type="button" data-vista="lista" class="${grVista === 'lista' ? 'ativo' : ''}">Lista</button>
         <button type="button" data-vista="texto" class="${grVista === 'texto' ? 'ativo' : ''}">Texto final</button>
@@ -2036,7 +1594,7 @@ function abrirExtrair() {
   if (!contagem.length) { sel.innerHTML = '<option>Carregando…</option>'; document.getElementById('exCats').innerHTML = ''; renderExtrairSaida(); return; }
   if (exModelo && !contagem.some(([m]) => m === exModelo)) exModelo = '';
   sel.innerHTML = `<option value="">Todas as modelos · ${contagem.reduce((t, [, n]) => t + n, 0)} copys</option>`
-    + contagem.map(([m, n]) => `<option value="${escAttr(m)}" ${m === exModelo ? 'selected' : ''}>${esc(m)} · ${n} copys</option>`).join('');
+    + contagem.map(([m, n]) => `<option value="${escAttr(m)}" ${m === exModelo ? 'selected' : ''}>${esc(nomeModelo(m))} · ${n} copys</option>`).join('');
   exCache = null;
   renderExtrairFiltros();
   renderExtrairSaida();
@@ -2063,7 +1621,7 @@ function renderExtrairSaida() {
   const { lista, escondidas } = copysExtrair();
   if (!exCache) exCache = ordenarExtrair(filtrarExtrair(lista));
   const itens = exCache;
-  const quem = exModelo ? `<b>${esc(exModelo)}</b>` : 'todas as modelos';
+  const quem = exModelo ? `<b>${esc(nomeModelo(exModelo))}</b>` : 'todas as modelos';
   if (!itens.length) {
     box.innerHTML = `<div class="gr-vazio"><span class="gr-vazio-ico" aria-hidden="true">⇩</span><strong>Nenhuma copy com esses filtros</strong><p>Tente outro período ou marque mais categorias.</p></div>`;
     return;
@@ -2132,69 +1690,22 @@ function configurarExtrair() {
   });
 }
 
-// ═══════════════════════════════════════════════ DASHBOARD ═══
+// ═══════════════════════════════════════════════ DISPARO (Sortear / Todas) ═══
 
-function renderDashboard() {
-  const totalMineradas = todasMineradas.length;
-  const totalFavoritas = favoritos.length;
-  const modelos = new Set(todasMineradas.map((c) => c.modelo)).size;
-
-  document.getElementById('kpiMineradas').textContent = totalMineradas;
-  document.getElementById('kpiFavoritas').textContent = totalFavoritas;
-  document.getElementById('kpiModelos').textContent = modelos;
-
-  // Bar chart por tipo
-  const porTipo = {};
-  todasMineradas.forEach((c) => { if (c.tipo) porTipo[c.tipo] = (porTipo[c.tipo] || 0) + 1; });
-  const tipos = Object.entries(porTipo).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const maxTipo = tipos.length ? tipos[0][1] : 1;
-  const chartEl = document.getElementById('chartTipos');
-  chartEl.innerHTML = tipos.length ? tipos.map(([tipo, count]) => `
-    <div class="bar-row">
-      <span class="bar-row-label">${esc(tipo)}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.round((count / maxTipo) * 100)}%;background:${COR_TIPO[tipo] || 'var(--accent)'}"></div></div>
-      <span class="bar-row-count">${count}</span>
-    </div>`).join('') : '<p class="empty-hint">Carregue as copys mineradas para ver o gráfico.</p>';
-
-  // Top modelos
-  const porModelo = {};
-  todasMineradas.forEach((c) => { if (c.modelo) porModelo[c.modelo] = (porModelo[c.modelo] || 0) + 1; });
-  const topModelos = Object.entries(porModelo).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  document.getElementById('topModelos').innerHTML = topModelos.length ? topModelos.map(([nome, count], i) => `
-    <div class="rank-item"><span class="rank-pos">${i + 1}</span><span class="rank-name">${esc(nome)}</span><span class="rank-count">${count}</span></div>`).join('')
-    : '<p class="empty-hint">Nenhum dado ainda.</p>';
-
-  // Mais copiadas
-  const topCopiadas = Object.entries(copyCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  document.getElementById('maisCopiadas').innerHTML = topCopiadas.length ? topCopiadas.map(([texto, count], i) => `
-    <div class="rank-item"><span class="rank-pos">${i + 1}</span><span class="rank-name" title="${escAttr(texto)}">${esc(texto)}</span><span class="rank-count">${count}×</span></div>`).join('')
-    : '<p class="empty-hint">Copie alguma copy pra aparecer aqui.</p>';
-
-  // Atividade recente
-  const recentes = [...todasMineradas].filter((c) => c.data).sort((a, b) => new Date(b.data) - new Date(a.data)).slice(0, 8);
-  document.getElementById('atividadeRecente').innerHTML = recentes.length ? recentes.map((c) => `
-    <div class="activity-item"><span class="activity-dot"></span>
-      <div><div class="activity-text"><b>${esc(c.modelo || '—')}</b> · ${esc(c.tipo || 'Outro')}</div><div class="activity-meta">${esc(formatarData(c.data))}</div></div>
-    </div>`).join('') : '<p class="empty-hint">Nenhuma atividade recente.</p>';
-
-  // Métricas de IA (compartilhadas via Firestore)
-  const geradas = metricasGlobais.copysGeradas || 0;
-  const copiadas = metricasGlobais.copysCopiadas || 0;
-  document.getElementById('kpiCopysGeradas').textContent = geradas;
-  document.getElementById('kpiCopysCopiadas').textContent = copiadas;
-  document.getElementById('kpiTaxaUso').textContent = geradas ? Math.round((copiadas / geradas) * 100) + '%' : '0%';
-  const porHora = metricasGlobais.porHora || {};
-  const horas = Object.entries(porHora).sort((a, b) => b[1] - a[1]);
-  document.getElementById('kpiMelhorHorario').textContent = horas.length ? horas[0][0] + 'h' : '—';
-
-  const totalBoa = Object.values(feedbackCopy).filter((v) => v === 'boa').length;
-  const totalRuim = Object.values(feedbackCopy).filter((v) => v === 'ruim').length;
-  const totalFeedback = totalBoa + totalRuim;
-  const pctBoa = totalFeedback ? Math.round((totalBoa / totalFeedback) * 100) : 0;
-  document.getElementById('feedbackPctBoa').textContent = pctBoa + '%';
-  document.getElementById('feedbackPctRuim').textContent = (totalFeedback ? 100 - pctBoa : 0) + '%';
-  document.getElementById('feedbackBarBoa').style.width = pctBoa + '%';
-  document.getElementById('feedbackBarBoa').parentElement.classList.toggle('vazia', !totalFeedback);
+let dpModo = (() => { try { return localStorage.getItem('disparo_modo') === 'todas' ? 'todas' : 'sortear'; } catch (e) { return 'sortear'; } })();
+function abrirDisparo() {
+  document.querySelectorAll('#dpModo button').forEach((b) => { const on = b.dataset.modo === dpModo; b.classList.toggle('ativo', on); b.setAttribute('aria-pressed', on); });
+  document.getElementById('dpSortear').hidden = dpModo !== 'sortear';
+  document.getElementById('dpTodas').hidden = dpModo !== 'todas';
+  if (dpModo === 'sortear') abrirGerador(); else abrirExtrair();
+}
+function configurarDisparo() {
+  document.getElementById('dpModo').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-modo]'); if (!b) return;
+    dpModo = b.dataset.modo;
+    try { localStorage.setItem('disparo_modo', dpModo); } catch (err) { /* ignora */ }
+    abrirDisparo();
+  });
 }
 
 // ═══════════════════════════════════════════════ INIT ═══
@@ -2203,14 +1714,12 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarLogin();
   configurarCriarAtendente();
   configurarNav();
-  configurarConfigModal();
   configurarMineradas();
   configurarGerador();
   configurarExtrair();
+  configurarDisparo();
   configurarFavoritos();
   configurarNovidades();
-
-  renderDashboard();
 
   carregarMineradasDoCache();
   carregarMineradas();
