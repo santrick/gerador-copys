@@ -752,24 +752,75 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     agOuvirFila(id);
   }
 
+  function agAvatarModelo(m) {
+    const foto = avataresModelos[m];
+    return `<span class="gr-av ag-av" style="--cor:${corAvatar(m)}">${esc(iniciais(m))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
+  }
+
+  // "Agenda de [modelo ▾]": botão com a modelo escolhida + lista pra trocar
   function agRenderModelos() {
-    const faixa = document.getElementById('agModelos');
-    if (!faixa) return;
-    const lista = copysPorModeloContagem();
-    if (!lista.length) { faixa.innerHTML = '<span class="ag-vazio">Carregando as modelos…</span>'; return; }
-    faixa.innerHTML = lista.map(([m, n]) => {
-      const foto = avataresModelos[m];
+    const lista = document.getElementById('agModelos');
+    const btn = document.getElementById('agModeloBtn');
+    if (!lista || !btn) return;
+    const modelos = copysPorModeloContagem();
+    btn.innerHTML = ag.modelo
+      ? `${agAvatarModelo(ag.modelo)}<span class="ag-modelo-nome">${esc(nomeModelo(ag.modelo))}</span><span class="ag-modelo-seta" aria-hidden="true">▾</span>`
+      : `<span class="ag-modelo-nome">${modelos.length ? 'Escolher modelo' : 'Carregando…'}</span><span class="ag-modelo-seta" aria-hidden="true">▾</span>`;
+    btn.disabled = !modelos.length;
+    lista.innerHTML = modelos.map(([m, n]) => {
       const on = m === ag.modelo;
-      return `<button type="button" class="gr2-mod ${on ? 'ativo' : ''}" data-ag-modelo="${escAttr(m)}" role="option" aria-selected="${on}" title="${escAttr(nomeModelo(m))}">
-        <span class="gr-av" style="--cor:${corAvatar(m)}">${esc(iniciais(m))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>
-        <span class="gr2-mod-txt"><b>${esc(nomeModelo(m).split(/\s+/)[0])}</b><small>${n} copys</small></span>
+      return `<button type="button" class="ag-modelo-op ${on ? 'on' : ''}" data-ag-modelo="${escAttr(m)}" role="option" aria-selected="${on}">
+        ${agAvatarModelo(m)}<span class="ag-modelo-op-txt"><b>${esc(nomeModelo(m))}</b><small>${n} copys</small></span>${on ? '<span class="ag-modelo-op-on">atual</span>' : ''}
       </button>`;
     }).join('');
-    faixa.querySelectorAll('img').forEach((img) => { img.onerror = () => img.remove(); });
-    const ativa = faixa.querySelector('.gr2-mod.ativo');
-    if (ativa && faixa.scrollWidth > faixa.clientWidth) {
-      faixa.scrollLeft = Math.max(0, ativa.offsetLeft - faixa.offsetLeft - 16);
+    document.querySelectorAll('#agModeloBtn img, #agModelos img').forEach((img) => { img.onerror = () => img.remove(); });
+  }
+
+  function agListaModelos(abrir) {
+    const lista = document.getElementById('agModelos');
+    const btn = document.getElementById('agModeloBtn');
+    if (!lista || !btn) return;
+    const vai = abrir === undefined ? lista.hidden : abrir;
+    lista.hidden = !vai;
+    btn.setAttribute('aria-expanded', String(vai));
+    if (vai) { const atual = lista.querySelector('.on') || lista.querySelector('button'); if (atual) atual.focus(); }
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.ag-sel-modelo')) { const l = document.getElementById('agModelos'); if (l && !l.hidden) agListaModelos(false); }
+  });
+  document.addEventListener('keydown', (e) => {
+    const l = document.getElementById('agModelos');
+    if (e.key === 'Escape' && l && !l.hidden) { agListaModelos(false); document.getElementById('agModeloBtn').focus(); }
+  });
+
+  // ═══════════════════════════════════════════════ ABAS ═══
+
+  const AG_ABAS = [['quando', '1 · Quando', 'Quando'], ['mensagens', '2 · Mensagens', 'Mensagens'], ['programar', '3 · Programar', 'Programar'], ['fila', 'Fila', 'Fila']];
+  function agAbaInicial() {
+    try { const v = sessionStorage.getItem('agenda_aba'); if (AG_ABAS.some(([id]) => id === v)) return v; } catch (e) { /* ignora */ }
+    return 'quando';
+  }
+  function agMostrarAba(id, rolar) {
+    if (!AG_ABAS.some(([x]) => x === id)) id = 'quando';
+    ag.aba = id;
+    try { sessionStorage.setItem('agenda_aba', id); } catch (e) { /* ignora */ }
+    document.querySelectorAll('#agRaiz [data-ag-aba]').forEach((b) => {
+      const on = b.dataset.agAba === id;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', String(on));
+    });
+    document.querySelectorAll('#agRaiz [data-painel]').forEach((p) => { p.hidden = p.dataset.painel !== id; });
+    if (rolar) {
+      const raiz = document.getElementById('agRaiz');
+      const topo = raiz.getBoundingClientRect().top;
+      if (topo < 0) window.scrollTo({ top: Math.max(0, window.scrollY + topo - 90) });
     }
+    if (id === 'mensagens' && !agAutoAlturaNativa) document.querySelectorAll('#agTimeline textarea[data-msg]').forEach(agAutoAltura);
+  }
+  function agContarFila() {
+    const n = (ag.fila || []).filter(d => String(d.status || 'pendente').toLowerCase() === 'pendente').length;
+    const el = document.getElementById('agFilaQtd');
+    if (el) { el.textContent = n ? `(${n})` : ''; el.hidden = !n; }
   }
 
   // ═══════════════════════════════════════════════ ESQUELETO ═══
@@ -783,16 +834,29 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   function agMontarEsqueleto(raiz) {
     ag.iniciado = true;
     raiz.innerHTML = `
-      <div class="gr2-modelos-wrap"><div class="gr2-modelos" id="agModelos" role="listbox" aria-label="Escolha a modelo"></div></div>
-      <div class="ag-cab"><span id="agTitulo">Agenda</span><span class="ag-salvo" id="agSalvo" aria-live="polite"></span></div>
+      <div class="ag-topo">
+        <div class="ag-topo-linha">
+          <span class="ag-de">Agenda de</span>
+          <div class="ag-sel-modelo">
+            <button type="button" class="ag-modelo-btn" id="agModeloBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="agModelos"></button>
+            <div class="ag-modelo-lista" id="agModelos" role="listbox" aria-label="Escolha a modelo" hidden></div>
+          </div>
+          <span class="ag-salvo" id="agSalvo" aria-live="polite"></span>
+        </div>
+        <p class="ag-ajuda">Cada modelo tem a própria agenda.</p>
+      </div>
+      <nav class="ag-abas" id="agAbas" role="tablist" aria-label="Partes da agenda">
+        ${AG_ABAS.map(([id, longo, curto]) => `<button type="button" role="tab" data-ag-aba="${id}"><span class="ag-aba-longo">${longo}</span><span class="ag-aba-curto">${curto}</span>${id === 'fila' ? ' <span class="ag-fila-qtd" id="agFilaQtd" hidden></span>' : ''}</button>`).join('')}
+      </nav>
       <div class="ag-aviso ag-aviso-perm" id="agAvisoPerm" hidden>${ico('alerta')}<span>A Agenda ainda não foi liberada no Firebase: o que você mudar aqui não fica salvo.</span></div>
 
-      <section class="ag-passo" id="agPasso1" aria-labelledby="agP1">
+      <section class="ag-passo" id="agPasso1" data-painel="quando" role="tabpanel" aria-labelledby="agP1">
         <header class="ag-passo-cab"><span class="ag-num">1</span><div><h2 id="agP1">Quando vai sair</h2><p>Escolha os dias e os horários dos disparos.</p></div></header>
         <div id="agQuando"></div>
+        <div class="ag-proximo"><button type="button" class="ag-btn" data-ag="aba" data-aba="mensagens">Próximo: Mensagens →</button></div>
       </section>
 
-      <section class="ag-passo" id="agPasso2" aria-labelledby="agP2">
+      <section class="ag-passo" id="agPasso2" data-painel="mensagens" role="tabpanel" aria-labelledby="agP2" hidden>
         <header class="ag-passo-cab"><span class="ag-num">2</span><div><h2 id="agP2">O que vai falar</h2><p>Uma mensagem pra cada horário. Gere com a IA, use copys reais dela ou escreva você mesmo.</p></div></header>
         <div class="ag-barra">
           <button type="button" class="ag-btn ag-btn-prim" id="agGerar" data-ag="gerar"></button>
@@ -807,9 +871,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         </div>
         <div class="ag-tl-info"><span class="ag-rot-dia">Mensagens por horário</span><span id="agMsgsInfo"></span></div>
         <div id="agTimeline"></div>
+        <div class="ag-proximo"><button type="button" class="ag-btn" data-ag="aba" data-aba="programar">Próximo: Programar →</button></div>
       </section>
 
-      <section class="ag-passo" id="agPasso3" aria-labelledby="agP3">
+      <section class="ag-passo" id="agPasso3" data-painel="programar" role="tabpanel" aria-labelledby="agP3" hidden>
         <header class="ag-passo-cab"><span class="ag-num">3</span><div><h2 id="agP3">Programar</h2><p>Confira e mande pra fila. A extensão agenda tudo na Privacy.</p></div></header>
         <p class="ag-frase" id="agResumoFrase"></p>
         <ul class="ag-avisos" id="agAvisos"></ul>
@@ -822,13 +887,15 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         </label>
         <p class="ag-status" id="agStatusProg" aria-live="polite" hidden></p>
         <button type="button" class="ag-btn ag-btn-prim ag-programar" id="agProgramar"></button>
-        <div class="ag-fila">
-          <h3>Fila</h3>
-          <p class="ag-dica">O que já foi mandado. A extensão pega daqui e agenda na Privacy.</p>
-          <div id="agFila"></div>
-        </div>
+        <p class="ag-dica-mini">Depois de mandar, acompanhe na aba <button type="button" class="ag-link" data-ag="aba" data-aba="fila">Fila</button>.</p>
+      </section>
+
+      <section class="ag-passo" id="agPassoFila" data-painel="fila" role="tabpanel" aria-labelledby="agPF" hidden>
+        <header class="ag-passo-cab"><div><h2 id="agPF">Fila</h2><p>O que já foi mandado. A extensão pega daqui e agenda na Privacy.</p></div></header>
+        <div id="agFila"></div>
       </section>
       <input type="file" id="agArquivo" accept=".json,application/json" hidden>`;
+    agMostrarAba(agAbaInicial());
     raiz.addEventListener('click', agClique);
     raiz.addEventListener('input', agDigitou);
     raiz.addEventListener('change', agMudou);
@@ -838,7 +905,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   function agRenderCorpo() {
     const quando = document.getElementById('agQuando');
     if (!quando) return;
-    document.getElementById('agTitulo').textContent = ag.modelo ? `Agenda da ${agPrimeiroNome(ag.modelo)}` : 'Agenda';
+    agRenderModelos();
     const conta = document.getElementById('agConta');
     const teste = document.getElementById('agTeste');
     if (!ag.cfg) {
@@ -1105,11 +1172,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   }
 
   function agIr(onde) {
-    if (onde === 'quando') {
-      const el = document.getElementById('agPasso1');
-      if (el) el.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    } else agAbrirGaveta(onde);
+    if (onde === 'quando') agMostrarAba('quando', true);
+    else agAbrirGaveta(onde);
   }
+
 
   // ═══════════════════════════════════════════════ PASSO 1: QUANDO (+ agitação) ═══
 
@@ -1805,6 +1871,7 @@ bom dia, vida! já acordou?"></textarea>
     if (ag.cfg === c) { agSalvar(); agFlushSalvar(); }
     registrarAtividade('Mandou disparos pra fila', `${modelo} · ${itens.length} disparos`);
     agFecharFolha();
+    agMostrarAba('fila', true);
     toast(c.teste ? 'Teste mandado pra fila' : `${itens.length} ${itens.length === 1 ? 'disparo mandado' : 'disparos mandados'} pra fila`);
     agStatus(`Na fila: a extensão agenda quando abrir a Privacy${c.contaPrivacy ? ` da @${c.contaPrivacy}` : ' dessa modelo'}.`, 'ok', 'prog');
     agRenderTudo();
@@ -1867,6 +1934,7 @@ bom dia, vida! já acordou?"></textarea>
   };
 
   function agRenderFila() {
+    agContarFila();
     const box = document.getElementById('agFila');
     if (!box) return;
     if (!ag.cfg && !ag.filaCarregada) { box.innerHTML = '<p class="ag-vazio">…</p>'; return; }
@@ -2004,13 +2072,17 @@ bom dia, vida! já acordou?"></textarea>
   function agClique(e) {
     const t = e.target;
     const mod = t.closest('[data-ag-modelo]');
-    if (mod) { if (mod.dataset.agModelo !== ag.modelo || !ag.cfg) agCarregarModelo(mod.dataset.agModelo); return; }
+    if (mod) { agListaModelos(false); if (mod.dataset.agModelo !== ag.modelo || !ag.cfg) agCarregarModelo(mod.dataset.agModelo); return; }
+    if (t.closest('#agModeloBtn')) { agListaModelos(); return; }
+    const abaBtn = t.closest('[data-ag-aba]');
+    if (abaBtn) { agMostrarAba(abaBtn.dataset.agAba); return; }
     if (t.closest('#agProgramar')) { agAbrirPrevia(); return; }
     const c = ag.cfg;
     const acaoEl = t.closest('[data-ag]');
     const acao = acaoEl && acaoEl.dataset.ag;
     if (acao === 'config') { agAbrirConfig(); return; }
     if (!c) return;
+    if (acao === 'aba') { agMostrarAba(acaoEl.dataset.aba, true); return; }
     if (acao === 'gaveta') { agAbrirGaveta(acaoEl.dataset.gaveta); return; }
     if (acao === 'ir') { agIr(acaoEl.dataset.ir); return; }
     if (acao === 'exportar') return agExportar();
