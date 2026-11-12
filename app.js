@@ -547,6 +547,7 @@ const PAGE_INFO = {
   mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto da Privacy' },
   gerador: { title: 'Gerador', subtitle: 'Sorteia copys da modelo prontas pro campo ✏️ Mensagens' },
   extrair: { title: 'Extrair', subtitle: 'Todas as copys de uma vez, no formato do disparo' },
+  agenda: { title: 'Agenda', subtitle: 'Planeje os disparos em massa da modelo' },
   favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou' },
   admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
 };
@@ -686,6 +687,7 @@ function irParaTab(tab, opts) {
   }
   if (tab === 'favoritos') renderFavoritos();
   if (dpAba(tab)) abrirDisparo();
+  if (tab === 'agenda' && typeof abrirAgenda === 'function') abrirAgenda();
   renderAbasCopys();
 }
 
@@ -978,6 +980,7 @@ function aplicarDadosMineradas(copys, modelosServidor) {
   pill.hidden = false;
   aplicarFiltroMineradas();
   if (document.getElementById('tab-disparo').classList.contains('active')) abrirDisparo();
+  if (abaAtual === 'agenda' && typeof abrirAgenda === 'function') abrirAgenda();
 }
 
 // Repopula um <select> mantendo o valor escolhido, se ainda existir
