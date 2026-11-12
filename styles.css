@@ -1724,3 +1724,8 @@ body::before {
   .gr-res-acoes, .gr-res-acoes .btn { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .gr-cat, .pl-btn { transition: none; } }
+
+/* Lista aberta dos <select>: no Windows o fundo das opções ficava branco com texto claro */
+select { color-scheme: dark; }
+select option, select optgroup { background-color: #17131f; color: #ecebf3; }
+select option:checked { background-color: #3b2163; color: #fff; }
