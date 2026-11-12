@@ -1562,3 +1562,35 @@ body::before {
 .cat-pill.ativo span { background: rgba(0,0,0,.22); }
 @media (max-width: 640px) { .faixa-seta { display: none; } .modelos-busca { width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .modelo-chip, .cat-pill { transition: none; } .modelos-faixa { scroll-behavior: auto; } }
+
+/* Aba Copys: cartão compacto */
+#listaMineradas.grid-copys { columns: 3 300px; column-gap: 14px; }
+#listaMineradas.grid-copys > * { margin-bottom: 14px; }
+.copy-item { break-inside: avoid; display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 12px 16px; border-radius: 14px; position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.015)); border: 1px solid var(--border); transition: border-color .18s, background .18s; }
+.copy-item::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 0 3px 3px 0; background: var(--cat); opacity: .85; }
+.copy-item:hover { border-color: color-mix(in srgb, var(--cat) 45%, transparent); background: rgba(255,255,255,.045); }
+.copy-item.is-nova { box-shadow: 0 0 0 1px rgba(52,211,153,.35); }
+.copy-item-top { display: flex; align-items: center; gap: 8px; min-height: 22px; font-size: 11.5px; color: var(--text-dim); }
+.copy-item-modelo { display: inline-flex; align-items: center; gap: 6px; color: var(--text); font-weight: 600; }
+.copy-item-av { position: relative; overflow: hidden; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 9px; font-weight: 700; color: #fff; background: var(--cor); flex: none; }
+.copy-item-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.copy-item-cat { display: inline-flex; align-items: center; gap: 6px; color: var(--cat); font-weight: 600; }
+.copy-item-cat::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cat); }
+.copy-item-nova { font-size: 10px; padding: 1px 7px; border-radius: 999px; background: rgba(52,211,153,.15); color: var(--green, #34d399); }
+.copy-item-preco { margin-left: auto; font-weight: 700; font-size: 12px; color: #34d399; background: rgba(52,211,153,.1); padding: 2px 9px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.copy-item-texto { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text); white-space: pre-line; overflow-wrap: anywhere; cursor: copy; }
+.copy-item-texto.is-longa:not(.is-aberta) { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.copy-item-mais { align-self: flex-start; margin-top: -6px; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; }
+.copy-item-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.copy-item-data { font-size: 11px; color: var(--text-dim); }
+.copy-item-acoes { display: flex; align-items: center; gap: 4px; }
+.copy-item-acoes .icon-btn { width: 30px; height: 30px; border-radius: 9px; background: transparent; border-color: transparent; opacity: .6; transition: opacity .15s, background .15s; }
+.copy-item:hover .copy-item-acoes .icon-btn, .copy-item-acoes .icon-btn.favorito-ativo { opacity: 1; }
+.copy-item-acoes .icon-btn:hover { background: rgba(255,255,255,.06); }
+.copy-item-copiar { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 9px; border: 1px solid rgba(168,85,247,.35); background: rgba(168,85,247,.12);
+  color: #e9d5ff; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.copy-item-copiar:hover { background: linear-gradient(135deg, var(--accent), var(--pink)); border-color: transparent; color: #fff; }
+.copy-item-copiar.ok { background: #34d399; border-color: transparent; color: #052e1f; }
+@media (max-width: 880px) { #listaMineradas.grid-copys { columns: 1; } .copy-item-acoes .icon-btn { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .copy-item, .copy-item-copiar, .copy-item-acoes .icon-btn { transition: none; } }

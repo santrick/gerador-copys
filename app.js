@@ -1297,12 +1297,11 @@ function renderMineradas() {
   const pagina = mineradasFiltradas.slice(inicio, inicio + POR_PAGINA);
   const totalPaginas = Math.ceil(mineradasFiltradas.length / POR_PAGINA);
 
-  container.innerHTML = pagina.map((c) => cardCopyHtml({
-    texto: c.mensagem, tag: c.tipo, modelo: c.modelo, data: formatarData(c.data), preco: c.preco, comIA: true, origem: 'minerada',
-    nova: novidades.mineradas.has(idMinerada(c))
-  })).join('');
+  const mostrarModelo = !document.getElementById('filtroModeloMineradas').value;
+  container.innerHTML = pagina.map((c) => cardCopyModeloHtml(c, mostrarModelo)).join('');
 
   ligarEventosCard(container);
+  ligarEventosCopyItem(container);
 
   if (totalPaginas > 1) {
     const pagDiv = document.createElement('div');
@@ -1313,6 +1312,88 @@ function renderMineradas() {
     if (ant) ant.addEventListener('click', () => { paginaMineradas--; renderMineradas(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
     if (prox) prox.addEventListener('click', () => { paginaMineradas++; renderMineradas(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   }
+}
+
+// ═══════════════════════════════════════════════ CARTÃO DA ABA COPYS ═══
+
+const COR_CATEGORIA = {
+  'PPV': '#34d399', 'Prévias': '#60a5fa', 'Boas-vindas': '#f472b6', 'Remarketing': '#fb923c', 'Expirados': '#f87171',
+  'Promoções': '#fbbf24', 'VIP': '#c084fc', 'Chamadas': '#38bdf8', 'Disparos em massa': '#a78bfa', 'Pós-venda': '#2dd4bf',
+  'Reengajamento': '#e879f9', 'Testes': '#94a3b8'
+};
+
+// "qua., 11/11/2026" -> "Hoje" / "Ontem" / "11/11"
+function dataCurtaCopy(valor) {
+  const m = String(valor || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!m) return formatarData(valor);
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dias = Math.round((hoje - d) / 86400000);
+  if (dias === 0) return 'Hoje';
+  if (dias === 1) return 'Ontem';
+  return m[3] === String(hoje.getFullYear()) ? `${m[1]}/${m[2]}` : `${m[1]}/${m[2]}/${m[3].slice(2)}`;
+}
+function precoCopy(v) {
+  const n = Number(v);
+  return n > 0 ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '';
+}
+
+function cardCopyModeloHtml(c, mostrarModelo) {
+  const texto = c.mensagem || '';
+  const cor = COR_CATEGORIA[c.tipo] || 'var(--accent)';
+  const foto = avataresModelos[c.modelo];
+  const nova = novidades.mineradas.has(idMinerada(c));
+  const preco = precoCopy(c.preco);
+  const longa = texto.length > 260 || (texto.match(/\n/g) || []).length > 5;
+  return `<article class="copy-item ${nova ? 'is-nova' : ''}" style="--cat:${cor}">
+    <header class="copy-item-top">
+      ${mostrarModelo ? `<span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(c.modelo || '')}">${esc(iniciais(c.modelo))}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>${esc((c.modelo || '').split(/\s+/)[0])}</span>` : ''}
+      <span class="copy-item-cat">${esc(c.tipo || '')}</span>
+      ${nova ? '<span class="copy-item-nova">nova</span>' : ''}
+      ${preco ? `<span class="copy-item-preco">${preco}</span>` : ''}
+    </header>
+    <p class="copy-item-texto ${longa ? 'is-longa' : ''}" title="Clique pra copiar">${esc(texto)}</p>
+    ${longa ? '<button type="button" class="copy-item-mais">ver tudo</button>' : ''}
+    <footer class="copy-item-bottom">
+      <span class="copy-item-data">${esc(dataCurtaCopy(c.data))}</span>
+      <div class="copy-item-acoes">
+        ${botaoFavHtml(texto, 'minerada', c.tipo)}
+        <div class="ia-wrap" title="Reescrever com IA">
+          <button class="icon-btn btn-reescrever" data-texto="${escAttr(texto)}">✨</button>
+          <select class="select-estilo-ia" data-texto="${escAttr(texto)}">
+            <option value="">Estilo…</option>
+            <option value="romantica">Romântica</option>
+            <option value="safada">Safada</option>
+            <option value="ego">Quebra de Ego</option>
+            <option value="controle">Controle</option>
+            <option value="curta">Mais curta</option>
+          </select>
+        </div>
+        <button type="button" class="copy-item-copiar" data-texto="${escAttr(texto)}"><span aria-hidden="true">⧉</span> Copiar</button>
+      </div>
+    </footer>
+  </article>`;
+}
+
+function ligarEventosCopyItem(container) {
+  const copiar = (texto, botao) => copiarTexto(texto).then(() => {
+    toast('Copy copiada!');
+    if (!botao) return;
+    botao.classList.add('ok'); botao.innerHTML = '✓ Copiada';
+    setTimeout(() => { botao.classList.remove('ok'); botao.innerHTML = '<span aria-hidden="true">⧉</span> Copiar'; }, 1400);
+  });
+  container.querySelectorAll('.copy-item-copiar').forEach((btn) => btn.addEventListener('click', () => copiar(btn.dataset.texto, btn)));
+  container.querySelectorAll('.copy-item-texto').forEach((p) => p.addEventListener('click', () => {
+    if (window.getSelection && String(window.getSelection()).length) return; // deixa selecionar trecho
+    const card = p.closest('.copy-item');
+    copiar(card.querySelector('.copy-item-copiar').dataset.texto, card.querySelector('.copy-item-copiar'));
+  }));
+  container.querySelectorAll('.copy-item-mais').forEach((btn) => btn.addEventListener('click', () => {
+    const p = btn.previousElementSibling;
+    const aberta = p.classList.toggle('is-aberta');
+    btn.textContent = aberta ? 'mostrar menos' : 'ver tudo';
+  }));
+  container.querySelectorAll('.copy-item-av img').forEach((img) => { img.onerror = () => img.remove(); });
 }
 
 // ═══════════════════════════════════════════════ CARD DE COPY (REUTILIZÁVEL) ═══
@@ -2270,7 +2351,7 @@ async function reescreverCopy(texto, estilo, btnEl) {
 }
 
 function mostrarResultadoIA(btnEl, original, resultado) {
-  const card = btnEl.closest('.copy-card');
+  const card = btnEl.closest('.copy-card, .copy-item');
   const antigo = card.querySelector('.ia-resultado');
   if (antigo) antigo.remove();
 
