@@ -2633,3 +2633,24 @@ body.ag-folha-aberta { overflow: hidden; }
   .ag-modelo-lista { left: 0; right: 0; width: auto; max-width: none; }
   .ag-proximo .ag-btn { width: 100%; }
 }
+
+/* ═══════════ GERADOR: CONTROLES À ESQUERDA, CHAT À DIREITA ═══════════ */
+.gr2-corpo { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 20px; align-items: start; }
+.gr2-corpo > * { min-width: 0; }
+.gr2-corpo .gr2-ctrl { position: sticky; top: 16px; grid-template-columns: minmax(0, 1fr); }
+.gr2-corpo .gr2-lado { border-left: 0; border-top: 1px solid rgba(255,255,255,.06); }
+.gr2-corpo .gr2-head .gr-modo { order: 3; width: 100%; }
+.gr2-corpo .gr2-head .gr-modo button { flex: 1; }
+.gr2-corpo .gr-catsq { grid-template-columns: minmax(0, 1fr); }
+.gr2-corpo .gr-saida { margin-top: 0; }
+.gr2-corpo .gr-chat { max-width: none; }
+.gr2-corpo .gr-vazio { min-height: 420px; align-content: center; }
+.gr2-corpo .gr-topo-acoes { margin-left: auto; }
+@media (max-width: 1100px) {
+  .gr2-corpo { grid-template-columns: 300px minmax(0, 1fr); gap: 16px; }
+  .gr2-corpo .gr-topo-acoes { width: 100%; }
+}
+@media (max-width: 900px) {
+  .gr2-corpo { grid-template-columns: minmax(0, 1fr); }
+  .gr2-corpo .gr2-ctrl { position: static; }
+}

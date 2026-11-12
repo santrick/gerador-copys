@@ -1620,7 +1620,7 @@ function renderGeradorSaida() {
         <span style="--w:70%"></span><span style="--w:86%"></span><span style="--w:52%"></span>
       </div>
       <strong>${grModelo ? `Sorteie as copys de ${nome}` : 'Carregando as modelos…'}</strong>
-      <p>Escolha as categorias e a quantidade acima e clique em <b>Sortear copys</b>. Elas saem prontas pro campo <b>Mensagens</b> do disparo: uma por bloco, com linha em branco entre elas.</p>
+      <p>Escolha as categorias e a quantidade e clique em <b>Sortear copys</b>. Elas saem prontas pro campo <b>Mensagens</b> do disparo: uma por bloco, com linha em branco entre elas.</p>
     </div>`;
     return;
   }
