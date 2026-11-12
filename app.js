@@ -1601,7 +1601,7 @@ async function chamarOpenRouter(mensagens, opts) {
 // ═══════════════════════════════════════════════ CRIAR COM IA ═══
 // A IA escreve copys novas no jeito de cada modelo, usando as copys reais dela (aba Copys) como base.
 
-const IA_CRIAR = 'x-ai/grok-4.3';               // escreve bem em PT-BR e aceita conteúdo adulto
+const IA_CRIAR = 'google/gemma-4-31b-it';       // escolhida pelo usuário (Grok saiu genérico)
 const IA_CRIAR_RESERVA = 'deepseek/deepseek-v3.2'; // se a primeira recusar ou falhar
 const EMOJI_RE = /\p{Extended_Pictographic}/gu;
 // Nada que sugira menor de idade: essas copys não entram como exemplo e resultados com isso são descartados
@@ -1677,7 +1677,7 @@ function descreverPerfil(p) {
 // Exemplos: da categoria escolhida primeiro (as mais repetidas e recentes), completando com outras dela
 function exemplosParaIA(copys, categoria) {
   const ordena = (a, b) => (b.vezes - a.vezes) || (tsCopy(b) - tsCopy(a));
-  const daCat = copys.filter((c) => c.tipo === categoria).sort(ordena).slice(0, 30);
+  const daCat = copys.filter((c) => c.tipo === categoria).sort(ordena).slice(0, 40);
   const outras = daCat.length >= 12 ? [] : copys.filter((c) => c.tipo !== categoria).sort(ordena).slice(0, 15 - Math.min(daCat.length, 10));
   return { daCat, outras };
 }
@@ -1690,15 +1690,22 @@ function montarPedidoIA({ modelo, categoria, qtd, preco, detalhe, base }) {
   const regras = (regrasIA || []).map((r) => '- ' + r.texto).join('\n');
   const sistema = `Você é a ghostwriter da criadora de conteúdo adulto "${modelo}" na plataforma Privacy (Brasil). Escreve as mensagens que ela manda pros assinantes no chat, pra engajar e vender conteúdo.
 
-Sua tarefa: escrever copys NOVAS com a MESMA VOZ dela — mesmo vocabulário, gírias, jeito de chamar o fã, uso de emoji, pontuação, tamanho e nível de ousadia das copys reais abaixo. Quem ler não pode perceber que não foi ela.
+Sua tarefa: escrever copys NOVAS que pareçam escritas por ela. Quem ler não pode perceber diferença das copys reais abaixo.
+
+Como fazer:
+1. Cada copy nova deve seguir a ESTRUTURA de uma copy real específica dela (o formato, o tamanho, onde vão os emojis, se é título em CAIXA ALTA, se tem "POV:", se ancora preço tipo "de R$ 399 por R$ 39", se termina com pergunta, se tem urgência tipo "só até 23h59") — e trocar o conteúdo/situação.
+2. Use o mesmo vocabulário dela: as mesmas palavras, gírias, erros de digitação propositais, alongamentos ("gostosoooo"), jeito de chamar o fã e o mesmo nível de ousadia/explicitação.
+3. Seja ESPECÍFICA e concreta como ela é: cena, lugar, ação, sensação. Nada de frase genérica de marketing.
 
 Jeito de escrever dela (tirado das copys reais):
 ${descreverPerfil(perfil)}
 
+Proibido (soa genérico, ela não escreve assim): "conteúdo exclusivo", "não perca", "venha conferir", "imperdível", "aproveite essa oportunidade", "clique aqui", "estou te esperando ansiosa" e parecidos.
+
 Regras:
-- Português do Brasil, informal, como mensagem de chat. Nada de linguagem de anúncio ou corporativa.
-- Não copie frases das copys reais: crie situações, ganchos e chamadas novas, mantendo o estilo.
-- Cada copy diferente das outras (abertura, gancho e chamada pra ação variados).
+- Português do Brasil, informal, como mensagem de chat.
+- Não repita uma copy real inteira; pode reaproveitar expressões e o formato dela.
+- Cada copy nova segue uma copy real DIFERENTE como molde.
 - Sem hashtags, sem aspas em volta, sem numeração, sem explicar nada.
 - Todas as pessoas citadas são ADULTAS (18+). Nunca mencione nem sugira menor de idade: nada de escola, colégio, aluna/aluno, novinha, virgindade, "primeira vez", uniforme escolar, idades abaixo de 18 ou parecido.${regras ? '\n' + regras : ''}
 
@@ -1793,7 +1800,7 @@ function renderCriar() {
       ${perfil.preco ? `<span>${precoCopy(perfil.preco.min)}–${precoCopy(perfil.preco.max)}</span>` : ''}
     </div>` : ''}
     ${copys.length < 15 ? `<p class="ci-aviso">Pouca base (${copys.length} copys): a voz pode sair menos parecida com a dela.</p>` : nCat < 3 ? `<p class="ci-aviso">Ela tem pouca copy em ${esc(ciCategoria)}; a IA vai se apoiar nas outras categorias dela.</p>` : ''}`;
-  document.getElementById('ciModeloIA').textContent = 'Grok 4.3';
+  document.getElementById('ciModeloIA').textContent = 'Gemma 4 31B';
 }
 
 function renderResultadosCriar() {
