@@ -1675,14 +1675,26 @@ function descreverPerfil(p) {
 }
 
 // Exemplos: da categoria escolhida primeiro (as mais repetidas e recentes), completando com outras dela
+function embaralhar(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function exemplosParaIA(copys, categoria) {
   const ordena = (a, b) => (b.vezes - a.vezes) || (tsCopy(b) - tsCopy(a));
-  const daCat = copys.filter((c) => c.tipo === categoria).sort(ordena).slice(0, 40);
-  const outras = daCat.length >= 12 ? [] : copys.filter((c) => c.tipo !== categoria).sort(ordena).slice(0, 15 - Math.min(daCat.length, 10));
+  const todasCat = copys.filter((c) => c.tipo === categoria).sort(ordena);
+  // as 10 que ela mais usa sempre vão; o resto é sorteado a cada clique pra IA não cair sempre nas mesmas
+  const daCat = embaralhar(todasCat.slice(0, 10).concat(embaralhar(todasCat.slice(10)).slice(0, 20)));
+  const outras = daCat.length >= 12 ? [] : embaralhar(copys.filter((c) => c.tipo !== categoria)).slice(0, 15 - Math.min(daCat.length, 10));
   return { daCat, outras };
 }
 
-function montarPedidoIA({ modelo, categoria, qtd, preco, detalhe, base }) {
+// Parecida demais com outra (mesmas palavras em 60%+): serve pra barrar cópia das reais e repetição
+function palavrasDe(t) { return new Set(normTexto(t).replace(/[^a-z0-9à-ÿ ]/gi, ' ').split(/\s+/).filter((w) => w.length > 2)); }
+function parecidaDemais(a, b) {
+  const A = palavrasDe(a), B = palavrasDe(b);
+  if (!A.size || !B.size) return normTexto(a) === normTexto(b);
+  let comum = 0; A.forEach((w) => { if (B.has(w)) comum++; });
+  return comum / Math.min(A.size, B.size) >= 0.6;
+}
+
+function montarPedidoIA({ modelo, categoria, qtd, preco, detalhe, base, jaGeradas }) {
   const copys = copysUnicasDaModelo(modelo);
   const { daCat, outras } = exemplosParaIA(copys, categoria);
   const perfil = perfilVoz(daCat.length >= 8 ? daCat : copys);
@@ -1709,10 +1721,10 @@ Regras:
 - Sem hashtags, sem aspas em volta, sem numeração, sem explicar nada.
 - Todas as pessoas citadas são ADULTAS (18+). Nunca mencione nem sugira menor de idade: nada de escola, colégio, aluna/aluno, novinha, virgindade, "primeira vez", uniforme escolar, idades abaixo de 18 ou parecido.${regras ? '\n' + regras : ''}
 
-Responda SOMENTE com um array JSON de strings, ex.: ["copy 1", "copy 2"]. Quebra de linha dentro da copy = \\n.`;
+Formato da resposta: SOMENTE as copys, uma depois da outra, separadas por uma linha contendo apenas ###. Sem numeração, sem título, sem comentário antes ou depois.`;
   const usuario = `Categoria: ${categoria}
 Quantidade: ${qtd} copys
-${preco ? `Preço do conteúdo: ${preco}\n` : ''}${detalhe ? `Sobre: ${detalhe}\n` : ''}${base ? `Use esta copy como ponto de partida e escreva variações dela (sem repetir):\n${base}\n` : ''}
+${preco ? `Preço do conteúdo: ${preco}\n` : ''}${detalhe ? `Sobre: ${detalhe}\n` : ''}${base ? `Use esta copy como ponto de partida e escreva variações dela (sem repetir):\n${base}\n` : ''}${jaGeradas && jaGeradas.length ? `Já foram geradas estas (NÃO repita nem faça parecido):\n${jaGeradas.map((t) => '- ' + t.replace(/\n+/g, ' / ')).join('\n')}\n` : ''}
 Copys reais dela em "${categoria}" (as primeiras são as que ela mais repete = as que funcionam):
 ${daCat.length ? lista(daCat) : '(ela ainda não tem copys nessa categoria)'}
 ${outras.length ? `\nOutras copys dela (só pra pegar a voz):\n${lista(outras)}` : ''}`;
@@ -1720,15 +1732,17 @@ ${outras.length ? `\nOutras copys dela (só pra pegar a voz):\n${lista(outras)}`
 }
 
 function lerCopysDaIA(texto) {
-  const limpo = String(texto || '').replace(/^```(?:json)?\s*|\s*```$/g, '').trim();
-  const ini = limpo.indexOf('['), fim = limpo.lastIndexOf(']');
-  if (ini !== -1 && fim > ini) {
-    try {
-      const arr = JSON.parse(limpo.slice(ini, fim + 1));
-      if (Array.isArray(arr)) return arr.map((x) => String(typeof x === 'object' && x ? (x.copy || x.texto || x.text || '') : x).trim()).filter(Boolean);
-    } catch (e) { /* cai no plano B */ }
+  const limpo = String(texto || '').replace(/^```[a-z]*\s*|\s*```$/gi, '').trim();
+  const arrumar = (x) => String(x).replace(/\\n/g, '\n').replace(/^\s*(?:copy\s*)?\d+\s*[.):\-]\s*/i, '').replace(/^["“'](.*)["”']$/s, '$1').trim();
+  let partes = [];
+  if (/^\s*#{3,}\s*$/m.test(limpo)) partes = limpo.split(/^\s*#{3,}\s*$/m);
+  else if (/^\s*\[/.test(limpo)) {
+    try { const arr = JSON.parse(limpo.slice(limpo.indexOf('['), limpo.lastIndexOf(']') + 1)); if (Array.isArray(arr)) partes = arr.map((x) => (typeof x === 'object' && x ? (x.copy || x.texto || x.text || '') : x)); } catch (e) {
+      partes = [...limpo.matchAll(/"((?:[^"\\]|\\.)+)"/g)].map((m) => m[1]); // JSON quebrado: pega o que estiver entre aspas
+    }
   }
-  return limpo.split(/\n\s*(?:---+|\d+[.)]\s)/).map((x) => x.replace(/^\d+[.)]\s*/, '').trim()).filter((x) => x.length > 8);
+  if (!partes.length) partes = limpo.split(/\n\s*(?:-{3,}|\d+[.)]\s)/);
+  return partes.map(arrumar).filter((x) => x.length > 8 && !/^(aqui est|claro|segue|seguem)/i.test(x));
 }
 
 async function gerarComIA(opts) {
@@ -1746,16 +1760,25 @@ async function gerarComIA(opts) {
   esqueleto.innerHTML = '<div class="ci-esq"></div>'.repeat(Math.min(opts.qtd, 4));
   lista.prepend(esqueleto);
   try {
-    const pedido = montarPedidoIA(opts);
+    const reais = copysUnicasDaModelo(opts.modelo).map((c) => c.mensagem);
+    const anteriores = ciResultados.filter((r) => r.modelo === opts.modelo).map((r) => r.texto);
+    const pedido = montarPedidoIA({ ...opts, jaGeradas: anteriores.slice(0, 15) });
     let novas = [];
     for (const modeloIA of [IA_CRIAR, IA_CRIAR_RESERVA]) {
       try {
         const resp = await chamarOpenRouter(pedido.mensagens, { modelo: modeloIA, maxTokens: 300 * opts.qtd + 300, temperature: 0.95, cru: true });
-        novas = lerCopysDaIA(resp).filter((t) => !temaProibido(t));
+        const aceitas = [];
+        lerCopysDaIA(resp).forEach((t) => {
+          if (temaProibido(t)) return;
+          if (reais.some((r) => parecidaDemais(t, r))) return;          // copiou uma real
+          if (anteriores.concat(aceitas).some((r) => parecidaDemais(t, r))) return; // repetiu
+          aceitas.push(t);
+        });
+        novas = aceitas;
         if (novas.length) break;
       } catch (e) { if (modeloIA === IA_CRIAR_RESERVA) throw e; }
     }
-    if (!novas.length) throw new Error('A IA não devolveu copys. Tente de novo.');
+    if (!novas.length) throw new Error('A IA só devolveu copys repetidas ou parecidas demais com as reais. Tente de novo ou escreva um detalhe em "Sobre o quê?".');
     ciResultados = novas.slice(0, opts.qtd).map((texto) => ({ texto, modelo: opts.modelo, categoria: opts.categoria, nova: true }))
       .concat(ciResultados.map((r) => ({ ...r, nova: false })));
     registrarAtividade('Gerou copys com IA', `${opts.modelo} · ${opts.categoria}`);
