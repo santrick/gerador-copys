@@ -2276,3 +2276,31 @@ body:not(.aba-copys) .sidebar-foot { margin-top: auto; }
   .gr-chat-lista .gr-item:hover .gr-botoes { opacity: 1; }
 }
 @media (max-width: 720px) { .gr-chat .gr-bolha { max-width: calc(100% - 76px); } .gr-msg { flex-wrap: wrap; } }
+
+/* ═══════════ GERADOR: PPV IGUAL AO DA PRIVACY ═══════════ */
+.gr-chat .is-ppv .gr-msg > .gr-av { visibility: hidden; }
+.gr-chat .is-ppv .gr-bolha { width: min(70%, 380px); padding: 0; gap: 0; overflow: hidden; }
+.gr-chat .is-ppv .gr-texto { padding: 10px 14px 12px; }
+.gr-ppv-midia { position: relative; height: 210px; display: grid; place-items: center;
+  background: linear-gradient(135deg, #6b5a52 0%, #3c3340 45%, #8a6f62 100%); }
+.gr-ppv-midia::before { content: ""; position: absolute; inset: 0; background:
+  radial-gradient(40% 55% at 28% 40%, rgba(255,220,200,.35), transparent 70%),
+  radial-gradient(35% 50% at 72% 58%, rgba(240,200,180,.3), transparent 70%); filter: blur(6px); }
+.gr-ppv-cadeado { position: relative; display: grid; justify-items: center; gap: 6px; font-family: 'Poppins', sans-serif; font-size: 12.5px; color: rgba(255,255,255,.92); text-shadow: 0 1px 4px rgba(0,0,0,.4); }
+.gr-ppv-cadeado svg { width: 30px; height: 30px; fill: none; stroke: #fff; stroke-width: 1.7; stroke-linecap: round; filter: drop-shadow(0 1px 4px rgba(0,0,0,.4)); }
+.gr-ppv-seta { position: absolute; top: 50%; width: 26px; height: 26px; margin-top: -13px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.88); }
+.gr-ppv-seta svg { width: 16px; height: 16px; fill: none; stroke: #444; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.gr-ppv-seta.esq { left: 10px; } .gr-ppv-seta.dir { right: 10px; }
+.gr-ppv-qtd { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: 99px; background: #fff; color: #333; font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600; }
+.gr-ppv-qtd i { width: 9px; height: 13px; border-radius: 2px; background: #555; box-shadow: -3px 0 0 -1px #999; }
+.gr-ppv-pago { color: var(--pv-cinza); }
+.gr-ppv-pago b { font-weight: 600; color: #6b6762; }
+.gr-ppv-acao { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.gr-ppv-acao .gr-av { width: 34px; height: 34px; font-size: 11px; }
+.gr-ppv-btn { display: grid; place-items: center; width: min(70%, 380px); height: 44px; border-radius: 99px; background: #f6892d; color: #2b1d10; font-family: 'Poppins', sans-serif; font-size: 14.5px; font-weight: 500; }
+@media (max-width: 720px) {
+  .gr-chat .is-ppv .gr-bolha { width: calc(100% - 76px); }
+  .gr-ppv-btn { width: calc(100% - 76px); }
+  .gr-ppv-midia { height: 170px; }
+}
+.gr-chat .is-ppv .gr-kebab { align-self: flex-end; margin-bottom: 4px; }

@@ -865,7 +865,7 @@ async function lerCopysFirebase(completo) {
     const x = d.data();
     const t = x.atualizadoEm && x.atualizadoEm.toMillis ? x.atualizadoEm.toMillis() : 0;
     if (t > ultimo) ultimo = t;
-    itens[d.id] = { modelo: x.modelo || '', mensagem: x.mensagem || '', tipo: x.tipo || '', data: x.data || '', hora: x.hora || '', preco: x.preco ?? null };
+    itens[d.id] = { modelo: x.modelo || '', mensagem: x.mensagem || '', tipo: x.tipo || '', data: x.data || '', hora: x.hora || '', preco: x.preco ?? null, midia: x.midia || '' };
   });
   const avatares = {};
   snapModelos.forEach((d) => { const x = d.data(); if (x.nome && x.avatar) avatares[x.nome] = x.avatar; });
@@ -1429,7 +1429,7 @@ function copysDaModelo(modelo) {
   todasMineradas.forEach((c) => {
     if (c.modelo !== modelo || !c.mensagem || !naoEhRuim(c.mensagem) || temaProibido(c.mensagem)) return;
     const k = normTexto(c.mensagem);
-    if (!mapa.has(k)) mapa.set(k, { texto: c.mensagem, categoria: c.tipo || 'Outras', preco: c.preco });
+    if (!mapa.has(k)) mapa.set(k, { texto: c.mensagem, categoria: c.tipo || 'Outras', preco: c.preco, midia: c.midia || '' });
   });
   return [...mapa.values()];
 }
@@ -1653,12 +1653,20 @@ function renderGeradorSaida() {
         </div>
         <div class="gr-chat-corpo">
           <div class="gr-chat-dia"><span>Hoje</span></div>
-          <ol class="gr-lista gr-chat-lista">${grItens.map((c, i) => `<li class="gr-item ${grEditando === i ? 'editando' : ''}" data-i="${i}" style="--cat:${COR_CATEGORIA[c.categoria] || 'var(--accent)'}">
+          <ol class="gr-lista gr-chat-lista">${grItens.map((c, i) => {
+            const preco = precoCopy(c.preco);
+            const qtdMidia = (String(c.midia || '').match(/\d+/g) || []).reduce((t, x) => t + Number(x), 0);
+            return `<li class="gr-item ${preco ? 'is-ppv' : ''} ${grEditando === i ? 'editando' : ''}" data-i="${i}" style="--cat:${COR_CATEGORIA[c.categoria] || 'var(--accent)'}">
             <div class="gr-msg">
               ${avatarChatGerador()}
               <div class="gr-bolha">
+                ${preco ? `<div class="gr-ppv-midia" aria-hidden="true">
+                  <span class="gr-ppv-seta esq"><svg viewBox="0 0 24 24"><path d="M14 7l-5 5 5 5"/></svg></span>
+                  <span class="gr-ppv-seta dir"><svg viewBox="0 0 24 24"><path d="M10 7l5 5-5 5"/></svg></span>
+                  ${qtdMidia ? `<span class="gr-ppv-qtd">${qtdMidia}<i></i></span>` : ''}
+                  <span class="gr-ppv-cadeado"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>${esc(c.midia || 'Mídia do PPV')}</span>
+                </div>` : ''}
                 <p class="gr-texto" ${grEditando === i ? 'contenteditable="plaintext-only" spellcheck="false"' : ''}>${esc(blocoCopy(c.texto))}</p>
-                ${precoCopy(c.preco) ? `<div class="gr-bloq"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg><span>Conteúdo bloqueado</span><b>${precoCopy(c.preco)}</b></div>` : ''}
               </div>
               <button type="button" class="gr-kebab" data-acao="menu" aria-label="Opções dessa copy" title="Opções"><svg viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="18.5" r="1.7"/></svg></button>
               <div class="gr-botoes">
@@ -1670,8 +1678,10 @@ function renderGeradorSaida() {
                 <button type="button" class="gr-ico gr-ico-x" data-acao="remover" title="Tirar essa" aria-label="Tirar essa">${GR_ICO.remover}</button>
               </div>
             </div>
-            <span class="gr-msg-hora"><span class="gr-tag">${esc(c.categoria)}</span>${c.editada ? ' · editada' : ''} · ${i + 1}/${n}</span>
-          </li>`).join('')}</ol>
+            <span class="gr-msg-hora"><span class="gr-tag">${esc(c.categoria)}</span>${c.editada ? ' · editada' : ''} · ${i + 1}/${n}${preco ? ` <span class="gr-ppv-pago">· <b>${preco}</b> ainda não pago</span>` : ''}</span>
+            ${preco ? `<div class="gr-ppv-acao">${avatarChatGerador()}<span class="gr-ppv-btn">Desbloquear por ${preco}</span></div>` : ''}
+          </li>`;
+          }).join('')}</ol>
         </div>
       </div>`}`;
   box.querySelectorAll('.gr-chat img').forEach((img) => { img.onerror = () => img.remove(); });
