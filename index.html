@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=41" />
+  <link rel="stylesheet" href="styles.css?v=42" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -76,6 +76,9 @@
         </button>
         <button class="nav-item" data-tab="gerador">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r=".9" fill="currentColor"/><circle cx="15" cy="15" r=".9" fill="currentColor"/><circle cx="15" cy="9" r=".9" fill="currentColor"/><circle cx="9" cy="15" r=".9" fill="currentColor"/></svg></span> Gerador
+        </button>
+        <button class="nav-item" data-tab="extrair">
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19h14"/></svg></span> Extrair
         </button>
         <button class="nav-item" data-tab="favoritos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> Favoritos
@@ -312,6 +315,53 @@
           </div>
         </section>
 
+        <!-- EXTRAIR -->
+        <section id="tab-extrair" class="tab-panel copys-page">
+          <div class="gr-layout">
+            <aside class="gr-painel">
+              <div class="gr-passo">
+                <div class="gr-passo-head"><span class="gr-n">1</span><span class="gr-rotulo">Modelo</span></div>
+                <select id="exModelo" class="cp-select gr-select" aria-label="Modelo"></select>
+              </div>
+              <div class="gr-passo">
+                <div class="gr-passo-head">
+                  <span class="gr-n">2</span><span class="gr-rotulo">Categorias</span>
+                  <button type="button" class="gr-link" id="exTodas">marcar/desmarcar todas</button>
+                </div>
+                <div class="gr-cats" id="exCats"></div>
+              </div>
+              <div class="gr-passo">
+                <div class="gr-passo-head"><span class="gr-n">3</span><span class="gr-rotulo">Período</span></div>
+                <div class="segmentado ex-seg" id="exPeriodo" role="group" aria-label="Período">
+                  <button type="button" data-v="todas" class="ativo">Todas</button>
+                  <button type="button" data-v="30">30 dias</button>
+                  <button type="button" data-v="7">7 dias</button>
+                  <button type="button" data-v="hoje">Hoje</button>
+                </div>
+              </div>
+              <div class="gr-passo">
+                <div class="gr-passo-head"><span class="gr-n">4</span><span class="gr-rotulo">Ordem</span></div>
+                <div class="segmentado ex-seg" id="exOrdem" role="group" aria-label="Ordem">
+                  <button type="button" data-v="recentes" class="ativo">Recentes</button>
+                  <button type="button" data-v="categoria">Por categoria</button>
+                  <button type="button" data-v="embaralhar">Embaralhar</button>
+                </div>
+              </div>
+              <div class="gr-passo">
+                <div class="gr-passo-head"><span class="gr-n">5</span><span class="gr-rotulo">Dividir em partes</span></div>
+                <select id="exPartes" class="cp-select gr-select" aria-label="Copys por parte">
+                  <option value="0">Tudo junto</option>
+                  <option value="10">10 copys por parte</option>
+                  <option value="20">20 copys por parte</option>
+                  <option value="30">30 copys por parte</option>
+                  <option value="50">50 copys por parte</option>
+                </select>
+              </div>
+            </aside>
+            <section class="gr-saida" id="exSaida" aria-live="polite"></section>
+          </div>
+        </section>
+
         <!-- FAVORITOS -->
         <section id="tab-favoritos" class="tab-panel">
           <div class="toolbar">
@@ -410,6 +460,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=51"></script>
+  <script src="app.js?v=52"></script>
 </body>
 </html>

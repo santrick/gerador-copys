@@ -698,6 +698,7 @@ function salvarConfig(cfg) {
 const PAGE_INFO = {
   dashboard: { title: 'Dashboard', subtitle: 'Visão geral do seu banco de copys' },
   gerador: { title: 'Gerador', subtitle: 'Sorteia copys da modelo prontas pra colar no disparo' },
+  extrair: { title: 'Extrair', subtitle: 'Todas as copys de uma vez, no formato do disparo' },
   favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou' },
   mineradas: { title: 'Copys', subtitle: 'Copys das modelos, direto do Google Docs' },
   admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
@@ -897,6 +898,7 @@ function irParaTab(tab, opts) {
   if (tab === 'dashboard') renderDashboard();
   if (tab === 'favoritos') renderFavoritos();
   if (tab === 'gerador') abrirGerador();
+  if (tab === 'extrair') abrirExtrair();
   renderAbasCopys();
 }
 
@@ -1133,6 +1135,7 @@ function aplicarDadosMineradas(copys, modelosServidor) {
   aplicarFiltroMineradas();
   renderDashboard();
   if (document.getElementById('tab-gerador').classList.contains('active')) abrirGerador();
+  if (document.getElementById('tab-extrair').classList.contains('active')) abrirExtrair();
 }
 
 // Repopula um <select> mantendo o valor escolhido, se ainda existir
@@ -1978,6 +1981,157 @@ function configurarGerador() {
   });
 }
 
+// ═══════════════════════════════════════════════ EXTRAIR ═══
+// Todas as copys (filtradas) no mesmo formato do Gerador: uma por bloco, linha em branco entre elas.
+
+let exModelo = '';          // '' = todas as modelos
+let exCatsSel = null;       // Set de categorias marcadas (null = todas)
+let exPeriodo = 'todas';    // 'todas' | '30' | '7' | 'hoje'
+let exOrdem = 'recentes';   // 'recentes' | 'categoria' | 'embaralhar'
+let exPartes = 0;           // 0 = tudo junto; senão N copys por parte
+let exCache = null;         // lista atual (pra o "embaralhar" não mudar a cada clique em copiar)
+
+function copysExtrair() {
+  const mapa = new Map(); let escondidas = 0;
+  todasMineradas.forEach((c) => {
+    if (exModelo && c.modelo !== exModelo) return;
+    if (!c.mensagem || !naoEhRuim(c.mensagem)) return;
+    const k = (exModelo ? '' : c.modelo + '|') + normTexto(c.mensagem);
+    if (temaProibido(c.mensagem)) { if (!mapa.has(k)) { mapa.set(k, null); escondidas++; } return; }
+    const ts = tsCopy(c);
+    const atual = mapa.get(k);
+    if (atual === undefined) mapa.set(k, { texto: c.mensagem, categoria: c.tipo || 'Outras', modelo: c.modelo, ts });
+    else if (atual && ts > atual.ts) atual.ts = ts;
+  });
+  return { lista: [...mapa.values()].filter(Boolean), escondidas };
+}
+
+function filtrarExtrair(lista) {
+  const agora = Date.now();
+  const limite = exPeriodo === 'hoje' ? inicioDoDia(agora) : exPeriodo === 'todas' ? 0 : agora - Number(exPeriodo) * 86400000;
+  return lista.filter((c) => (!exCatsSel || exCatsSel.has(c.categoria)) && (!limite || c.ts >= limite));
+}
+
+function ordenarExtrair(lista) {
+  if (exOrdem === 'embaralhar') return embaralhar(lista.slice());
+  const porData = lista.slice().sort((a, b) => b.ts - a.ts);
+  if (exOrdem === 'categoria') {
+    const ordem = CATEGORIAS_COPYS.concat([...new Set(porData.map((c) => c.categoria))].filter((c) => !CATEGORIAS_COPYS.includes(c)));
+    return porData.sort((a, b) => ordem.indexOf(a.categoria) - ordem.indexOf(b.categoria) || b.ts - a.ts);
+  }
+  return porData;
+}
+
+function partesExtrair(lista) {
+  if (!exPartes || lista.length <= exPartes) return [lista];
+  const partes = [];
+  for (let i = 0; i < lista.length; i += exPartes) partes.push(lista.slice(i, i + exPartes));
+  return partes;
+}
+function textoBlocos(lista) { return lista.map((c) => blocoCopy(c.texto)).join('\n\n'); }
+
+function abrirExtrair() {
+  const sel = document.getElementById('exModelo');
+  const contagem = copysPorModeloContagem();
+  if (!contagem.length) { sel.innerHTML = '<option>Carregando…</option>'; document.getElementById('exCats').innerHTML = ''; renderExtrairSaida(); return; }
+  if (exModelo && !contagem.some(([m]) => m === exModelo)) exModelo = '';
+  sel.innerHTML = `<option value="">Todas as modelos · ${contagem.reduce((t, [, n]) => t + n, 0)} copys</option>`
+    + contagem.map(([m, n]) => `<option value="${escAttr(m)}" ${m === exModelo ? 'selected' : ''}>${esc(m)} · ${n} copys</option>`).join('');
+  exCache = null;
+  renderExtrairFiltros();
+  renderExtrairSaida();
+}
+
+function renderExtrairFiltros() {
+  const { lista } = copysExtrair();
+  const porCat = {};
+  lista.forEach((c) => { porCat[c.categoria] = (porCat[c.categoria] || 0) + 1; });
+  const ordem = CATEGORIAS_COPYS.filter((c) => porCat[c]).concat(Object.keys(porCat).filter((c) => !CATEGORIAS_COPYS.includes(c)));
+  if (exCatsSel) exCatsSel = new Set([...exCatsSel].filter((c) => porCat[c]));
+  document.getElementById('exCats').innerHTML = ordem.length ? ordem.map((c) => {
+    const on = !exCatsSel || exCatsSel.has(c);
+    return `<button type="button" class="gr-cat ${on ? 'on' : ''}" data-cat="${escAttr(c)}" aria-pressed="${on}" style="--cat:${COR_CATEGORIA[c] || 'var(--accent)'}">${esc(c)} <span>${porCat[c]}</span></button>`;
+  }).join('') : '<span class="gr-vazio-txt">Nenhuma copy ainda.</span>';
+  document.querySelectorAll('#exPeriodo button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === exPeriodo));
+  document.querySelectorAll('#exOrdem button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === exOrdem));
+  document.getElementById('exPartes').value = String(exPartes);
+}
+
+function renderExtrairSaida() {
+  const box = document.getElementById('exSaida');
+  if (!todasMineradas.length) { box.innerHTML = '<div class="gr-vazio"><span class="gr-vazio-ico" aria-hidden="true">⇩</span><strong>Carregando as copys…</strong></div>'; return; }
+  const { lista, escondidas } = copysExtrair();
+  if (!exCache) exCache = ordenarExtrair(filtrarExtrair(lista));
+  const itens = exCache;
+  const quem = exModelo ? `<b>${esc(exModelo)}</b>` : 'todas as modelos';
+  if (!itens.length) {
+    box.innerHTML = `<div class="gr-vazio"><span class="gr-vazio-ico" aria-hidden="true">⇩</span><strong>Nenhuma copy com esses filtros</strong><p>Tente outro período ou marque mais categorias.</p></div>`;
+    return;
+  }
+  const tudo = textoBlocos(itens);
+  const partes = partesExtrair(itens);
+  let ini = 0;
+  box.innerHTML = `<div class="gr-res-head">
+      <div class="gr-res-titulo"><strong>${itens.length} ${itens.length === 1 ? 'copy' : 'copys'}</strong><span>de ${quem} · ${tudo.length.toLocaleString('pt-BR')} caracteres</span></div>
+    </div>
+    ${escondidas ? `<p class="ex-nota">${escondidas} ${escondidas === 1 ? 'copy ficou' : 'copys ficaram'} de fora por tema proibido (continuam na aba Copys).</p>` : ''}
+    ${partes.map((p, i) => {
+      const txt = textoBlocos(p); const de = ini + 1; ini += p.length;
+      return `<div class="ex-parte">
+        ${partes.length > 1 ? `<div class="ex-parte-head"><strong>Parte ${i + 1}</strong><span>copys ${de}–${ini} · ${p.length} blocos</span>
+          <button type="button" class="btn btn-ghost ex-copiar-parte" data-parte="${i}">⧉ Copiar parte ${i + 1}</button></div>` : ''}
+        <pre class="gr-preview ex-preview">${esc(txt)}</pre>
+      </div>`;
+    }).join('')}
+    <div class="gr-res-acoes">
+      ${exOrdem === 'embaralhar' ? '<button type="button" class="btn btn-ghost" data-acao="reembaralhar">🔀 Embaralhar de novo</button>' : ''}
+      <button type="button" class="btn btn-ghost" data-acao="baixar">⇩ Baixar .txt</button>
+      <button type="button" class="btn btn-primary gr-copiar-tudo" data-acao="copiar-tudo">⧉ Copiar tudo (${itens.length})</button>
+    </div>`;
+}
+
+function configurarExtrair() {
+  const refazer = () => { exCache = null; renderExtrairFiltros(); renderExtrairSaida(); };
+  document.getElementById('exModelo').addEventListener('change', (e) => { exModelo = e.target.value; exCatsSel = null; refazer(); });
+  document.getElementById('exCats').addEventListener('click', (e) => {
+    const b = e.target.closest('.gr-cat'); if (!b) return;
+    const todas = [...document.querySelectorAll('#exCats .gr-cat')].map((x) => x.dataset.cat);
+    if (!exCatsSel) exCatsSel = new Set(todas);
+    if (exCatsSel.has(b.dataset.cat)) exCatsSel.delete(b.dataset.cat); else exCatsSel.add(b.dataset.cat);
+    if (exCatsSel.size === todas.length) exCatsSel = null;
+    refazer();
+  });
+  document.getElementById('exTodas').addEventListener('click', () => {
+    const todas = [...document.querySelectorAll('#exCats .gr-cat')].map((x) => x.dataset.cat);
+    exCatsSel = exCatsSel ? null : new Set();
+    if (exCatsSel && !todas.length) exCatsSel = null;
+    refazer();
+  });
+  document.getElementById('exPeriodo').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; exPeriodo = b.dataset.v; refazer(); });
+  document.getElementById('exOrdem').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; exOrdem = b.dataset.v; refazer(); });
+  document.getElementById('exPartes').addEventListener('change', (e) => { exPartes = Number(e.target.value) || 0; renderExtrairSaida(); });
+  document.getElementById('exSaida').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || !exCache) return;
+    const quem = exModelo || 'todas as modelos';
+    if (b.dataset.parte !== undefined) {
+      const p = partesExtrair(exCache)[Number(b.dataset.parte)];
+      copiarTexto(textoBlocos(p)); toast(`Parte ${Number(b.dataset.parte) + 1} copiada (${p.length} copys)`);
+      b.classList.add('ex-feito'); b.textContent = `✓ Parte ${Number(b.dataset.parte) + 1} copiada`;
+    } else if (b.dataset.acao === 'copiar-tudo') {
+      copiarTexto(textoBlocos(exCache)); toast(`${exCache.length} copys copiadas`);
+      registrarAtividade('Extraiu copys', `${quem} · ${exCache.length} copys`);
+    } else if (b.dataset.acao === 'baixar') {
+      const blob = new Blob([textoBlocos(exCache)], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `copys-${normTexto(quem).replace(/\s+/g, '-') || 'todas'}-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      registrarAtividade('Baixou copys', `${quem} · ${exCache.length} copys`);
+    } else if (b.dataset.acao === 'reembaralhar') { exCache = null; renderExtrairSaida(); }
+  });
+}
+
 // ═══════════════════════════════════════════════ DASHBOARD ═══
 
 function renderDashboard() {
@@ -2052,6 +2206,7 @@ document.addEventListener('DOMContentLoaded', () => {
   configurarConfigModal();
   configurarMineradas();
   configurarGerador();
+  configurarExtrair();
   configurarFavoritos();
   configurarNovidades();
 
