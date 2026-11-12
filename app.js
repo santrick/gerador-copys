@@ -203,12 +203,12 @@ function configurarLogin() {
   });
 }
 
-// Roda uma vez (marcada em metricas/limpeza_copys): apaga favoritos e avaliações de copys da equipe.
+// Roda uma vez (marcada em metricas/limpeza_copys): apaga favoritos, avaliações e contadores de copys da equipe.
 async function limparCopysFirestore() {
   try {
     const marca = db.collection('metricas').doc('limpeza_copys');
     const snapMarca = await marca.get();
-    if (snapMarca.exists && snapMarca.data().v1) return;
+    if (snapMarca.exists && snapMarca.data().v2) return;
     let total = 0;
     for (const nome of ['favoritos', 'feedback_copy']) {
       const snap = await db.collection(nome).get();
@@ -219,7 +219,8 @@ async function limparCopysFirestore() {
       }
       total += snap.size;
     }
-    await marca.set({ v1: true, apagados: total, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+    await db.collection('metricas').doc('global').set({ copysGeradas: 0, copysCopiadas: 0, porHora: {} });
+    await marca.set({ v1: true, v2: true, apagados: total, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
     toast(`Limpeza feita: ${total} favoritos/avaliações apagados`);
   } catch (err) {
     console.error('[limpeza]', err);
@@ -757,7 +758,7 @@ function configurarCriarAtendente() {
 // ═══════════════════════════════════════════════ CONFIG (localStorage) ═══
 
 const CONFIG_PADRAO = {
-  sheetsUrl: 'https://script.google.com/macros/s/AKfycbwzUh0-1uu7L88v84v5-2JyH7MbRA6sfMBAGbbLs-HUTulUeYiiu1_bm1_XloI0rQ-g6g/exec',
+  sheetsUrl: '',
   openrouterKey: '',
   openrouterModel: 'google/gemini-2.5-flash',
   persona: 'Letícia Vargas, 18 anos, universitária, vocabulário: "vida", "corre lá", "prévia", "amor", "bb"',
@@ -1148,6 +1149,7 @@ function configurarMineradas() {
 }
 
 async function carregarMineradas() {
+  return; // planilha desligada
   const cfg = getConfig();
   if (!cfg.sheetsUrl) {
     setStatus('Configure a URL do Apps Script primeiro', 'erro');
@@ -2493,10 +2495,8 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDashboard();
   carregarBancoDisparos();
 
-  const cfg = getConfig();
-  if (carregarMineradasDoCache()) setStatus(`${todasMineradas.length} copys (versão salva) — atualizando a planilha…`, 'aviso');
-  if (cfg.sheetsUrl) carregarMineradas();
-  else setStatus('Configure a URL do Apps Script nas Configurações', 'aviso');
+  // Planilha das mineradas desligada: o site não busca mais copys nela.
+  try { localStorage.removeItem('gerador_mineradas_cache'); } catch (e) { /* ok */ }
 
   abrirTabDaHash();
   window.addEventListener('hashchange', abrirTabDaHash);

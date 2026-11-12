@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=24" />
+  <link rel="stylesheet" href="styles.css?v=25" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -71,7 +71,7 @@
         <button class="nav-item active" data-tab="dashboard">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span> Dashboard
         </button>
-        <button class="nav-item" data-tab="mineradas">
+        <button class="nav-item sem-planilha" data-tab="mineradas">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span> Mineradas <span class="nav-badge" hidden></span>
         </button>
         <button class="nav-item" data-tab="disparos">
@@ -130,7 +130,7 @@
         <!-- DASHBOARD -->
         <section id="tab-dashboard" class="tab-panel active">
           <div class="kpi-grid">
-            <div class="kpi-card">
+            <div class="kpi-card sem-planilha">
               <span class="kpi-label">Copys Mineradas</span>
               <span class="kpi-value" id="kpiMineradas">0</span>
               <span class="kpi-novas" id="kpiNovasMineradas" hidden></span>
@@ -146,7 +146,7 @@
               <span class="kpi-value" id="kpiFavoritas">0</span>
               <span class="kpi-tag amber">⭐ da equipe</span>
             </div>
-            <div class="kpi-card">
+            <div class="kpi-card sem-planilha">
               <span class="kpi-label">Modelos Ativos</span>
               <span class="kpi-value" id="kpiModelos">0</span>
               <span class="kpi-tag green">na planilha</span>
@@ -154,7 +154,7 @@
           </div>
 
           <div class="dash-grid">
-            <div class="panel">
+            <div class="panel sem-planilha">
               <div class="panel-head">
                 <h2>Copys por tipo</h2>
                 <span class="panel-sub">mineradas</span>
@@ -162,7 +162,7 @@
               <div id="chartTipos" class="bar-chart"></div>
             </div>
 
-            <div class="panel">
+            <div class="panel sem-planilha">
               <div class="panel-head">
                 <h2>Top modelos</h2>
                 <span class="panel-sub">volume de copys</span>
@@ -178,7 +178,7 @@
               <div id="maisCopiadas" class="rank-list"></div>
             </div>
 
-            <div class="panel">
+            <div class="panel sem-planilha">
               <div class="panel-head">
                 <h2>Atividade recente</h2>
                 <span class="panel-sub">últimas mineradas</span>
@@ -221,7 +221,7 @@
         </section>
 
         <!-- MINERADAS -->
-        <section id="tab-mineradas" class="tab-panel">
+        <section id="tab-mineradas" class="tab-panel sem-planilha">
           <div class="toolbar">
             <input type="text" id="buscaMineradas" placeholder="Buscar por modelo, tipo ou texto..." />
             <button type="button" class="chip-novas" id="chipNovas-mineradas" hidden><span class="chip-novas-dot"></span><span>Só novas (<span class="chip-novas-qtd">0</span>)</span><span class="chip-novas-ok" title="Marcar todas como vistas">✓ vistas</span></button>
@@ -293,7 +293,7 @@
             <div class="comprimento-row" id="filtroOrigemFav">
               <button class="estilo-btn ativo" data-origem="todas">Todas <span class="fav-count">0</span></button>
               <button class="estilo-btn" data-origem="disparo">Banco <span class="fav-count">0</span></button>
-              <button class="estilo-btn" data-origem="minerada">Mineradas <span class="fav-count">0</span></button>
+              <button class="estilo-btn sem-planilha" data-origem="minerada">Mineradas <span class="fav-count">0</span></button>
               <button class="estilo-btn" data-origem="ia">IA <span class="fav-count">0</span></button>
             </div>
           </div>
@@ -305,7 +305,7 @@
 
           <div class="panel">
             <div class="panel-head"><h2>Grade do dia</h2></div>
-            <p class="panel-desc">Sorteia entre 5 e 8 copys em horários aleatórios do dia — sem horário fixo, a partir do banco de disparos + copys mineradas.</p>
+            <p class="panel-desc">Sorteia entre 5 e 8 copys em horários aleatórios do dia — sem horário fixo, a partir do banco de disparos.</p>
             <div class="grade-toolbar">
               <button id="btnSortearGrade" class="btn btn-primary">🎲 Sortear Grade do Dia</button>
               <button id="btnGerarGradeIA" class="btn-premium">
@@ -633,7 +633,7 @@
         <h2>Configurações</h2>
         <button class="icon-btn" id="btnFecharConfig">✕</button>
       </div>
-      <label class="field">
+      <label class="field sem-planilha">
         <span>URL do Apps Script (Google Sheets)</span>
         <input type="url" id="appsScriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" />
       </label>
@@ -662,6 +662,6 @@
 
   <div id="toastContainer"></div>
 
-  <script src="app.js?v=29"></script>
+  <script src="app.js?v=30"></script>
 </body>
 </html>
