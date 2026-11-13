@@ -3332,3 +3332,137 @@ body:has(.ag-folha-fundo.lado) .versao-nova, body:has(.ag-folha-fundo.lado) #toa
 .ag-sa-roteiro { margin: 0 0 4px; }
 .ag-barra1-ajustes .ag-fonte > span { display: inline !important; }
 .ag-aj-sec .ag-txt-prompt { min-height: 360px; }
+
+/* ═══════════════════════════ BOTÕES v5 (pílula com luz) ═══════════════════════════
+   Só os botões mudam. Pílula escura com borda; no hover: borda indigo, brilho por fora,
+   luz por dentro seguindo o mouse (--x/--y, setados por um listener só no app.js) e
+   um anel que encolhe até a borda. O principal continua laranja, com a luz em laranja.
+   Botões de linha e pílulas de filtro: versão compacta, sem a luz que segue o mouse.
+   (:not(#b) só dá peso pra vencer os !important das camadas antigas.) */
+:root { --bt-fundo: #1a1620; --bt-borda: #2a2433; --bt-indigo: 99, 102, 241; --bt-laranja: 246, 137, 45; }
+
+/* ── grandes: normal + principal ── */
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button):not(.ag-slot-acoes .ag-btn-s):not(#b) {
+  position: relative; isolation: isolate; border-radius: 999px !important;
+  transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease, background-color .3s ease, color .3s ease !important;
+  transform: none;
+}
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn):not(.btn-primary):not(.ag-btn-prim):not(.ag-slot-acoes .ag-btn-s):not(#b) {
+  --bt-cor: var(--bt-indigo);
+  background: var(--bt-fundo) !important; background-image: none !important; border: 1px solid var(--bt-borda) !important;
+  color: #fff !important; font-weight: 500 !important; box-shadow: none !important;
+}
+:is(.btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .ag-btn-prim, .versao-nova button):not(#b) {
+  --bt-cor: var(--bt-laranja);
+  background: #f6892d !important; background-image: none !important; border: 1px solid #f6892d !important;
+  color: #2a1505 !important; box-shadow: none !important;
+}
+/* luz de dentro (segue o mouse) e anel de borda */
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button):not(.ag-slot-acoes .ag-btn-s):not(#b)::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(var(--bt-cor), .15) 0%, transparent 70%);
+  transition: opacity .3s ease;
+}
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button):not(.ag-slot-acoes .ag-btn-s):not(#b)::after {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
+  border: 2px solid rgba(var(--bt-cor), 0); transform: scale(1.05);
+  transition: transform .5s ease, border-color .5s ease;
+}
+:is(.btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .ag-btn-prim, .versao-nova button):not(#b)::before {
+  background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(255, 214, 170, .45) 0%, transparent 70%);
+}
+/* hover */
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn):not(.btn-primary):not(.ag-btn-prim):not(.ag-slot-acoes .ag-btn-s):not(:disabled):not(#b):hover {
+  border-color: rgba(var(--bt-indigo), .5) !important; box-shadow: 0 0 20px rgba(var(--bt-indigo), .3) !important; background: var(--bt-fundo) !important;
+}
+:is(.btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .ag-btn-prim, .versao-nova button):not(:disabled):not(#b):hover {
+  border-color: #ffb06b !important; box-shadow: 0 0 20px rgba(var(--bt-laranja), .45) !important; background: #f6892d !important;
+}
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button):not(.ag-slot-acoes .ag-btn-s):not(:disabled):not(#b):hover::before { opacity: 1; }
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button):not(.ag-slot-acoes .ag-btn-s):not(:disabled):not(#b):hover::after { border-color: rgba(var(--bt-cor), .2); transform: scale(1); }
+.ag-btn-prim:not(:disabled):not(#b):hover::after, .btn-primary:not(:disabled):not(#b):hover::after, .sel-copiar:not(:disabled):not(#b):hover::after, .gr-sortear:not(:disabled):not(#b):hover::after, .gr-btn1:not(:disabled):not(#b):hover::after { border-color: rgba(255, 190, 130, .35); }
+/* clique */
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button):not(:disabled):not(#b):active { transform: scale(.95) !important; }
+/* estados que já existiam */
+.gr-btn1.ok:not(#b), .sel-copiar.ok:not(#b) { background: #34d399 !important; border-color: #34d399 !important; color: #052e1f !important; }
+.ag-btn-perigo:not(#b) { color: #f87171 !important; }
+:is(.btn, .ag-btn, .gr-btn2, .btn-primary, .ag-btn-prim):disabled { opacity: .5; cursor: not-allowed; }
+
+/* seta dos botões de avançar (Próximo, Programar disparos, Entrar) */
+.seta-svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .3s ease; }
+button:not(:disabled):hover > .seta-svg, button:focus-visible > .seta-svg { transform: translateX(4px); }
+#btnLogin { display: flex !important; align-items: center; justify-content: center; gap: 8px; }
+
+/* ── compactos: botões de linha e pílulas de filtro (sem a luz que segue o mouse) ── */
+:is(.ag-slot-acoes .ag-btn-s, .copy-item-copiar, .icon-btn, .cp-icone, .cp-tab, .ag-pill, .ag-mini, .gr-cat, .chip-novas):not(#b) {
+  border-radius: 999px !important; transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease, background-color .3s ease, color .3s ease, opacity .3s ease !important;
+}
+:is(.ag-slot-acoes .ag-btn-s, .copy-item-copiar, .cp-icone):not(#b) { border: 1px solid var(--bt-borda) !important; background: transparent !important; box-shadow: none !important; }
+:is(.ag-slot-acoes .ag-btn-s, .copy-item-copiar, .icon-btn, .cp-icone, .cp-tab, .ag-pill, .ag-mini, .gr-cat, .chip-novas):not(:disabled):not(#b):hover {
+  border-color: rgba(var(--bt-indigo), .4) !important; box-shadow: 0 0 10px rgba(var(--bt-indigo), .18) !important;
+}
+:is(.ag-slot-acoes .ag-btn-s, .copy-item-copiar, .icon-btn, .cp-icone, .cp-tab, .ag-pill, .ag-mini, .gr-cat, .chip-novas):not(:disabled):not(#b):active { transform: scale(.95); }
+.copy-item-copiar.ok:not(#b) { border-color: rgba(52, 211, 153, .5) !important; }
+
+/* foco pelo teclado sempre visível */
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .ag-slot-acoes .ag-btn-s, .copy-item-copiar, .icon-btn, .cp-icone, .cp-tab, .ag-pill, .ag-mini, .gr-cat, .chip-novas):focus-visible { outline: 2px solid rgb(var(--bt-indigo)) !important; outline-offset: 2px !important; }
+:is(.btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .ag-btn-prim, .versao-nova button):focus-visible { outline: 2px solid #ffb06b !important; outline-offset: 2px !important; }
+
+/* movimento reduzido: sem escala nem animação */
+@media (prefers-reduced-motion: reduce) {
+  :is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button, .ag-slot-acoes .ag-btn-s, .copy-item-copiar, .icon-btn, .cp-icone, .cp-tab, .ag-pill, .ag-mini, .gr-cat, .chip-novas):not(#b) { transition: none !important; }
+  :is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button, .ag-slot-acoes .ag-btn-s, .copy-item-copiar, .icon-btn, .cp-icone, .cp-tab, .ag-pill, .ag-mini, .gr-cat, .chip-novas):not(#b):active { transform: none !important; }
+  :is(.btn, .ag-btn, .gr-btn2, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button):not(#b)::before,
+  :is(.btn, .ag-btn, .gr-btn2, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button):not(#b)::after { transition: none !important; transform: none !important; }
+  .seta-svg { transition: none; }
+  button:hover > .seta-svg { transform: none; }
+}
+:is(.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn, .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button):not(:disabled):not(#b):hover { opacity: 1; filter: none !important; }
+
+/* ═══ Agenda: Ajustes na engrenagem ao lado da modelo (painel lateral) ═══ */
+.ag-cab1 .ag-topo-linha { gap: 8px; }
+.ag-ajustes-btn { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 40px !important; padding: 0 14px 0 12px !important; font-size: 13.5px !important; }
+.ag-ajustes-btn .ag-svg { width: 16px; height: 16px; }
+.ag-ajustes-aviso { position: absolute; top: 5px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: #f6892d; box-shadow: 0 0 0 2px #17131b; }
+.ag-ajustes-aviso[hidden] { display: none; }
+.ag-folha-ajustes { width: min(600px, 100%) !important; }
+.ag-folha-ajustes .ag-ajustes-corpo { padding: 14px 18px 20px; }
+.ag-folha-ajustes .ag-aj-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 14px; }
+.ag-folha-ajustes .ag-aj-col { gap: 14px; }
+.ag-folha-ajustes .ag-aj-sec { padding: 16px 18px; }
+.ag-folha-ajustes .ag-aj-sec .ag-txt-prompt { min-height: 260px; }
+.ag-folha-x { width: 34px; padding: 0 !important; justify-content: center; font-size: 14px !important; }
+
+/* ═══ Copys: excluir (só admin) ═══ */
+.copy-item-excluir { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0 !important; color: var(--text-dim) !important; opacity: 0; }
+.copy-item-excluir svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.copy-item:hover .copy-item-excluir, .copy-item:focus-within .copy-item-excluir, .copy-item-excluir:focus-visible { opacity: 1; }
+.copy-item-excluir:hover { color: #f87171 !important; border-color: rgba(248, 113, 113, .45) !important; box-shadow: 0 0 10px rgba(248, 113, 113, .18) !important; }
+.sb-item { position: relative; display: block; }
+.sb-item > .sb-modelo { width: 100%; }
+.sb-excluir { position: absolute; top: 50%; right: 6px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 999px; background: #2a2330; color: var(--text-dim); cursor: pointer; opacity: 0; transform: translateY(-50%); transition: opacity .2s, color .2s, border-color .2s; }
+.sb-excluir svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sb-item:hover .sb-excluir, .sb-excluir:focus-visible { opacity: 1; }
+.sb-item:hover .sb-qtd { visibility: hidden; }
+.sb-excluir:hover { color: #f87171; border-color: rgba(248, 113, 113, .45); }
+.sb-excluir:focus-visible { outline: 2px solid rgb(99, 102, 241); outline-offset: 2px; }
+.sel-excluir { color: #fca5a5 !important; }
+.sel-excluir.armado { color: #fff !important; background: rgba(248, 113, 113, .22) !important; border-radius: 999px; padding: 0 12px; }
+.toast.toast-acao { display: flex; align-items: center; gap: 14px; padding-right: 8px; pointer-events: auto; }
+.toast-btn { flex: none; height: 30px; padding: 0 14px; border: 1px solid #2a2433; border-radius: 999px; background: #1a1620; color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .3s, box-shadow .3s; }
+.toast-btn:hover { border-color: rgba(99, 102, 241, .5); box-shadow: 0 0 14px rgba(99, 102, 241, .3); }
+#toastContainer { pointer-events: none; }
+#toastContainer .toast-acao { pointer-events: auto; }
+.dlg-fundo { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 16px; background: rgba(4, 3, 8, .66); backdrop-filter: blur(3px); }
+.dlg { width: min(440px, 100%); padding: 22px 22px 18px; border-radius: 16px; background: #201a25; border: 1px solid rgba(241, 235, 228, .12); box-shadow: 0 30px 80px rgba(0, 0, 0, .5); }
+.dlg h3 { margin: 0 0 8px; font-size: 18px; }
+.dlg p { margin: 0 0 18px; color: var(--text-dim); line-height: 1.5; }
+.dlg p b { color: var(--text); }
+.dlg-acoes { display: flex; justify-content: flex-end; gap: 10px; }
+.btn.btn-perigo:not(#b) { background: #3a1b1f !important; border-color: rgba(248, 113, 113, .5) !important; color: #fecaca !important; }
+.btn.btn-perigo:not(#b):hover { border-color: #f87171 !important; box-shadow: 0 0 20px rgba(248, 113, 113, .3) !important; }
+.excl-lista { display: grid; gap: 8px; }
+.excl-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(241, 235, 228, .08); background: rgba(255, 255, 255, .02); }
+.excl-item small { margin-left: 6px; color: var(--text-dim); }
+.dlg .btn.btn-perigo:not(#b):not(#c) { background: #3a1b1f !important; border-color: rgba(248, 113, 113, .5) !important; color: #fecaca !important; }
+.dlg .btn.btn-perigo:not(#b):not(#c):hover { border-color: #f87171 !important; box-shadow: 0 0 20px rgba(248, 113, 113, .3) !important; }

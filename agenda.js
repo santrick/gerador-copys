@@ -624,7 +624,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   function agGlobalMudou() {
     if (!ag.cfg) return;
     agPreselecionarPersona(ag.cfg);
-    if (ag.aba === 'ajustes') {
+    if (agAjustesAberto()) {
       if (!agDigitandoEm('#agAjPersona')) agRenderAjustesTab('persona');
       if (!agDigitandoEm('#agAjPrompt')) agRenderAjustesTab('prompt');
     }
@@ -1184,15 +1184,21 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
 
   // ═══════════════════════════════════════════════ ABAS ═══
 
-  const AG_ABAS = [['quando', '1 · Quando', 'Quando'], ['mensagens', '2 · Mensagens', 'Mensagens'], ['enviar', '3 · Enviar', 'Enviar'], ['ajustes', '⚙ Ajustes', 'Ajustes']];
+  const AG_ABAS = [['quando', '1 · Quando', 'Quando'], ['mensagens', '2 · Mensagens', 'Mensagens'], ['enviar', '3 · Enviar', 'Enviar']];
   // nomes antigos (Programar e Fila viraram Enviar)
   const agAbaReal = (id) => (id === 'programar' || id === 'fila') ? 'enviar' : id;
   function agAbaInicial() {
-    try { const v = agAbaReal(sessionStorage.getItem('agenda_aba')); if (AG_ABAS.some(([id]) => id === v)) return v; } catch (e) { /* ignora */ }
+    try {
+      const v = agAbaReal(sessionStorage.getItem('agenda_aba'));
+      if (v === 'ajustes') { ag.abrirAjustesAoCarregar = true; return 'quando'; } // aba lembrada antiga: abre o painel
+      if (AG_ABAS.some(([id]) => id === v)) return v;
+    } catch (e) { /* ignora */ }
     return 'quando';
   }
   function agMostrarAba(id, rolar) {
     id = agAbaReal(id);
+    if (id === 'ajustes') { agAbrirAjustes(); return; } // Ajustes é o painel da engrenagem, não uma etapa
+    agAvisoAjustes();
     if (!AG_ABAS.some(([x]) => x === id)) id = 'quando';
     agMenuPreencher(false);
     ag.aba = id;
@@ -1209,7 +1215,6 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       if (topo < 0) window.scrollTo({ top: Math.max(0, window.scrollY + topo - 90) });
     }
     if (id === 'mensagens' && !agAutoAlturaNativa) document.querySelectorAll('#agTimeline textarea[data-msg]').forEach(agAutoAltura);
-    if (id === 'ajustes') agRenderAjustesTab();
   }
   function agContarFila() {
     const n = (ag.fila || []).filter(d => String(d.status || 'pendente').toLowerCase() === 'pendente').length;
@@ -1235,9 +1240,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
             <button type="button" class="ag-modelo-btn" id="agModeloBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="agModelos"></button>
             <div class="ag-modelo-lista" id="agModelos" role="listbox" aria-label="Escolha a modelo" hidden></div>
           </div>
+          <button type="button" class="ag-btn ag-btn-s ag-ajustes-btn" id="agAjustesBtn" data-ag="ajustes-abrir" aria-haspopup="dialog" title="Persona, prompt, estilo da IA, chave e backup">${ico('engrenagem')}<span>Ajustes</span><i class="ag-ajustes-aviso" id="agAjustesAviso" hidden title="Falta a chave da OpenRouter"></i></button>
         </div>
         <nav class="ag-abas" id="agAbas" role="tablist" aria-label="Partes da agenda">
-          ${AG_ABAS.map(([id, longo, curto]) => `<button type="button" role="tab" data-ag-aba="${id}" class="${id === 'ajustes' ? 'ag-aba-ajustes' : ''}"><span class="ag-aba-longo">${longo}</span><span class="ag-aba-curto">${curto}</span>${id === 'enviar' ? ' <span class="ag-fila-qtd" id="agFilaQtd" hidden></span>' : ''}</button>`).join('')}
+          ${AG_ABAS.map(([id, longo, curto]) => `<button type="button" role="tab" data-ag-aba="${id}"><span class="ag-aba-longo">${longo}</span><span class="ag-aba-curto">${curto}</span>${id === 'enviar' ? ' <span class="ag-fila-qtd" id="agFilaQtd" hidden></span>' : ''}</button>`).join('')}
         </nav>
         <span class="ag-salvo" id="agSalvo" aria-live="polite"></span>
       </div>
@@ -1250,7 +1256,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       <section class="ag-passo" id="agPasso1" data-painel="quando" role="tabpanel" aria-labelledby="agP1">
         <header class="ag-passo-cab"><span class="ag-num">1</span><div><h2 id="agP1">Quando vai sair</h2><p>Escolha os dias e os horários dos disparos.</p></div></header>
         <div id="agQuando"></div>
-        <div class="ag-proximo"><button type="button" class="ag-btn" data-ag="aba" data-aba="mensagens">Próximo: Mensagens →</button></div>
+        <div class="ag-proximo"><button type="button" class="ag-btn" data-ag="aba" data-aba="mensagens"><span>Próximo: Mensagens</span>${AG_SETA}</button></div>
       </section>
 
       <section class="ag-passo" id="agPasso2" data-painel="mensagens" role="tabpanel" aria-labelledby="agP2" hidden>
@@ -1288,7 +1294,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         <div id="agTimeline"></div>
         <div class="ag-msg-rodape">
           <span id="agMsgsInfo"></span>
-          <button type="button" class="ag-btn" data-ag="aba" data-aba="enviar">Próximo: Enviar →</button>
+          <button type="button" class="ag-btn" data-ag="aba" data-aba="enviar"><span>Próximo: Enviar</span>${AG_SETA}</button>
         </div>
         </div>
         <aside class="ag-msg-chat" aria-label="Como a assinante vê no chat (clique numa mensagem pra editar)">
@@ -1317,10 +1323,6 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         </div>
       </section>
 
-      <section class="ag-passo ag-ajustes-aba" id="agPassoAjustes" data-painel="ajustes" role="tabpanel" aria-labelledby="agPA" hidden>
-        <h2 id="agPA" class="ag-so-leitor">Ajustes</h2>
-        <div id="agAjTab"></div>
-      </section>
       <input type="file" id="agArquivo" accept=".json,application/json" hidden>`;
     agMostrarAba(agAbaInicial());
     raiz.addEventListener('click', agClique);
@@ -1354,7 +1356,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       teste.disabled = true;
       agAtualizarRodape();
       agRenderFila();
-      if (ag.aba === 'ajustes') agRenderAjustesTab();
+      if (agAjustesAberto()) agRenderAjustesTab();
       return;
     }
     conta.textContent = ag.cfg.contaPrivacy ? '@' + ag.cfg.contaPrivacy : 'sem @ (clique em Editar)';
@@ -1364,7 +1366,8 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     agMostrarAvisoPermissao();
     agRenderTudo();
     agRenderFila();
-    if (ag.aba === 'ajustes') agRenderAjustesTab();
+    if (agAjustesAberto()) agRenderAjustesTab();
+    if (ag.abrirAjustesAoCarregar) { ag.abrirAjustesAoCarregar = false; agAbrirAjustes(); }
   }
 
   function agRenderTudo() {
@@ -1378,6 +1381,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   // Partes que mudam sem redesenhar (não tira o foco de quem está digitando)
   function agAtualizar() {
     agAtualizarRodape();
+    agAvisoAjustes();
     if (!ag.cfg) return;
     agAtualizarDias();
     agRenderNums();
@@ -1403,18 +1407,19 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     agResumoQuando();
   }
 
+  const AG_SETA = '<svg class="seta-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
   function agAtualizarRodape() {
     const btn = document.getElementById('agProgramar');
     if (!btn) return;
     const c = ag.cfg;
-    if (!c) { btn.disabled = true; btn.innerHTML = `${ico('raio')}<span>Programar disparos</span>`; return; }
+    if (!c) { btn.disabled = true; btn.innerHTML = `${ico('raio')}<span>Programar disparos</span>${AG_SETA}`; return; }
     btn.disabled = ag.mandando;
     const total = agMontarPlano(c).length;
     const n = c.teste ? Math.min(1, total) : total;
     btn.classList.toggle('ag-incompleto', !n);
-    if (!n) btn.innerHTML = `${ico('calendario')}<span>Programar disparos · escolha dias e horários no passo 1</span>`;
-    else if (c.teste) btn.innerHTML = `${ico('frasco')}<span>Programar disparos · teste com 1</span>`;
-    else btn.innerHTML = `${ico('raio')}<span>Programar ${n} ${n === 1 ? 'disparo' : 'disparos'}</span>`;
+    if (!n) btn.innerHTML = `${ico('calendario')}<span>Programar disparos · escolha dias e horários no passo 1</span>${AG_SETA}`;
+    else if (c.teste) btn.innerHTML = `${ico('frasco')}<span>Programar disparos · teste com 1</span>${AG_SETA}`;
+    else btn.innerHTML = `${ico('raio')}<span>Programar ${n} ${n === 1 ? 'disparo' : 'disparos'}</span>${AG_SETA}`;
   }
 
   function agStatus(txt, tipo, onde) {
@@ -2065,14 +2070,38 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     sortear: ['dado', 'Sortear copys reais', 'Igual ao Gerador, mas já coloca as copys sorteadas nos horários da agenda.']
   };
   // Gavetas com campos que a pessoa digita e não podem ser redesenhadas por baixo
-  const AG_GAVETAS_FIXAS = ['config', 'prompt', 'colar', 'assuntos', 'escolher', 'sortear'];
+  const AG_GAVETAS_FIXAS = ['config', 'prompt', 'colar', 'assuntos', 'escolher', 'sortear', 'ajustes'];
 
   const AG_GAVETAS_AJUSTES = { persona: 'agAjPersona', estilo: 'agAjEstilo', prompt: 'agAjPrompt', config: 'agAjConfig' };
+  // Painel lateral de Ajustes (engrenagem ao lado da modelo): mesmo conteúdo da antiga aba
+  function agAjustesAberto() { return !!document.querySelector('#agFolha #agAjTab'); }
+  function agAbrirAjustes() {
+    if (agAjustesAberto()) return;
+    agAbrirFolha(`
+      <div class="ag-folha-topo">
+        <div>
+          <div class="ag-folha-titulo">${ico('engrenagem')}Ajustes${ag.modelo ? ` de ${esc(agPrimeiroNome(ag.modelo))}` : ''}</div>
+          <div class="ag-folha-sub">Persona, prompt da equipe, estilo da IA, chave e backup. Salva sozinho.</div>
+        </div>
+        <button type="button" class="ag-btn ag-btn-p ag-folha-x" data-folha="fechar" aria-label="Fechar ajustes">✕</button>
+      </div>
+      <div class="ag-folha-corpo ag-ajustes-corpo"><div id="agAjTab"></div></div>`, 'ag-folha-lado ag-folha-ajustes');
+    ag.gaveta = 'ajustes';
+    agRenderAjustesTab();
+    const b = document.getElementById('agAjustesBtn');
+    if (b) b.setAttribute('aria-expanded', 'true');
+    const x = document.querySelector('#agFolha .ag-folha-x');
+    if (x) x.focus({ preventScroll: true });
+  }
+  function agAvisoAjustes() {
+    const a = document.getElementById('agAjustesAviso');
+    if (a) a.hidden = !!agChave();
+  }
+
   function agAbrirGaveta(nome) {
     // Persona, estilo, prompt e chave/backup moram na aba Ajustes
     if (AG_GAVETAS_AJUSTES[nome]) {
-      agFecharFolha();
-      agMostrarAba('ajustes', true);
+      agAbrirAjustes();
       const sec = document.getElementById(AG_GAVETAS_AJUSTES[nome]);
       if (sec) { sec.scrollIntoView({ block: 'start' }); const f = sec.querySelector('input, textarea'); if (nome === 'config' && f) f.focus({ preventScroll: true }); }
       return;
@@ -2119,7 +2148,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   const agDigitandoEm = (sel) => { const a = document.activeElement; return !!(a && a.closest && a.closest(sel) && /^(INPUT|TEXTAREA)$/.test(a.tagName)); };
 
   function agRenderGaveta() {
-    if (ag.aba === 'ajustes' && !agDigitandoEm('#agAjPersona')) agRenderAjustesTab('persona');
+    if (agAjustesAberto() && !agDigitandoEm('#agAjPersona')) agRenderAjustesTab('persona');
     const folha = document.querySelector('#agFolha .ag-folha');
     if (!folha || !ag.gaveta || AG_GAVETAS_FIXAS.includes(ag.gaveta)) return;
     const corpo = folha.querySelector('.ag-folha-corpo');
@@ -3027,6 +3056,8 @@ bom dia, vida! já acordou?"></textarea>
   function agFecharFolha() {
     const f = document.getElementById('agFolha');
     if (f) f.remove();
+    const bAj = document.getElementById('agAjustesBtn');
+    if (bAj) bAj.setAttribute('aria-expanded', 'false');
     document.body.classList.remove('ag-folha-aberta');
     ag.previa = null;
     ag.gaveta = null;
@@ -3422,6 +3453,7 @@ bom dia, vida! já acordou?"></textarea>
     const acaoEl = t.closest('[data-ag]');
     const acao = acaoEl && acaoEl.dataset.ag;
     if (acao === 'config') { agAbrirConfig(); return; }
+    if (acao === 'ajustes-abrir') { agAbrirAjustes(); return; }
     if (!c) return;
     if (acao === 'aba') { agMostrarAba(acaoEl.dataset.aba, true); return; }
     if (acao === 'gaveta') { agMais(false); agAbrirGaveta(acaoEl.dataset.gaveta); return; }

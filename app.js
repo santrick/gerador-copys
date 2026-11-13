@@ -22,6 +22,29 @@
   } catch (e) { /* sem localStorage */ }
 })();
 
+// Seta dos botões de avançar (Entrar, Próximo, Programar disparos): igual à ArrowRight do lucide
+const SETA_SVG = '<svg class="seta-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>';
+
+// Luz que segue o mouse dentro dos botões: um listener só no document, que põe --x/--y no botão sob o mouse
+(function luzDosBotoes() {
+  const SEL = '.btn, .btn-secondary, .btn-ghost, .gr-btn2, .ag-btn:not(.ag-slot-acoes .ag-btn-s), .btn-primary, .gr-sortear, .gr-btn1, .sel-copiar, .versao-nova button';
+  let pend = null, quadro = 0;
+  document.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch' || !e.target.closest) return;
+    const b = e.target.closest(SEL);
+    if (!b) return;
+    pend = { b, x: e.clientX, y: e.clientY };
+    if (quadro) return;
+    quadro = requestAnimationFrame(() => {
+      quadro = 0;
+      const r = pend.b.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      pend.b.style.setProperty('--x', ((pend.x - r.left) / r.width * 100).toFixed(1) + '%');
+      pend.b.style.setProperty('--y', ((pend.y - r.top) / r.height * 100).toFixed(1) + '%');
+    });
+  }, { passive: true });
+})();
+
 // ═══════════════════════════════════════════════ LOGIN + ATIVIDADE (Firebase) ═══
 
 const FIREBASE_CONFIG = {
@@ -69,7 +92,7 @@ function configurarLogin() {
       msg.textContent = mapa[err.code] || ('Erro: ' + err.message);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Entrar';
+      btn.innerHTML = '<span>Entrar</span>' + SETA_SVG;
     }
   }
 
@@ -130,6 +153,8 @@ function configurarLogin() {
     registrarAtividade('Entrou no sistema', '');
     carregarMineradas();
     iniciarFeedFavoritos();
+    iniciarFeedExcluidas();
+    document.body.classList.toggle('sou-admin', souAdmin);
     if (souAdmin) iniciarFeedFuncionarios();
   });
 }
@@ -391,19 +416,23 @@ function renderFavoritos() {
   const container = document.getElementById('listaFavoritos');
   if (!container) return;
   const termo = (document.getElementById('buscaFavoritos').value || '').toLowerCase().trim();
-  const contagem = { todas: favoritosDocs.length, disparo: 0, minerada: 0, ia: 0 };
-  favoritosDocs.forEach((d) => { const o = ORIGEM_FAV[d.origem] ? d.origem : 'disparo'; contagem[o]++; });
+  // copy excluída pelo admin (e que não existe mais em nenhuma outra modelo) não aparece nos favoritos
+  const visiveis = new Set(todasMineradas.map((c) => c.mensagem));
+  const fora = new Set(todasMineradasBruto.filter((c) => !visiveis.has(c.mensagem)).map((c) => c.mensagem));
+  const favDocs = favoritosDocs.filter((d) => !fora.has(d.texto));
+  const contagem = { todas: favDocs.length, disparo: 0, minerada: 0, ia: 0 };
+  favDocs.forEach((d) => { const o = ORIGEM_FAV[d.origem] ? d.origem : 'disparo'; contagem[o]++; });
   document.querySelectorAll('#filtroOrigemFav [data-origem]').forEach((b) => {
     b.classList.toggle('ativo', b.dataset.origem === filtroOrigemFav);
     b.querySelector('.fav-count').textContent = contagem[b.dataset.origem] || 0;
   });
 
-  const lista = favoritosDocs.filter((d) => {
+  const lista = favDocs.filter((d) => {
     const o = ORIGEM_FAV[d.origem] ? d.origem : 'disparo';
     return (filtroOrigemFav === 'todas' || o === filtroOrigemFav) && (!termo || d.texto.toLowerCase().includes(termo) || (d.categoria || '').toLowerCase().includes(termo));
   });
   if (!lista.length) {
-    container.innerHTML = `<div class="empty-state"><span class="empty-ico">⭐</span><p>${favoritosDocs.length ? 'Nenhum favorito com esse filtro.' : 'Nenhuma copy favoritada ainda. Toque na ⭐ de qualquer copy da aba Copys pra guardar aqui.'}</p></div>`;
+    container.innerHTML = `<div class="empty-state"><span class="empty-ico">⭐</span><p>${favDocs.length ? 'Nenhum favorito com esse filtro.' : 'Nenhuma copy favoritada ainda. Toque na ⭐ de qualquer copy da aba Copys pra guardar aqui.'}</p></div>`;
     return;
   }
   container.innerHTML = lista.map((d) => {
@@ -630,6 +659,7 @@ function irParaTab(tab, opts) {
   }
   if (tab === 'favoritos') renderFavoritos();
   if (tab === 'extensoes') mostrarVersaoExtensao();
+  if (tab === 'admin') renderExcluidasAdmin();
   if (dpAba(tab)) abrirDisparo();
   if (tab === 'agenda' && typeof abrirAgenda === 'function') abrirAgenda();
   renderAbasCopys();
@@ -680,6 +710,8 @@ function configurarMineradas() {
     aplicarFiltroMineradas();
   });
   ['abasModelos', 'abasCategorias'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => {
+    const lixo = e.target.closest('[data-excluir-modelo]');
+    if (lixo) { if (souAdmin) confirmarExcluirModelo(lixo.dataset.excluirModelo); return; }
     const btn = e.target.closest('[data-valor]');
     if (!btn) return;
     const sel = document.getElementById(id === 'abasModelos' ? 'filtroModeloMineradas' : 'filtroTipoMineradas');
@@ -716,11 +748,13 @@ function renderAbasCopys() {
   const item = (valor, nomeOrig, qtd, ativa) => {
     const nome = valor ? nomeModelo(nomeOrig) : nomeOrig;
     const foto = valor && avataresModelos[valor];
-    return `<button type="button" class="sb-modelo ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}" role="listitem" title="${escAttr(nome)}" ${ativa ? 'aria-current="true"' : ''}>
+    const botao = `<button type="button" class="sb-modelo ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}" ${souAdmin && valor ? '' : 'role="listitem"'} title="${escAttr(nome)}" ${ativa ? 'aria-current="true"' : ''}>
       <span class="sb-av" style="--cor:${valor ? corAvatar(nome) : 'var(--accent)'}">${valor ? esc(iniciais(nome)) : '✦'}${fotoAvatar(foto) ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
       <span class="sb-nome${valor ? ' sb-nome-modelo' : ''}">${esc(valor ? nome : 'Todas as modelos')}</span>
       <span class="sb-qtd">${qtd}</span>
     </button>`;
+    if (!(souAdmin && valor)) return botao;
+    return `<div class="sb-item" role="listitem">${botao}<button type="button" class="sb-excluir" data-excluir-modelo="${escAttr(valor)}" title="Excluir ${escAttr(nome)}" aria-label="Excluir ${escAttr(nome)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></div>`;
   };
   const lista = document.getElementById('abasModelos');
   const copysAtivo = document.getElementById('tab-mineradas').classList.contains('active');
@@ -849,10 +883,136 @@ async function carregarMineradas(opcoes = {}) {
   }
 }
 
+// ═══ EXCLUÍDAS (só admin) ═══
+// "Excluir" é por marcação: a extensão re-minera e regrava as copys com o mesmo id, então apagar o doc
+// não adianta. A lista do que foi excluído fica em agenda_cfg/_excluidas e é filtrada na leitura:
+//   copys:   chave de modelo + texto (some todo envio daquele texto daquela modelo, inclusive reenvios)
+//   modelos: normId do nome da modelo (copys novas dela também ficam escondidas)
+let excluidas = { copys: new Set(), modelos: new Set(), nomes: {} };
+let todasMineradasBruto = [];
+let unsubExcluidas = null;
+const EXCL_CACHE = 'copys_excluidas_v1';
+function idTextoCopy(c) { return 't' + cyrb53(normId(c.modelo) + '|' + normId(c.mensagem)).toString(36); }
+function copyExcluida(c) { return excluidas.modelos.has(normId(c.modelo)) || excluidas.copys.has(idTextoCopy(c)); }
+function aplicarExcluidasDados(d) {
+  d = d && typeof d === 'object' ? d : {};
+  excluidas = {
+    copys: new Set(Array.isArray(d.copys) ? d.copys.filter((x) => typeof x === 'string') : []),
+    modelos: new Set(Array.isArray(d.modelos) ? d.modelos.filter((x) => typeof x === 'string') : []),
+    nomes: d.nomes && typeof d.nomes === 'object' ? d.nomes : {}
+  };
+}
+(function lerExcluidasDoCache() { aplicarExcluidasDados(safeParse(EXCL_CACHE, null)); })();
+function reaplicarExcluidas() {
+  if (todasMineradasBruto.length) aplicarDadosMineradas(todasMineradasBruto, null);
+  renderExcluidasAdmin();
+  if (typeof renderFavoritos === 'function') renderFavoritos();
+}
+function iniciarFeedExcluidas() {
+  if (unsubExcluidas) return;
+  unsubExcluidas = db.collection('agenda_cfg').doc('_excluidas').onSnapshot((snap) => {
+    const d = snap.exists ? snap.data() : null;
+    aplicarExcluidasDados(d);
+    try { localStorage.setItem(EXCL_CACHE, JSON.stringify({ copys: [...excluidas.copys], modelos: [...excluidas.modelos], nomes: excluidas.nomes })); } catch (e) { /* cota cheia */ }
+    reaplicarExcluidas();
+  }, (err) => console.error('[excluidas]', err));
+}
+async function salvarExcluidas(mudar, desc) {
+  if (!souAdmin) return false;
+  const antes = { copys: [...excluidas.copys], modelos: [...excluidas.modelos], nomes: { ...excluidas.nomes } };
+  const novo = { copys: new Set(antes.copys), modelos: new Set(antes.modelos), nomes: { ...antes.nomes } };
+  mudar(novo);
+  excluidas = novo;               // some na hora; o onSnapshot confirma depois
+  reaplicarExcluidas();
+  try {
+    await db.collection('agenda_cfg').doc('_excluidas').set({
+      copys: [...novo.copys], modelos: [...novo.modelos], nomes: novo.nomes,
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      atualizadoPor: usuarioAtual ? { uid: usuarioAtual.uid, nome: usuarioAtual.displayName || usuarioAtual.email || '' } : null
+    });
+    if (desc) registrarAtividade(desc[0], desc[1]);
+    return true;
+  } catch (err) {
+    aplicarExcluidasDados(antes); reaplicarExcluidas();
+    toast('Não deu pra salvar a exclusão: ' + err.message);
+    return false;
+  }
+}
+// toast com botão (Desfazer)
+function toastAcao(msg, rotulo, acao, ms = 8000) {
+  const c = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = 'toast toast-acao';
+  const t = document.createElement('span'); t.textContent = msg;
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-btn'; b.textContent = rotulo;
+  b.addEventListener('click', () => { el.remove(); acao(); });
+  el.append(t, b);
+  c.appendChild(el);
+  setTimeout(() => el.remove(), ms);
+  return el;
+}
+function excluirCopys(lista) {
+  const ids = [...new Set(lista.map(idTextoCopy))];
+  if (!ids.length) return;
+  salvarExcluidas((n) => ids.forEach((id) => n.copys.add(id)), ['Excluiu copys', `${ids.length} ${ids.length === 1 ? 'copy' : 'copys'}`]).then((ok) => {
+    if (!ok) return;
+    toastAcao(ids.length === 1 ? 'Copy excluída' : `${ids.length} copys excluídas`, 'Desfazer',
+      () => salvarExcluidas((n) => ids.forEach((id) => n.copys.delete(id)), ['Desfez exclusão de copys', String(ids.length)]));
+  });
+}
+function excluirModelo(nome) {
+  const k = normId(nome);
+  salvarExcluidas((n) => { n.modelos.add(k); n.nomes[k] = nome; }, ['Excluiu modelo das Copys', nome]).then((ok) => {
+    if (ok) toastAcao(`${nomeModelo(nome)} excluída`, 'Desfazer', () => restaurarModelo(k));
+  });
+}
+function restaurarModelo(k) {
+  const nome = excluidas.nomes[k] || k;
+  salvarExcluidas((n) => { n.modelos.delete(k); delete n.nomes[k]; }, ['Restaurou modelo nas Copys', nome]);
+}
+// Confirmação de modelo (sem confirm() do navegador)
+function confirmarExcluirModelo(nome) {
+  const qtd = new Set(todasMineradas.filter((c) => c.modelo === nome).map((c) => normTexto(c.mensagem))).size;
+  fecharDialogo();
+  const fundo = document.createElement('div');
+  fundo.className = 'dlg-fundo'; fundo.id = 'dlgExcluir';
+  fundo.innerHTML = `<div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgTit" aria-describedby="dlgTxt">
+      <h3 id="dlgTit">Excluir modelo</h3>
+      <p id="dlgTxt">Excluir <b>${esc(nomeModelo(nome))}</b> e ${qtd === 1 ? 'a copy dela' : `as ${qtd} copys dela`}? Ela some da lista pra toda a equipe.</p>
+      <div class="dlg-acoes"><button type="button" class="btn btn-secondary" data-dlg="cancelar">Cancelar</button><button type="button" class="btn btn-perigo" data-dlg="excluir">Excluir</button></div>
+    </div>`;
+  document.body.appendChild(fundo);
+  const voltar = document.activeElement;
+  const fechar = () => { fecharDialogo(); if (voltar && voltar.focus) voltar.focus(); };
+  fundo.addEventListener('click', (e) => {
+    if (e.target === fundo || e.target.closest('[data-dlg="cancelar"]')) return fechar();
+    if (e.target.closest('[data-dlg="excluir"]')) { fecharDialogo(); excluirModelo(nome); }
+  });
+  fundo.querySelector('[data-dlg="cancelar"]').focus();
+}
+function fecharDialogo() { const d = document.getElementById('dlgExcluir'); if (d) d.remove(); }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.getElementById('dlgExcluir')) { e.preventDefault(); fecharDialogo(); } });
+// Bloco "Excluídas" no Admin
+function renderExcluidasAdmin() {
+  const box = document.getElementById('listaExcluidas');
+  if (!box) return;
+  const modelos = [...excluidas.modelos];
+  const nCopys = excluidas.copys.size;
+  if (!modelos.length && !nCopys) { box.innerHTML = '<p class="empty-hint">Nada excluído.</p>'; return; }
+  box.innerHTML = modelos.map((k) => `<div class="excl-item"><span><b>${esc(nomeModelo(excluidas.nomes[k] || k))}</b> <small>modelo inteira</small></span><button type="button" class="btn btn-secondary btn-p" data-restaurar-modelo="${escAttr(k)}">Restaurar</button></div>`).join('')
+    + (nCopys ? `<div class="excl-item"><span><b>${nCopys} ${nCopys === 1 ? 'copy excluída' : 'copys excluídas'}</b> <small>uma a uma</small></span><button type="button" class="btn btn-secondary btn-p" data-restaurar-copys>Restaurar</button></div>` : '');
+}
+document.addEventListener('click', (e) => {
+  const m = e.target.closest('[data-restaurar-modelo]');
+  if (m) { restaurarModelo(m.dataset.restaurarModelo); return; }
+  if (e.target.closest('[data-restaurar-copys]')) salvarExcluidas((n) => { n.copys.clear(); }, ['Restaurou copys excluídas', '']);
+});
+
 function aplicarDadosMineradas(copys, modelosServidor) {
   // o Google Docs guarda a quebra de linha da copy como quebra suave (\u000b): volta pra quebra normal
   copys.forEach((c) => { if (c.mensagem) c.mensagem = String(c.mensagem).replace(/[\u000b\r]/g, '\n'); });
-  todasMineradas = copys;
+  todasMineradasBruto = copys;
+  todasMineradas = copys.filter((c) => !copyExcluida(c)); // excluídas pelo admin não entram em nada (contadores, Extrair, Agenda, Favoritos)
   calcularNovidades('mineradas', todasMineradas.map(idMinerada));
   const modelos = modelosServidor || [...new Set(todasMineradas.map((c) => c.modelo).filter(Boolean))].sort();
   preencherSelect('filtroModeloMineradas', 'Todas as modelos', modelos);
@@ -1149,6 +1309,8 @@ function atualizarSelBarra() {
   if (!n) return;
   document.getElementById('selQtd').textContent = n;
   document.getElementById('selRotulo').textContent = n === 1 ? 'selecionada' : 'selecionadas';
+  const ex = document.getElementById('selExcluir');
+  if (ex) { ex.hidden = !souAdmin; if (!ex.classList.contains('armado')) ex.textContent = 'Excluir selecionadas'; }
   const faltam = mineradasFiltradas.filter((c) => podeSelecionar(c) && !selCopys.has(chaveCopy(c))).length;
   const todas = document.getElementById('selTodas');
   todas.hidden = !faltam;
@@ -1163,6 +1325,22 @@ function configurarSelecao() {
   document.getElementById('selTodas').addEventListener('click', () => {
     mineradasFiltradas.forEach((c) => { const k = chaveCopy(c); if (podeSelecionar(c) && !selCopys.has(k)) selCopys.set(k, { texto: c.mensagem, modelo: c.modelo }); });
     document.querySelectorAll('#listaMineradas .copy-item[data-chave]').forEach((c) => marcarCardSel(c, selCopys.has(c.dataset.chave)));
+    atualizarSelBarra();
+  });
+  let armadoTimer = 0;
+  document.getElementById('selExcluir').addEventListener('click', (e) => {
+    const b = e.currentTarget;
+    if (!souAdmin || !selCopys.size) return;
+    if (!b.classList.contains('armado')) {
+      b.classList.add('armado'); b.textContent = `Clique de novo pra excluir ${selCopys.size}`;
+      clearTimeout(armadoTimer);
+      armadoTimer = setTimeout(() => { b.classList.remove('armado'); b.textContent = 'Excluir selecionadas'; }, 4000);
+      return;
+    }
+    clearTimeout(armadoTimer); b.classList.remove('armado'); b.textContent = 'Excluir selecionadas';
+    const lista = [...selCopys.values()].map((x) => ({ modelo: x.modelo, mensagem: x.texto }));
+    selCopys.clear();
+    excluirCopys(lista);
     atualizarSelBarra();
   });
   document.getElementById('selCopiar').addEventListener('click', (e) => {
@@ -1237,6 +1415,7 @@ function cardCopyModeloHtml(c, mostrarModelo, reBusca) {
       <div class="copy-item-acoes">
         ${botaoFavHtml(texto, 'minerada', c.tipo)}
         <button type="button" class="copy-item-copiar" data-texto="${escAttr(texto)}"><span aria-hidden="true">⧉</span> Copiar</button>
+        ${souAdmin ? `<button type="button" class="icon-btn copy-item-excluir" title="Excluir copy" aria-label="Excluir copy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>` : ''}
       </div>
     </footer>
   </article>`;
@@ -1251,6 +1430,10 @@ function ligarEventosCopyItem(container) {
   });
   container.querySelectorAll('.copy-item-copiar').forEach((btn) => btn.addEventListener('click', () => copiar(btn.dataset.texto, btn)));
   container.querySelectorAll('.copy-item-sel:not(.is-off)').forEach((b) => b.addEventListener('click', () => alternarSelecao(b.closest('.copy-item'))));
+  container.querySelectorAll('.copy-item-excluir').forEach((b) => b.addEventListener('click', () => {
+    const c = copysNaTela.get(b.closest('.copy-item').dataset.chave);
+    if (c) excluirCopys([c]);
+  }));
   container.querySelectorAll('.copy-item-texto').forEach((p) => p.addEventListener('click', () => {
     if (window.getSelection && String(window.getSelection()).length) return; // deixa selecionar trecho
     const card = p.closest('.copy-item');

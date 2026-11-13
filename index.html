@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Familjen+Grotesk:wght@500;600;700&family=Onest:wght@400;500;600;700;800&family=Poppins:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=82" />
+  <link rel="stylesheet" href="styles.css?v=85" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -45,7 +45,7 @@
           <span>Senha</span>
           <input type="password" id="loginSenha" name="password" placeholder="••••••••" autocomplete="current-password" required />
         </label>
-        <button id="btnLogin" type="submit" class="btn btn-primary btn-block">Entrar</button>
+        <button id="btnLogin" type="submit" class="btn btn-primary btn-block"><span>Entrar</span><svg class="seta-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></button>
       </form>
       <p class="login-msg" id="loginMsg"></p>
     </div>
@@ -189,6 +189,7 @@
             <span class="sel-qtd"><b id="selQtd">0</b> <span id="selRotulo">selecionadas</span></span>
             <button type="button" class="sel-link" id="selTodas"></button>
             <button type="button" class="sel-link" id="selLimpar">Limpar</button>
+            <button type="button" class="sel-link sel-excluir" id="selExcluir" hidden>Excluir selecionadas</button>
             <button type="button" class="sel-copiar" id="selCopiar"><span aria-hidden="true">⧉</span> Copiar pro disparo</button>
           </div>
         </section>
@@ -380,6 +381,12 @@
             <div id="listaFuncionarios" class="funcionarios-list"></div>
           </div>
 
+          <div class="panel">
+            <div class="panel-head"><h2>Excluídas</h2></div>
+            <p class="panel-desc">Somem da aba Copys pra equipe toda. A extensão continua minerando; elas ficam escondidas.</p>
+            <div id="listaExcluidas" class="excl-lista"></div>
+          </div>
+
         </section>
 
       </div>
@@ -388,7 +395,7 @@
 
   <div id="toastContainer" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=72"></script>
-  <script src="agenda.js?v=21"></script>
+  <script src="app.js?v=74"></script>
+  <script src="agenda.js?v=22"></script>
 </body>
 </html>
