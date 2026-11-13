@@ -124,7 +124,7 @@ function configurarLogin() {
     carregarMineradas();
     iniciarFeedFavoritos();
     iniciarFeedFeedbackCopy();
-    if (souAdmin) { iniciarFeedAdmin(); iniciarFeedFuncionarios(); limparCopysFirestore(); }
+    if (souAdmin) { iniciarFeedFuncionarios(); limparCopysFirestore(); }
   });
 }
 
