@@ -239,6 +239,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     lapis: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     carregando: '<path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5"/>',
+    dado: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3"/><circle cx="15.5" cy="15.5" r="1.3"/><circle cx="12" cy="12" r="1.3"/>',
     copiar: '<rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/>',
     video: '<rect x="3.5" y="6.5" width="12" height="11" rx="2.5"/><path d="M15.5 10.5l5-3v9l-5-3z"/>'
   };
@@ -867,11 +868,15 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         </div>
         <div class="ag-msg-grid" id="agMsgGrid">
         <div class="ag-msg-lista">
-        <div class="ag-barra">
-          <button type="button" class="ag-btn ag-btn-prim" id="agGerar" data-ag="gerar"></button>
-          <button type="button" class="ag-btn" id="agMisturar" data-ag="misturar" title="Metade dos horários vazios com copys reais dela e o resto gerado pela IA, imitando o jeito dela">${ico('brilho')}<span>Misturar IA + reais</span></button>
-          <button type="button" class="ag-btn" id="agReais" data-ag="reais" title="Preenche os horários vazios com copys de verdade dessa modelo, que ainda não saíram">${ico('copiar')}<span>Usar copys reais</span></button>
-          <button type="button" class="ag-btn" data-ag="gaveta" data-gaveta="colar">${ico('mensagem')}<span>Colar várias</span></button>
+        <div class="ag-barra-prim">
+          <button type="button" class="ag-btn ag-btn-prim" id="agSortear" data-ag="gaveta" data-gaveta="sortear">${ico('dado')}<span>Sortear copys</span></button>
+          <button type="button" class="ag-btn ag-btn-forte" id="agGerar" data-ag="gerar"></button>
+        </div>
+        <div class="ag-barra-sec">
+          <button type="button" class="ag-btn ag-btn-p" id="agMisturar" data-ag="misturar" title="Metade dos horários vazios com copys reais dela e o resto gerado pela IA, imitando o jeito dela">${ico('brilho')}<span>Misturar IA + reais</span></button>
+          <button type="button" class="ag-btn ag-btn-p" id="agReais" data-ag="reais" title="Preenche os horários vazios com copys de verdade dessa modelo, que ainda não saíram">${ico('copiar')}<span>Usar copys reais</span></button>
+          <button type="button" class="ag-btn ag-btn-p" data-ag="gaveta" data-gaveta="colar">${ico('mensagem')}<span>Colar várias</span></button>
+          <button type="button" class="ag-btn ag-btn-p" id="agCopiarTudo" data-ag="copiar-tudo" title="Copia as mensagens na ordem, prontas pro campo Mensagens do disparo">${ico('copiar')}<span>Copiar tudo</span></button>
         </div>
         <p class="ag-status" id="agStatus" aria-live="polite" hidden></p>
         <p class="ag-linha-info"><button type="button" class="ag-link" id="agRefazer" data-ag="refazer" hidden>Refazer todas com a IA</button><span id="agHist"></span></p>
@@ -1476,16 +1481,19 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     pacotes: ['pacote', 'Pacotes', 'Packs e vídeos que vão nos horários de Pack e Vídeo, em rodízio.'],
     config: ['engrenagem', 'Configurações', 'Chave da IA (fica só neste navegador) e backup da agenda.'],
     colar: ['mensagem', 'Colar várias mensagens', 'Uma por bloco, com linha em branco entre elas. Preenche os horários na ordem.'],
-    escolher: ['lista', 'Escolher copy', 'Copys reais dessa modelo. Clique numa pra colocar no horário.']
+    escolher: ['lista', 'Escolher copy', 'Copys reais dessa modelo. Clique numa pra colocar no horário.'],
+    sortear: ['dado', 'Sortear copys reais', 'Igual ao Gerador, mas já coloca as copys sorteadas nos horários da agenda.']
   };
   // Gavetas com campos que a pessoa digita e não podem ser redesenhadas por baixo
-  const AG_GAVETAS_FIXAS = ['config', 'prompt', 'colar', 'escolher'];
+  const AG_GAVETAS_FIXAS = ['config', 'prompt', 'colar', 'escolher', 'sortear'];
 
   function agAbrirGaveta(nome) {
+    if (nome === 'sortear' && ag.cfg) agCarregarSorteio();
     if (!AG_GAVETAS[nome]) return;
     if (nome !== 'config' && !ag.cfg) return;
     agAbrirFolha(agHtmlGaveta(nome), 'ag-folha-lado' + (nome === 'prompt' ? ' ag-folha-larga' : ''));
     ag.gaveta = nome;
+    if (nome === 'sortear') agRenderSortear();
     if (nome === 'pacotes') agCarregarAcervo(ag.id);
     agAtualizarCopyInfo();
   }
@@ -1503,13 +1511,14 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
 
   function agHtmlGaveta(nome) {
     const [icone, titulo, sub] = AG_GAVETAS[nome];
-    const corpo = { persona: agHtmlPersona, roteiro: agHtmlRoteiro, estilo: agHtmlEstilo, prompt: agHtmlPrompt, pacotes: agHtmlPacotes, config: agHtmlConfig, colar: agHtmlColar, escolher: agHtmlEscolher }[nome]();
+    const corpo = { persona: agHtmlPersona, roteiro: agHtmlRoteiro, estilo: agHtmlEstilo, prompt: agHtmlPrompt, pacotes: agHtmlPacotes, config: agHtmlConfig, colar: agHtmlColar, escolher: agHtmlEscolher, sortear: agHtmlSortear }[nome]();
     const rodape = {
       persona: (agPersonaAtual(ag.cfg) ? `<button type="button" class="ag-btn ag-btn-perigo" data-ag="persona-apagar">${ico('lixo')}<span>Apagar persona</span></button>` : '') + `<button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-folha="fechar">Pronto</button>`,
       prompt: `<button type="button" class="ag-btn" data-ag="prompt-restaurar">${ico('atualizar')}<span>Restaurar padrão</span></button><button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-folha="fechar">Pronto</button>`,
       config: `<button type="button" class="ag-btn" data-folha="testar">Testar chave</button><button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-folha="salvar-ia">Salvar chave</button>`,
       colar: `<button type="button" class="ag-btn" data-folha="fechar">Cancelar</button><button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-ag="colar">Preencher horários</button>`,
-      escolher: `<button type="button" class="ag-btn ag-btn-grande" data-folha="fechar">Cancelar</button>`
+      escolher: `<button type="button" class="ag-btn ag-btn-grande" data-folha="fechar">Cancelar</button>`,
+      sortear: `<button type="button" class="ag-btn" data-folha="fechar">Cancelar</button><button type="button" class="ag-btn ag-btn-prim ag-btn-grande" id="agSortOk" data-ag="sortear-ok">${ico('dado')}<span>Sortear e colocar nos horários</span></button>`
     }[nome] || `<button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-folha="fechar">Pronto</button>`;
     return `
       <div class="ag-folha-topo">
@@ -1871,9 +1880,10 @@ bom dia, vida! já acordou?"></textarea>
   }
 
   // Tira do pool uma copy pro assunto: primeiro das categorias dele, senão qualquer uma
-  function agTirarReal(pool, assunto) {
+  function agTirarReal(pool, assunto, soCategoria) {
     const cats = AG_CATS_ASSUNTO[assunto] || [];
     let i = pool.findIndex(x => cats.includes(x.cat));
+    if (i < 0 && soCategoria && cats.length) return null;
     if (i < 0) i = pool.length ? 0 : -1;
     return i < 0 ? null : pool.splice(i, 1)[0];
   }
@@ -2055,6 +2065,184 @@ bom dia, vida! já acordou?"></textarea>
     else if (sobra.length) agStatus(`${Math.min(n, alvo.length)} horários preenchidos · ${sobra.length} sobraram e entram no rodízio.`, 'aviso');
     else agStatus(`${n} horários preenchidos com as copys do Gerador.`, 'ok');
     return n;
+  }
+
+  // ═══════════════════════════════════════════════ SORTEAR COPYS (o Gerador dentro da Agenda) ═══
+
+  const AG_LS_SORTEIO = 'agenda_sorteio_prefs';
+  function agLerSorteios() { try { return JSON.parse(localStorage.getItem(AG_LS_SORTEIO)) || {}; } catch (e) { return {}; } }
+
+  // Escolhas da gaveta, lembradas por modelo neste navegador
+  function agCarregarSorteio() {
+    const p = agLerSorteios()[normTexto(ag.modelo)] || {};
+    const { porCat, ordem } = agCatsDaModelo();
+    const qtd = {};
+    ordem.forEach((k) => { qtd[k] = p.qtdCat && p.qtdCat[k] !== undefined ? Math.min(Math.max(0, parseInt(p.qtdCat[k]) || 0), porCat[k]) : 0; });
+    ag.sort = {
+      modo: p.modo === 'quantidade' ? 'quantidade' : 'misturar',
+      cats: Array.isArray(p.cats) ? new Set(p.cats.filter(k => porCat[k])) : null,
+      qtdCat: qtd,
+      semRepetir: p.semRepetir !== false,
+      onde: ['vazios', 'todos', 'assunto'].includes(p.onde) ? p.onde : 'vazios'
+    };
+    if (ag.sort.cats && !ag.sort.cats.size) ag.sort.cats = null;
+  }
+  function agSalvarSorteio() {
+    const s = ag.sort;
+    if (!s) return;
+    const todos = agLerSorteios();
+    todos[normTexto(ag.modelo)] = { modo: s.modo, cats: s.cats ? [...s.cats] : null, qtdCat: s.qtdCat, semRepetir: s.semRepetir, onde: s.onde };
+    try { localStorage.setItem(AG_LS_SORTEIO, JSON.stringify(todos)); } catch (e) { /* ignora */ }
+  }
+
+  function agAlvosSorteio() {
+    const c = ag.cfg;
+    const mapa = agMsgsMapa(c);
+    const slots = agSlotsTexto(c);
+    return ag.sort.onde === 'todos' ? slots : slots.filter(s => !agMsgDoHorario(mapa, s));
+  }
+
+  function agHtmlSortear() {
+    const s = ag.sort;
+    if (!s) return '';
+    const alvos = agAlvosSorteio();
+    const n = alvos.length;
+    const { porCat, ordem } = agCatsDaModelo();
+    const totalQtd = ordem.reduce((t, k) => t + (s.qtdCat[k] || 0), 0);
+    const hist = Object.keys(lerHistGerador(ag.modelo)).length;
+    const onde = [['vazios', 'Nos horários vazios'], ['todos', 'Substituir todos'], ['assunto', 'Respeitar o assunto de cada horário']];
+    const resumo = !n
+      ? (s.onde === 'todos' ? 'Não tem horário de texto: marque os dias e horários no passo 1.' : 'Todos os horários já têm mensagem. Escolha "Substituir todos" pra trocar.')
+      : s.onde !== 'assunto' && s.modo === 'quantidade'
+        ? `Escolhidas ${totalQtd} copys pra ${n} ${n === 1 ? 'horário' : 'horários'}${totalQtd < n ? ` (faltam ${n - totalQtd})` : totalQtd > n ? ` (sobram ${totalQtd - n})` : ''}`
+        : `Vai sortear ${n} ${n === 1 ? 'copy' : 'copys'} pra ${n} ${n === 1 ? 'horário' : 'horários'}`;
+    let cats;
+    if (s.onde === 'assunto') {
+      cats = `<p class="ag-dica">Cada horário pega copy das categorias do assunto dele: Aquecer → Reengajamento, Disparos em massa, Boas-vindas · Chamada e Sexting → Chamadas, Promoções. Se acabar, pega de qualquer categoria.</p>`;
+    } else if (!ordem.length) {
+      cats = '<p class="ag-dica">Essa modelo ainda não tem copys.</p>';
+    } else if (s.modo === 'quantidade') {
+      cats = `<div class="ag-sort-qtds">${ordem.map((k) => {
+        const v = s.qtdCat[k] || 0;
+        return `<div class="ag-sort-qtd ${v ? 'on' : ''}"><span><b>${esc(k)}</b><small>${porCat[k]} ${porCat[k] === 1 ? 'copy' : 'copys'}</small></span>
+          <span class="ag-stepper"><button type="button" class="ag-btn ag-btn-p" data-sort-step="-1" data-cat="${escAttr(k)}" ${v ? '' : 'disabled'} aria-label="Menos ${escAttr(k)}">−</button><b>${v}</b><button type="button" class="ag-btn ag-btn-p" data-sort-step="1" data-cat="${escAttr(k)}" ${v >= porCat[k] ? 'disabled' : ''} aria-label="Mais ${escAttr(k)}">+</button></span>
+        </div>`;
+      }).join('')}</div>`;
+    } else {
+      cats = `<div class="ag-pills">${ordem.map((k) => {
+        const on = !s.cats || s.cats.has(k);
+        return `<button type="button" class="ag-pill ${on ? 'on' : ''}" data-sort-cat="${escAttr(k)}" aria-pressed="${on}">${esc(k)} <small>${porCat[k]}</small></button>`;
+      }).join('')}</div>`;
+    }
+    return `
+      <div class="ag-campo"><span>Onde colocar</span>
+        <div class="ag-pills">${onde.map(([id, rot]) => `<button type="button" class="ag-pill ${s.onde === id ? 'on' : ''}" data-sort-onde="${id}" aria-pressed="${s.onde === id}">${rot}</button>`).join('')}</div>
+      </div>
+      <p class="ag-sort-n" id="agSortN">${esc(resumo)}</p>
+      <div class="ag-campo">
+        <span class="ag-sort-cab">Categorias
+          ${s.onde !== 'assunto' && ordem.length ? `<span class="segmentado ag-sort-modo"><button type="button" data-sort-modo="misturar" class="${s.modo === 'misturar' ? 'ativo' : ''}">Misturar</button><button type="button" data-sort-modo="quantidade" class="${s.modo === 'quantidade' ? 'ativo' : ''}">Quantas de cada</button></span>` : ''}
+          ${s.onde !== 'assunto' && s.modo === 'misturar' && ordem.length ? '<button type="button" class="ag-link" data-sort-todas>marcar todas</button>' : ''}
+        </span>
+        ${cats}
+      </div>
+      <label class="ag-teste-linha">
+        <input type="checkbox" class="gr-switch" role="switch" data-sort-semrep ${s.semRepetir ? 'checked' : ''}>
+        <span><b>Não repetir copys que já saíram (${DIAS_SEM_REPETIR} dias)</b><small>${hist ? `${hist} ${hist === 1 ? 'saiu' : 'saíram'} nos últimos ${DIAS_SEM_REPETIR} dias (Gerador ou "Copiar tudo" da Agenda).` : `Nenhuma copy dela saiu nos últimos ${DIAS_SEM_REPETIR} dias.`}</small></span>
+      </label>`;
+  }
+
+  function agRenderSortear() {
+    const corpo = document.querySelector('#agFolha [data-gaveta-corpo="sortear"]');
+    if (!corpo) return;
+    const rol = corpo.scrollTop;
+    corpo.innerHTML = agHtmlSortear();
+    corpo.scrollTop = rol;
+    const ok = document.getElementById('agSortOk');
+    if (ok) ok.disabled = !agAlvosSorteio().length;
+  }
+
+  // Sorteia como o Gerador: categorias intercaladas, primeiro as que não saíram nos últimos 7 dias
+  function agSortearColocar() {
+    const c = ag.cfg;
+    const s = ag.sort;
+    if (!c || !s) return;
+    const mapa = agMsgsMapa(c);
+    const alvos = agAlvosSorteio();
+    if (!alvos.length) return;
+    const chavesAlvo = new Set(alvos.map(agChaveMsg));
+    // fora: o que já está em outros horários da agenda (pra não repetir dentro do plano)
+    const fora = new Set(agSlotsTexto(c).filter(x => !chavesAlvo.has(agChaveMsg(x))).map(x => agMsgDoHorario(mapa, x)).filter(Boolean).map(t => normTexto(blocoCopy(t))));
+    const hist = s.semRepetir ? lerHistGerador(ag.modelo) : {};
+    const usadasAgenda = s.semRepetir ? new Set((c.historicoCopies || []).map(t => normTexto(blocoCopy(t)))) : new Set();
+    const vistos = new Set();
+    const todas = copysDaModelo(ag.modelo).map(x => ({ t: blocoCopy(x.texto || ''), cat: x.categoria || 'Outras' })).filter((x) => {
+      const k = normTexto(x.t);
+      if (!x.t || fora.has(k) || vistos.has(k) || temaProibido(x.t)) return false;
+      vistos.add(k);
+      return true;
+    });
+    const jaSaiu = (x) => !!hist[normTexto(x.t)] || usadasAgenda.has(normTexto(x.t));
+    const novas = embaralhar(todas.filter(x => !jaSaiu(x)));
+    const usadas = embaralhar(todas.filter(jaSaiu));
+    const porCat = (lista) => { const m = {}; lista.forEach((x) => { (m[x.cat] = m[x.cat] || []).push(x); }); return m; };
+    let escolhidas = [];
+    let repetidas = 0;
+    if (s.onde === 'assunto') {
+      const nv = novas.slice(), us = usadas.slice();
+      alvos.forEach((slot) => {
+        let x = agTirarReal(nv, slot.assunto, true);
+        if (!x) { x = agTirarReal(us, slot.assunto); if (x) repetidas++; }
+        escolhidas.push(x);
+      });
+    } else if (s.modo === 'quantidade') {
+      const nv = porCat(novas), us = porCat(usadas);
+      const listas = [];
+      Object.entries(s.qtdCat).forEach(([k, n]) => {
+        if (!n) return;
+        const a1 = (nv[k] || []).slice(0, n);
+        const b1 = (us[k] || []).slice(0, n - a1.length);
+        repetidas += b1.length;
+        listas.push(a1.concat(b1));
+      });
+      escolhidas = intercalar(embaralhar(listas)).slice(0, alvos.length);
+    } else {
+      const ok = (x) => !s.cats || s.cats.has(x.cat);
+      const nv = porCat(novas.filter(ok));
+      escolhidas = intercalar(embaralhar(Object.keys(nv)).map(k => nv[k])).slice(0, alvos.length);
+      const extra = usadas.filter(ok).slice(0, alvos.length - escolhidas.length);
+      repetidas = extra.length;
+      escolhidas = escolhidas.concat(extra);
+    }
+    let n = 0;
+    alvos.forEach((slot, i) => { const x = escolhidas[i]; if (x) { mapa[agChaveMsg(slot)] = x.t; n++; } });
+    agSalvarSorteio();
+    agFecharFolha();
+    if (!n) { agStatus('Não tem copy dessa modelo com essas escolhas.', 'aviso'); return; }
+    agSalvar();
+    agRenderTimeline();
+    agAtualizar();
+    const faltam = alvos.length - n;
+    agStatus(`${n} ${n === 1 ? 'copy sorteada' : 'copys sorteadas'}`
+      + (repetidas ? ` · ${repetidas} já ${repetidas === 1 ? 'tinha saído' : 'tinham saído'} nos últimos ${DIAS_SEM_REPETIR} dias (não tinha nova suficiente)` : '')
+      + (faltam ? ` · ${faltam} ${faltam === 1 ? 'horário ficou' : 'horários ficaram'} sem copy` : ''), faltam || repetidas ? 'aviso' : 'ok');
+  }
+
+  // Copiar tudo: as mensagens do plano na ordem, no formato do disparo (igual ao Gerador)
+  function agCopiarTudo() {
+    const c = ag.cfg;
+    if (!c) return;
+    const mapa = agMsgsMapa(c);
+    const plano = agMontarPlano(c);
+    const itens = (plano.length ? plano : agSlotsTexto(c)).filter(it => !AG_ACERVO_PROX[agAssuntoDaHora(c, it.hora)]);
+    const textos = itens.map(it => agMsgDoHorario(mapa, it)).filter(t => t && !temaProibido(t)).map(blocoCopy);
+    if (!textos.length) { agStatus('Não tem mensagem pra copiar ainda.', 'aviso'); return; }
+    const modelo = ag.modelo;
+    copiarTexto(textos.join('\n\n')).then(() => {
+      gravarHistGerador(modelo, textos);
+      registrarAtividade('Copiou copys da Agenda', `${modelo} · ${textos.length} copys`);
+      toast(`${textos.length} ${textos.length === 1 ? 'copy copiada, pronta' : 'copys copiadas, prontas'} pro campo Mensagens`);
+    });
   }
 
   // ═══════════════════════════════════════════════ PRÉVIA + FILA ═══
@@ -2478,6 +2666,31 @@ bom dia, vida! já acordou?"></textarea>
     if (acao === 'refazer') return agGerar(true);
     if (acao === 'reais') return agUsarReais();
     if (acao === 'misturar') return agMisturar();
+    if (acao === 'copiar-tudo') return agCopiarTudo();
+    if (acao === 'sortear-ok') return agSortearColocar();
+    if (ag.sort && t.closest('[data-gaveta-corpo="sortear"]')) {
+      const s = ag.sort;
+      const onde = t.closest('[data-sort-onde]');
+      const modo = t.closest('[data-sort-modo]');
+      const cat = t.closest('[data-sort-cat]');
+      const step = t.closest('[data-sort-step]');
+      if (onde) s.onde = onde.dataset.sortOnde;
+      else if (modo) s.modo = modo.dataset.sortModo;
+      else if (t.closest('[data-sort-todas]')) s.cats = null;
+      else if (cat) {
+        const todas = agCatsDaModelo().ordem;
+        const set = new Set(s.cats || todas);
+        if (set.has(cat.dataset.sortCat)) set.delete(cat.dataset.sortCat); else set.add(cat.dataset.sortCat);
+        s.cats = set.size === todas.length ? null : set;
+      } else if (step) {
+        const k = step.dataset.cat;
+        const max = agCatsDaModelo().porCat[k] || 0;
+        s.qtdCat[k] = Math.max(0, Math.min(max, (s.qtdCat[k] || 0) + Number(step.dataset.sortStep)));
+      } else return;
+      agSalvarSorteio();
+      agRenderSortear();
+      return;
+    }
     const vista = t.closest('[data-ag-vista]');
     if (vista) { agMostrarVista(vista.dataset.agVista); return; }
     const balao = t.closest('[data-chat-idx]');
@@ -2544,6 +2757,7 @@ bom dia, vida! já acordou?"></textarea>
     const c = ag.cfg;
     if (!c) return;
     if (t.id === 'agConta') { c.contaPrivacy = agNormConta(t.value); agSalvar(); return; }
+    if (t.hasAttribute('data-sort-semrep') && ag.sort) { ag.sort.semRepetir = t.checked; agSalvarSorteio(); return; }
     if (t.hasAttribute('data-esc-busca') && ag.escolher) {
       ag.escolher.busca = t.value;
       const l = document.getElementById('agEscLista'); if (l) l.innerHTML = agHtmlEscLista();
@@ -2637,6 +2851,12 @@ bom dia, vida! já acordou?"></textarea>
 
   window.abrirAgenda = abrirAgenda;
   window.agendaReceberCopys = agendaReceberCopys;
+  // Abre a Agenda já na modelo pedida (ex.: botão "Gerar copys dela" da aba Copys)
+  window.agendaIrPara = (modelo) => {
+    try { localStorage.setItem(AG_LS_MODELO, modelo); } catch (e) { /* ignora */ }
+    if (ag.modelo !== modelo) ag.modelo = '';
+    irParaTab('agenda');
+  };
   // Pra testes no console
   window.AgendaSynora = { estado: ag, preparar: agPreparar, montarPlano: agMontarPlano, sanitizar: agSanitizar, montarCfg: agMontarCfg, prompt: () => AG_PROMPT_PADRAO + AG_REGRA_SEGURANCA };
 })();

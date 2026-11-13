@@ -2758,3 +2758,34 @@ body.ag-folha-aberta { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .ag-slot.ag-realce { animation: none; background: rgba(168,85,247,.18); } }
 .ag .ag-vista { order: 0; }
+
+/* Agenda: Sortear copys (Gerador dentro da Agenda) + barra em duas linhas */
+.ag-barra-prim { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ag-barra-prim .ag-btn { height: 50px; font-size: 15px; }
+.ag-btn-forte { border-color: rgba(168,85,247,.55); color: #e9d5ff; font-weight: 600; }
+.ag-btn-forte:hover { background: rgba(168,85,247,.12); border-color: var(--accent); }
+.ag-barra-sec { display: flex; flex-wrap: wrap; gap: 8px; margin-top: -12px; }
+.ag-sort-n { margin: 0; padding: 12px 14px; border-radius: 12px; background: rgba(168,85,247,.1); color: #e9d5ff; font-size: 14px; font-weight: 500; }
+.ag-sort-cab { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.ag-sort-modo { height: 34px; }
+.ag-sort-modo button { padding: 0 12px; font-size: 13px; }
+.ag-sort-cab .ag-link { margin-left: auto; font-size: 13px; }
+.ag-pill small { font-size: 12px; opacity: .7; }
+.ag-sort-qtds { display: grid; gap: 6px; }
+.ag-sort-qtd { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08); }
+.ag-sort-qtd.on { border-color: rgba(168,85,247,.5); background: rgba(168,85,247,.08); }
+.ag-sort-qtd > span:first-child { display: grid; min-width: 0; }
+.ag-sort-qtd b { font-weight: 600; font-size: 14px; }
+.ag-sort-qtd small { font-size: 12.5px; color: var(--text-dim); }
+.ag-stepper { display: inline-flex; align-items: center; gap: 6px; }
+.ag-stepper .ag-btn { width: 36px; padding: 0; font-size: 18px; }
+.ag-stepper b { min-width: 24px; text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .ag-barra-prim { grid-template-columns: minmax(0, 1fr); }
+  .ag-barra-sec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ag-barra-sec .ag-btn { width: 100%; padding: 0 8px; font-size: 13px; }
+}
+@media (min-width: 1100px) {
+  .ag-barra-sec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ag-barra-sec .ag-btn { width: 100%; }
+}
