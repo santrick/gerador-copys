@@ -2700,3 +2700,5 @@ body.ag-folha-aberta { overflow: hidden; }
   .gr-topo-acoes { flex-wrap: wrap; }
   .gr-topo-acoes .gr-agenda { order: 3; flex-basis: 100%; }
 }
+/* Agenda alinhada à esquerda como as outras abas, usando mais da largura */
+.ag { max-width: 1120px; margin: 0; }
