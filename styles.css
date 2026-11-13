@@ -2956,3 +2956,101 @@ h1, h2, h3 { text-wrap: balance; }
 .ext-mock-btn { padding: 6px 14px; border: 1px solid #dadce0; border-radius: 6px; color: #1a73e8; font-weight: 500; }
 .ext-txt { margin: 0; color: var(--text-dim); font-size: 14.5px; line-height: 1.6; }
 @media (max-width: 600px) { .ext-card { padding: 16px; } .ext-passos li { padding: 12px 12px 12px 48px; } .ext-passos li::before { left: 12px; top: 12px; } }
+
+/* ═══════════ AGENDA k: Mensagens compacta (grupos de botões, 1 linha por horário, dias que fecham) ═══════════ */
+/* grupos: Preencher / Ferramentas / Ajustes */
+.ag-grupo { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 8px 12px; min-width: 0; }
+.ag-grupo-rot { font-size: 12.5px; font-weight: 600; color: var(--text-dimmer); }
+.ag-grupo-itens { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.ag-grupo .ag-btn { height: 40px; padding: 0 15px; font-size: 14px; }
+.ag-grupo .ag-btn.ag-btn-s, .ag-btn-s { height: 34px; padding: 0 12px; font-size: 13px; gap: 6px; }
+.ag-btn-s .ag-svg { width: 15px; height: 15px; }
+.ag-link-acao { display: inline-flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 13.5px; text-decoration: none; }
+.ag-link-acao .ag-svg { width: 15px; height: 15px; }
+.ag-link-acao:hover { text-decoration: underline; }
+.ag-link-acao:disabled { opacity: .4; cursor: not-allowed; text-decoration: none; }
+.ag-grupo + .ag-grupo { margin-top: -12px; }
+/* ajustes: linha discreta */
+.ag-grupo-ajustes { padding-top: 12px; border-top: 1px solid rgba(241,235,228,.06); }
+.ag-grupo-ajustes .ag-grupo-itens { gap: 6px; }
+.ag-grupo-ajustes .ag-ajustes { display: contents; }
+.ag-grupo-ajustes .ag-ajuste, .ag-grupo-ajustes .ag-fonte { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(241,235,228,.09); background: transparent; color: var(--text-dim); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background-color .15s, color .15s; }
+.ag-grupo-ajustes .ag-ajuste:hover, .ag-grupo-ajustes .ag-fonte:hover { background: rgba(241,235,228,.05); color: var(--text); }
+.ag-grupo-ajustes .ag-ajuste b { color: var(--text); font-weight: 600; margin-left: 2px; }
+.ag-grupo-ajustes .ag-fonte { flex-wrap: nowrap; padding-right: 4px; }
+.ag-grupo-ajustes .ag-fonte > span { font-weight: 500; }
+.ag-grupo-ajustes .ag-fonte select { min-width: 0; max-width: 220px; height: 28px; padding: 0 22px 0 2px; border: 0; background-color: transparent; color: var(--text); font: inherit; font-size: 12.5px; font-weight: 600; background-position: right 4px center; background-size: 13px; }
+/* lista: título com abrir/fechar todos */
+.ag-tl-info { align-items: center; }
+.ag-tl-todos { font-size: 13px; color: var(--text-dimmer); }
+.ag-tl-todos .ag-link { font-size: 13px; }
+/* dias que abrem e fecham */
+#agTimeline { gap: 4px; }
+.ag-tl-dia { border-bottom: 1px solid var(--ag-linha); }
+.ag-tl-dia-h { margin: 0; }
+.ag-tl-dia-cab { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 4px; border: 0; background: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; border-radius: 10px; }
+.ag-tl-dia-cab:hover { background: rgba(241,235,228,.03); }
+.ag-tl-dia-seta { color: var(--text-dim); transform: rotate(-90deg); transition: transform .15s; }
+.ag-tl-dia.aberto .ag-tl-dia-seta { transform: none; }
+.ag-tl-dia-nome { flex: 1; min-width: 0; }
+.ag-tl-dia-conta { font-size: 13px; font-weight: 500; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.ag-tl-dia-conta.falta { color: #f3b55e; }
+.ag-tl-dia-conta:not(.falta)::before { content: "✓ "; color: #6ee7b7; }
+.ag-tl-dia:not(.aberto) .ag-tl-lista { display: none; }
+.ag-tl-dia .ag-tl-lista { padding: 0 0 8px; }
+/* um horário = uma linha */
+.ag-msg-lista .ag-slot, .ag-slot { grid-template-columns: 50px 128px minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 8px 0; }
+.ag-msg-lista .ag-slot-conteudo, .ag-msg-lista .ag-slot-pack .ag-slot-conteudo, .ag-slot-conteudo { grid-column: 3; grid-row: 1; }
+.ag-msg-lista .ag-slot-pack .ag-slot-conteudo, .ag-slot-pack .ag-slot-conteudo { grid-column: 3 / 5; }
+.ag-msg-lista .ag-slot-acoes, .ag-slot-acoes { grid-column: 4; grid-row: 1; display: flex; gap: 6px; padding-top: 3px; }
+.ag-slot-hora { padding-top: 10px; font-size: 14px; }
+.ag-slot .ag-assunto-sel { height: 40px; font-size: 13.5px; padding-left: 10px; }
+.ag-slot-msg { min-height: 40px; padding: 9px 12px; font-size: 14px; line-height: 1.5; }
+.ag-slot-msg:not(:focus) { max-height: calc(3em + 20px); overflow: hidden; }
+.ag-slot-msg.longo:not(:focus) { -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent); mask-image: linear-gradient(180deg, #000 55%, transparent); }
+.ag-slot-msg:focus { max-height: 320px; overflow: auto; }
+.ag-pack { min-height: 40px; padding: 9px 12px; font-size: 13.5px; }
+/* rodapé grudado da lista */
+.ag-msg-rodape { position: sticky; bottom: 0; z-index: 6; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -8px; padding: 12px 0 14px; background: #201a25; border-top: 1px solid var(--ag-linha); box-shadow: 0 -10px 20px -12px rgba(0,0,0,.45); }
+.ag-msg-rodape #agMsgsInfo { font-size: 13.5px; color: var(--text-dim); }
+.ag-msg-rodape #agMsgsInfo.ag-txt-aviso { color: #f3b55e; }
+@media (min-width: 1100px) {
+  .ag-msg-grid { grid-template-columns: minmax(0, 1fr) minmax(320px, 360px); }
+}
+/* Fila vazia */
+.ag-fila-vazia { display: grid; justify-items: start; gap: 12px; padding: 18px; border-radius: 14px; background: rgba(241,235,228,.03); border: 1px solid var(--ag-linha); }
+.ag-fila-vazia p { margin: 0; color: var(--text-dim); font-size: 14.5px; }
+.ag-fila-ult-tit { margin: 20px 0 4px; font-size: 14px; font-weight: 600; color: var(--text-dim); }
+.ag-fila-ult .ag-fila-meta { margin-left: auto; white-space: nowrap; }
+/* Quando: dias fora do período sem cara de clicável */
+#agQuando .ag-cal-dia.fora { cursor: default; border-color: transparent !important; background: none !important; color: rgba(241,235,228,.18); }
+#agQuando .ag-cal-dia.fora:hover { border-color: transparent !important; color: rgba(241,235,228,.18); }
+#agQuando .ag-cal-dia.passado { text-decoration: line-through; text-decoration-color: rgba(241,235,228,.25); }
+/* Programar: botão de tamanho normal, à direita */
+.ag-programar { width: auto !important; justify-self: end; height: 48px; padding: 0 26px !important; font-size: 15px; border-radius: 12px; }
+@media (max-width: 720px) {
+  .ag-grupo { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .ag-msg-lista .ag-slot, .ag-slot { grid-template-columns: auto minmax(0, 1fr); }
+  .ag-msg-lista .ag-slot-conteudo, .ag-slot-conteudo, .ag-msg-lista .ag-slot-pack .ag-slot-conteudo, .ag-slot-pack .ag-slot-conteudo { grid-column: 1 / -1; grid-row: 2; }
+  .ag-msg-lista .ag-slot-acoes, .ag-slot-acoes { grid-column: 1 / -1; grid-row: 3; justify-content: flex-end; }
+}
+/* linha do horário mais enxuta pra sobrar espaço pra mensagem */
+.ag-msg-lista .ag-slot, .ag-slot { grid-template-columns: 44px 112px minmax(0, 1fr) auto; gap: 8px; }
+.ag-slot .ag-assunto-sel { padding-left: 9px; padding-right: 26px; background-position: right 8px center; }
+.ag-slot-acoes { gap: 4px !important; }
+.ag-slot-acoes .ag-btn-s { height: 34px; padding: 0 9px; font-size: 12.5px; gap: 5px; }
+.ag-slot-acoes .ag-btn-s .ag-svg { width: 14px; height: 14px; }
+.ag-chat .gr-chat-galeria { display: none; }
+.ag-chat .gr-chat-quem small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-chat .gr-chat-quem { min-width: 0; }
+@media (min-width: 1100px) and (max-width: 1499px) { .ag-msg-grid { grid-template-columns: minmax(0, 1fr) 320px; } }
+@media (max-width: 720px) {
+  .ag-msg-lista .ag-slot, .ag-slot { grid-template-columns: auto minmax(0, 1fr); }
+}
+.ag-slot-conteudo { display: flex !important; flex-direction: column; gap: 4px; }
+.ag-slot-conteudo > textarea { display: block; margin: 0; }
+.ag-slot .ag-assunto-sel { margin: 0 !important; }
+.ag-tl-dia-cab .ag-tl-dia-nome { font-size: 15px; font-weight: 600; color: var(--text); }
+.ag-tl-dia-cab .ag-tl-dia-conta { font-size: 13px; }
+.ag-fila-ult-tit { margin: 16px 0 6px !important; }
+#agFila > .ag-fila-vazia + .ag-fila-ult-tit { padding-top: 4px; }

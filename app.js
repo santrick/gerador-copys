@@ -936,6 +936,7 @@ function carregarMineradasDoCache() {
   if (!cache || !Array.isArray(cache.copys) || !cache.copys.length) return false;
   avataresModelos = cache.avatares || {};
   aplicarDadosMineradas(cache.copys, cache.modelos);
+  setStatus(`${todasMineradas.length} copys (versão salva)`, 'ok'); // a faixa some; a atualização vem por trás
   return true;
 }
 
