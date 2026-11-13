@@ -1905,6 +1905,11 @@ bom dia, vida! já acordou?"></textarea>
     }
     return `
       <p class="ag-dica">Os packs e vídeos de ${nome}. O nome tem que ser igual ao do Acervo › Pacotes da Privacy.</p>
+      ${c.pacotesReg.length > 1 ? (() => {
+        const marcados = c.pacotesReg.filter(p => p.usar).length;
+        const todos = marcados === c.pacotesReg.length;
+        return `<div class="ag-pacotes-todos"><span>${marcados} de ${c.pacotesReg.length} no rodízio</span><button type="button" class="ag-link" data-ag="pacotes-todos" data-marcar="${todos ? '0' : '1'}">${todos ? 'Desmarcar todos' : 'Marcar todos'}</button></div>`;
+      })() : ''}
       <div class="ag-pacotes">${linhas || `<p class="ag-vazio">Nenhum pacote de ${nome} ainda.</p>`}</div>
       <div class="ag-linha-botoes">
         <button type="button" class="ag-btn" data-ag="pacote-novo" data-tipo-novo="pack">${ico('mais')}<span>Adicionar pack</span></button>
@@ -2942,6 +2947,11 @@ bom dia, vida! já acordou?"></textarea>
     if (acao === 'roteiro-limpar') { c.roteiroHoras = {}; agSalvar(); agRenderTudo(); return; }
 
     // Pacotes
+    if (acao === 'pacotes-todos') {
+      const marcar = acaoEl.dataset.marcar === '1';
+      c.pacotesReg.forEach((p) => { p.usar = marcar; });
+      agSalvar(); agRenderTudo(); return;
+    }
     if (acao === 'pacote-novo') {
       c.pacotesReg.push({ tipo: acaoEl.dataset.tipoNovo === 'video' ? 'video' : 'pack', apelido: '', preco: '', nome: '', usar: true });
       agSalvar(); agRenderTudo();

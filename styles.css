@@ -2925,3 +2925,5 @@ button, a, [role="button"], label { -webkit-tap-highlight-color: transparent; to
 select { color-scheme: dark; }
 h1, h2, h3 { text-wrap: balance; }
 .login-box label, .login-box .field span, .login-box .field > span { text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; font-weight: 600; color: var(--text-dim); }
+
+.ag-pacotes-todos { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 8px; font-size: 13px; color: var(--text-dim); }
