@@ -677,7 +677,6 @@ function irParaTab(tab, opts) {
   if (abaAtual !== tab && novidades[abaAtual]) marcarComoVistas(abaAtual);
   abaAtual = tab;
   document.body.classList.toggle('aba-copys', tab === 'mineradas');
-  document.body.classList.toggle('aba-agenda', tab === 'agenda');
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === (dpAba(tab) ? 'tab-disparo' : `tab-${tab}`)));
   atualizarNavGlider();
@@ -997,8 +996,6 @@ function carregarMineradasDoCache() {
   if (!cache || !Array.isArray(cache.copys) || !cache.copys.length) return false;
   avataresModelos = cache.avatares || {};
   aplicarDadosMineradas(cache.copys, cache.modelos);
-  // a versão salva já está na tela: não deixa a barra presa em "Carregando copys…"
-  setStatus(`${todasMineradas.length} copys (versão salva)`, 'ok');
   return true;
 }
 
