@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Onest:wght@400;500;600;700;800&family=Poppins:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=74" />
+  <link rel="stylesheet" href="styles.css?v=75" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -80,6 +80,9 @@
         </button>
         <button class="nav-item" data-tab="favoritos">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg></span> Favoritos
+        </button>
+        <button class="nav-item" data-tab="extensoes">
+          <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4.5a2 2 0 1 1 4 0V6h3.5a1 1 0 0 1 1 1v3.5H19a2 2 0 1 1 0 4h-1.5V18a1 1 0 0 1-1 1H13v-1.5a2 2 0 1 0-4 0V19H5.5a1 1 0 0 1-1-1v-3.5H6a2 2 0 1 0 0-4H4.5V7a1 1 0 0 1 1-1H9z"/></svg></span> Extensões
         </button>
         <button class="nav-item hidden" data-tab="admin" id="navAdmin">
           <span class="nav-ico"><svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16M5 15l-1-8 5 4 3-6 3 6 5-4-1 8z"/></svg></span> Admin
@@ -295,6 +298,39 @@
         </section>
 
         <!-- FAVORITOS -->
+        <!-- EXTENSÕES: download do Agendador pra equipe -->
+        <section id="tab-extensoes" class="tab-panel">
+          <div class="ext">
+            <div class="ext-card">
+              <div class="ext-topo">
+                <img src="icon-192.png" alt="" width="52" height="52" class="ext-ico">
+                <div>
+                  <h2>Agendador Privacy</h2>
+                  <p>Agenda na Privacy os disparos que você monta na aba Agenda. Funciona com o seu login do Synora.</p>
+                </div>
+              </div>
+              <div class="ext-acoes">
+                <a class="btn btn-primary ext-baixar" href="downloads/agendador-privacy.zip" download>Baixar Agendador <span id="extVersao"></span></a>
+                <span class="ext-nota">Arquivo .zip. Só pro Google Chrome no computador.</span>
+              </div>
+            </div>
+
+            <h3 class="ext-tit">Como instalar (só uma vez)</h3>
+            <ol class="ext-passos">
+              <li><b>Baixe e descompacte.</b> Clique em <i>Baixar Agendador</i>. Depois clique com o botão direito no arquivo baixado e escolha <i>Extrair tudo</i>. Vai aparecer a pasta <code>agendador-privacy</code>: guarde ela num lugar fixo (ex.: Documentos), porque o Chrome usa essa pasta.</li>
+              <li><b>Abra as extensões do Chrome.</b> Na barra de endereço, digite <code>chrome://extensions</code> e aperte Enter.</li>
+              <li><b>Ligue o Modo do desenvolvedor.</b> É a chavinha no canto de cima, à direita.
+                <div class="ext-mock"><span>Modo do desenvolvedor</span><span class="ext-mock-chave"></span></div></li>
+              <li><b>Carregue a pasta.</b> Clique em <i>Carregar sem compactação</i> e escolha a pasta <code>agendador-privacy</code> que você extraiu.
+                <div class="ext-mock"><span class="ext-mock-btn">Carregar sem compactação</span></div></li>
+              <li><b>Entre com o seu login.</b> Abra a Privacy da modelo, clique no botão <i>Agendador</i> (canto de baixo, à esquerda) e, em <i>Fila do Synora</i>, entre com o mesmo e-mail e senha deste site.</li>
+            </ol>
+
+            <h3 class="ext-tit">Quando sair versão nova</h3>
+            <p class="ext-txt">O próprio Agendador avisa: <i>"Tem versão nova do Agendador"</i>. Baixe de novo aqui, extraia por cima da pasta antiga (substituindo os arquivos) e, em <code>chrome://extensions</code>, clique na setinha ↻ do Agendador.</p>
+          </div>
+        </section>
+
         <section id="tab-favoritos" class="tab-panel">
           <div class="toolbar">
             <input type="search" id="buscaFavoritos" name="buscaFavoritos" placeholder="Buscar nos favoritos…" autocomplete="off" aria-label="Buscar nos favoritos" />
@@ -352,7 +388,7 @@
 
   <div id="toastContainer" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=70"></script>
+  <script src="app.js?v=71"></script>
   <script src="agenda.js?v=13"></script>
 </body>
 </html>

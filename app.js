@@ -549,7 +549,8 @@ const PAGE_INFO = {
   extrair: { title: 'Extrair', subtitle: 'Todas as copys de uma vez, no formato do disparo' },
   agenda: { title: 'Agenda', subtitle: 'Planeje os disparos em massa da modelo' },
   favoritos: { title: 'Favoritos', subtitle: 'As copys que a equipe guardou' },
-  admin: { title: 'Admin', subtitle: 'Criar acessos e ver a atividade da equipe' }
+  extensoes: { title: 'Extensões', subtitle: 'Baixe o Agendador pra agendar os disparos na Privacy' },
+  admin: { title: 'Admin', subtitle: 'Criar acessos da equipe' }
 };
 
 // ═══════════════════════════════════════════════ ESTADO ═══
@@ -684,6 +685,7 @@ function irParaTab(tab, opts) {
     history.replaceState(null, '', '#' + tab);
   }
   if (tab === 'favoritos') renderFavoritos();
+  if (tab === 'extensoes') mostrarVersaoExtensao();
   if (dpAba(tab)) abrirDisparo();
   if (tab === 'agenda' && typeof abrirAgenda === 'function') abrirAgenda();
   renderAbasCopys();
@@ -1979,3 +1981,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(conferir, 3 * 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) conferir(); });
 })();
+
+// Aba Extensões: mostra a versão do Agendador que está pra baixar
+function mostrarVersaoExtensao() {
+  const el = document.getElementById('extVersao');
+  if (!el || el.textContent) return;
+  fetch('downloads/versoes.json?_=' + Date.now(), { cache: 'no-store' })
+    .then((r) => r.json()).then((v) => { if (v.agendador) el.textContent = 'v' + v.agendador; }).catch(() => {});
+}
