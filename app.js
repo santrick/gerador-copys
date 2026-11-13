@@ -563,9 +563,6 @@ const COR_TIPO = {
 let todasMineradas = [];
 let mineradasFiltradas = [];
 let paginaMineradas = 1;
-// Google Doc antigo: só pra ler enquanto o Firebase está vazio e pra copiar pro Firebase o que ainda faltar
-const DOCS_URL = 'https://script.google.com/macros/s/AKfycbyZZjrqt2ZdkhdU_C0k5cWqHdjR8uDrnwQ6bSQ4iiIbnAsdq18b4hqfyUuIFDYZaXnSbw/exec';
-const DOCS_TOKEN = '300106';
 const CATEGORIAS_COPYS = ['PPV', 'Prévias', 'Boas-vindas', 'Remarketing', 'Expirados', 'Promoções', 'VIP', 'Chamadas', 'Disparos em massa', 'Pós-venda', 'Reengajamento', 'Testes'];
 
 
@@ -874,51 +871,6 @@ async function lerCopysFirebase(completo) {
   return { itens, avatares };
 }
 
-async function lerCopysDoc() {
-  const resp = await fetch(`${DOCS_URL}?acao=mineradas&token=${encodeURIComponent(DOCS_TOKEN)}`, { redirect: 'follow' });
-  if (!resp.ok) throw new Error('Google Docs retornou erro ' + resp.status);
-  const data = await resp.json();
-  if (data.status === 'erro') throw new Error(data.msg || data.mensagem);
-  (data.copys || []).forEach((c) => { if (c.mensagem) c.mensagem = String(c.mensagem).replace(/[\u000b\r]/g, '\n'); });
-  return { copys: data.copys || [], avatares: data.avatares || {} };
-}
-
-// Admin: copia pro Firebase as copys (e fotos) do Doc que ainda não estão lá. Devolve quantas copiou.
-let sincronizandoDoc = false;
-async function sincronizarDocNoFirebase(itens, avataresFb) {
-  if (sincronizandoDoc) return 0;
-  sincronizandoDoc = true;
-  try {
-    const doc = await lerCopysDoc();
-    const novas = new Map();
-    doc.copys.forEach((c) => { const id = idCopyFirebase(c); if (!itens[id] && !novas.has(id)) novas.set(id, c); });
-    const fotos = Object.entries(doc.avatares).filter(([nome]) => !avataresFb[nome]);
-    const escritas = [...novas].map(([id, c]) => [db.collection('copys').doc(id), {
-      modelo: c.modelo || '', mensagem: c.mensagem || '', tipo: c.tipo || '', data: c.data || '', hora: c.hora || '',
-      preco: Number(c.preco) > 0 ? Number(c.preco) : null, origem: 'doc', atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-    }]).concat(fotos.map(([nome, avatar]) => [db.collection('modelos').doc(idModeloFirebase(nome)), {
-      nome, avatar, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
-    }]));
-    for (let i = 0; i < escritas.length; i += 400) {
-      const lote = db.batch();
-      escritas.slice(i, i + 400).forEach(([ref, dados]) => lote.set(ref, dados));
-      await lote.commit();
-    }
-    if (novas.size) {
-      toast(`${novas.size} copys do Google Doc copiadas pro Firebase`);
-      registrarAtividade('Copiou copys do Doc pro Firebase', `${novas.size} copys`);
-    }
-    return novas.size + fotos.length;
-  } catch (err) {
-    console.error('[doc → firebase]', err);
-    toast('Não deu pra copiar as copys do Doc pro Firebase: ' + err.message);
-    return 0;
-  } finally {
-    sincronizandoDoc = false;
-  }
-}
-
-let docSincronizadoNessaSessao = false;
 async function carregarMineradas(opcoes = {}) {
   if (!usuarioAtual) return;
   const btn = document.getElementById('btnRecarregarMineradas');
@@ -929,28 +881,14 @@ async function carregarMineradas(opcoes = {}) {
   setStatus(todasMineradas.length ? `${todasMineradas.length} copys (versão salva) — atualizando…` : 'Buscando copys…', 'aviso');
 
   try {
-    let fb, erroFb = null;
-    try { fb = await lerCopysFirebase(opcoes.completo); } catch (e) { console.error('[copys firebase]', e); erroFb = e; fb = { itens: {}, avatares: {} }; }
-    let copys = Object.values(fb.itens);
-    let avatares = fb.avatares;
-    let doDoc = false;
-    if (!copys.length) { // Firebase vazio (ou fora do ar): mostra o Doc enquanto isso
-      const doc = await lerCopysDoc();
-      copys = doc.copys; avatares = Object.assign({}, doc.avatares, avatares); doDoc = true;
-    }
-
-    avataresModelos = avatares;
+    // As copys vêm só do Firebase (só quem está logado lê); o Google Doc antigo não é mais lido pelo site
+    const fb = await lerCopysFirebase(opcoes.completo);
+    const copys = Object.values(fb.itens);
+    avataresModelos = fb.avatares;
     aplicarDadosMineradas(copys, null);
     try { localStorage.setItem('gerador_mineradas_cache', JSON.stringify({ ts: Date.now(), copys: todasMineradas, modelos: null, avatares: avataresModelos })); } catch (e) { /* cota cheia: segue sem cache */ }
     const qtdNovas = novidades.mineradas.size;
-    setStatus(`${todasMineradas.length} copys carregadas${doDoc ? ' do Google Doc (Firebase ainda vazio)' : ''}` + (qtdNovas ? ` · ${qtdNovas} nova${qtdNovas > 1 ? 's' : ''} desde sua última visita` : ' · nenhuma nova desde sua última visita'), doDoc ? 'aviso' : 'ok');
-
-    // admin: uma vez por sessão, garante que tudo que está no Doc também está no Firebase
-    if (erroFb) setStatus(`${todasMineradas.length} copys carregadas do Google Doc · o Firebase recusou a leitura (${erroFb.message})`, 'aviso');
-    if (souAdmin && !erroFb && !docSincronizadoNessaSessao) {
-      docSincronizadoNessaSessao = true;
-      sincronizarDocNoFirebase(doDoc ? {} : fb.itens, fb.avatares).then((n) => { if (n) carregarMineradas(); });
-    }
+    setStatus(`${todasMineradas.length} copys carregadas` + (qtdNovas ? ` · ${qtdNovas} nova${qtdNovas > 1 ? 's' : ''} desde sua última visita` : ' · nenhuma nova desde sua última visita'), 'ok');
   } catch (err) {
     if (todasMineradas.length) {
       setStatus('Não deu pra atualizar as copys agora (' + err.message + '). Mostrando a última versão salva.', 'aviso');
@@ -2009,3 +1947,35 @@ document.addEventListener('DOMContentLoaded', () => {
   abrirTabDaHash();
   window.addEventListener('hashchange', abrirTabDaHash);
 });
+
+
+// ═══════════════════════════════════════════════ VERSÃO NOVA DO SITE ═══
+// De tempos em tempos confere se o site publicado mudou (os ?v= do index.html) e oferece atualizar,
+// pra ninguém precisar de Ctrl + Shift + R.
+(function vigiarVersaoNova() {
+  const assinatura = (html) => (String(html).match(/(?:app|agenda|styles)\.(?:js|css)\?v=\d+/g) || []).sort().join('|');
+  // o que esta página carregou (lido na hora: quando o app.js roda, o agenda.js ainda nem apareceu no HTML)
+  const carregado = () => assinatura([...document.querySelectorAll('script[src], link[href]')].map(e => e.getAttribute('src') || e.getAttribute('href')).join(' '));
+  let avisado = false;
+  const conferir = async () => {
+    if (avisado || document.hidden) return;
+    const atual = carregado();
+    if (!atual) return;
+    try {
+      const r = await fetch('index.html?_=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return;
+      const nova = assinatura(await r.text());
+      if (!nova || nova === atual) return;
+      avisado = true;
+      const barra = document.createElement('div');
+      barra.className = 'versao-nova';
+      barra.setAttribute('role', 'status');
+      barra.innerHTML = '<span>Saiu uma versão nova do site.</span><button type="button">Atualizar agora</button>';
+      barra.querySelector('button').addEventListener('click', () => location.reload());
+      document.body.appendChild(barra);
+    } catch (e) { /* sem internet: tenta de novo depois */ }
+  };
+  window.conferirVersaoNova = conferir;
+  setInterval(conferir, 3 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) conferir(); });
+})();
