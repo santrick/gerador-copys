@@ -2789,3 +2789,60 @@ body.ag-folha-aberta { overflow: hidden; }
   .ag-barra-sec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ag-barra-sec .ag-btn { width: 100%; }
 }
+
+/* Agenda: modelos da agência (seletor, cadastro) + fonte das copys */
+.ag-sem-modelos .ag-abas, .ag-sem-modelos [data-painel], .ag-sem-modelos .ag-sel-modelo, .ag-sem-modelos .ag-salvo, .ag-sem-modelos .ag-de { display: none !important; }
+.ag:not(.ag-sem-modelos) #agVazioModelos { display: none; }
+.ag-vazio-modelos { max-width: 640px; }
+.ag-vazio-modelos .ag-num .ag-svg { width: 16px; height: 16px; }
+.ag-mod-form { display: grid; gap: 16px; }
+.ag-modelo-arroba { font-size: 12.5px; font-weight: 400; color: var(--text-dim); }
+.ag-modelo-acoes { display: grid; gap: 2px; margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.08); }
+.ag-modelo-acoes .ag-modelo-op { min-height: 42px; gap: 10px; font-size: 14px; color: #d8b4fe; }
+.ag-modelo-acoes .ag-modelo-op .ag-svg { width: 16px; height: 16px; }
+.ag-fonte { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; font-size: 14px; }
+.ag-fonte > span { font-weight: 600; }
+.ag-fonte select { width: auto; min-width: 240px; max-width: 100%; height: 40px; padding: 0 30px 0 12px; appearance: none; -webkit-appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8ea3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 10l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; }
+.ag-fonte select option { background: #1a1524; color: #fff; }
+.ag-fonte small { flex-basis: 100%; font-size: 12.5px; color: var(--text-dimmer); }
+.ag-conta-ver { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.ag-conta-ver b { font-size: 15px; font-weight: 600; }
+
+/* Agenda: passo 1 compacto (calendário à esquerda, horários à direita) */
+.ag-quando-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.ag-quando-col { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.ag-mini { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 12px; border-radius: 99px; border: 1px solid rgba(255,255,255,.1); background: transparent; color: rgba(255,255,255,.75); font: inherit; font-size: 12.5px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; white-space: nowrap; }
+.ag-mini:hover { color: #fff; border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.04); }
+.ag-mini:disabled { opacity: .35; cursor: default; }
+#agQuando .ag-atalhos { display: flex; flex-wrap: wrap; gap: 6px; }
+#agQuando .ag-cal { gap: 4px; max-width: 420px; }
+#agQuando .ag-cal-sem { font-size: 11.5px; }
+#agQuando .ag-cal-dia { height: 40px; border-radius: 10px; }
+#agQuando .ag-cal-dia b { font-size: 14.5px; }
+#agQuando .ag-cal-dia small { display: none; }
+#agQuando .ag-cal-dia.hoje { position: relative; }
+#agQuando .ag-cal-dia.hoje::after { content: ""; position: absolute; bottom: 5px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: #d8b4fe; }
+#agQuando .ag-cal-dia.on.hoje::after { background: #fff; }
+.ag-periodos { display: grid; gap: 6px; }
+.ag-periodo { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 8px; }
+.ag-periodo-rot { font-size: 12.5px; color: var(--text-dim); }
+.ag-periodo-horas { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+#agQuando .ag-hora { height: 36px; border-radius: 9px; font-size: 13px; }
+#agQuando .ag-hora i { font-size: 11px; margin-left: 1px; }
+#agQuando .ag-quando-pe { margin-top: 4px; }
+#agQuando .ag-limite { gap: 10px; font-size: 14px; }
+.ag-stepper-p { display: inline-flex; align-items: center; gap: 4px; }
+.ag-stepper-p .ag-mini { width: 30px; padding: 0; font-size: 16px; }
+.ag-stepper-p .ag-input-num { width: 52px; height: 32px; padding: 0 4px; font-size: 14px; border-radius: 9px; }
+.ag-quando-resumo { margin: 0; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.035); font-size: 14px; color: var(--text-dim); }
+.ag-quando-resumo b { color: #fff; font-weight: 600; }
+@media (min-width: 1000px) {
+  .ag-quando-grid { grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 40px; }
+}
+@media (max-width: 720px) {
+  .ag-periodo { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  #agQuando .ag-cal { max-width: none; }
+  .ag-fonte select { min-width: 0; width: 100%; }
+}

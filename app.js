@@ -833,10 +833,8 @@ function renderHeroCopys(modelo, daModelo, contagem) {
       ${stat(ticket ? precoCopy(ticket) : '—', 'ticket médio')}
       ${stat(esc(quando), 'última copy')}
     </div>
-    ${modelo ? `<button type="button" class="cp-hero-gerar" id="cpHeroGerar">Abrir agenda dela</button>` : ''}`;
+    `;
   hero.querySelectorAll('img').forEach((img) => { img.onerror = () => img.remove(); });
-  const btn = document.getElementById('cpHeroGerar');
-  if (btn) btn.addEventListener('click', () => { if (window.agendaIrPara) window.agendaIrPara(modelo); else irParaTab('agenda'); });
 }
 
 // ═══ COPYS NO FIREBASE ═══
