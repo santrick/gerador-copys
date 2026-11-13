@@ -808,7 +808,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       ? `${agAvatarModelo(atual.nome)}<span class="ag-modelo-nome">${esc(atual.nome)}</span>${atual.contaPrivacy ? `<small class="ag-modelo-arroba">@${esc(atual.contaPrivacy)}</small>` : ''}<span class="ag-modelo-seta" aria-hidden="true">▾</span>`
       : `<span class="ag-modelo-nome">${ag.minhasCarregadas ? 'Escolher modelo' : 'Carregando…'}</span><span class="ag-modelo-seta" aria-hidden="true">▾</span>`;
     btn.disabled = !ag.minhasCarregadas;
-    lista.innerHTML = minhas.map((m) => {
+    lista.innerHTML = '<p class="ag-modelo-legenda">Suas modelos: as contas da Privacy onde o Agendador roda. Cada uma tem a própria agenda.</p>' + minhas.map((m) => {
       const on = m.id === ag.id;
       return `<button type="button" class="ag-modelo-op ${on ? 'on' : ''}" data-ag-modelo="${escAttr(m.id)}" role="option" aria-selected="${on}">
         ${agAvatarModelo(m.nome)}<span class="ag-modelo-op-txt"><b>${esc(m.nome)}</b><small>${m.contaPrivacy ? '@' + esc(m.contaPrivacy) : 'sem @'}</small></span>${on ? '<span class="ag-modelo-op-on">atual</span>' : ''}
@@ -829,6 +829,18 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     btn.setAttribute('aria-expanded', String(vai));
     if (vai) { const atual = lista.querySelector('.on') || lista.querySelector('button'); if (atual) atual.focus(); }
   }
+  function agMais(abrir) {
+    const l = document.getElementById('agMaisLista');
+    const b = document.querySelector('[data-ag="mais-ajustes"]');
+    if (!l || !b) return;
+    const vai = abrir === undefined ? l.hidden : abrir;
+    l.hidden = !vai;
+    b.setAttribute('aria-expanded', String(vai));
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.ag-mais')) { const l = document.getElementById('agMaisLista'); if (l && !l.hidden) agMais(false); }
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const l = document.getElementById('agMaisLista'); if (l && !l.hidden) agMais(false); } });
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.ag-sel-modelo')) { const l = document.getElementById('agModelos'); if (l && !l.hidden) agListaModelos(false); }
   });
@@ -965,7 +977,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const contagem = copysPorModeloContagem();
     const atual = ag.cfg.fonteCopys && contagem.some(([m]) => m === ag.cfg.fonteCopys) ? ag.cfg.fonteCopys : '';
     const total = new Set(todasMineradas.filter(x => x.mensagem).map(x => normTexto(x.mensagem))).size;
-    sel.innerHTML = `<option value="" ${atual ? '' : 'selected'}>Todas as mineradas (${total})</option>`
+    sel.innerHTML = `<option value="" ${atual ? '' : 'selected'}>Todas (${total})</option>`
       + contagem.map(([m, n]) => `<option value="${escAttr(m)}" ${m === atual ? 'selected' : ''}>${esc(nomeModelo(m))} (${n})</option>`).join('');
   }
 
@@ -1010,24 +1022,23 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   function agMontarEsqueleto(raiz) {
     ag.iniciado = true;
     raiz.innerHTML = `
-      <div class="ag-topo">
+      <div class="ag-cab1">
         <div class="ag-topo-linha">
           <span class="ag-de">Agenda de</span>
           <div class="ag-sel-modelo">
             <button type="button" class="ag-modelo-btn" id="agModeloBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="agModelos"></button>
             <div class="ag-modelo-lista" id="agModelos" role="listbox" aria-label="Escolha a modelo" hidden></div>
           </div>
-          <span class="ag-salvo" id="agSalvo" aria-live="polite"></span>
         </div>
-        <p class="ag-ajuda">Suas modelos (as contas da Privacy onde o Agendador roda). Cada uma tem a própria agenda.</p>
+        <nav class="ag-abas" id="agAbas" role="tablist" aria-label="Partes da agenda">
+          ${AG_ABAS.map(([id, longo, curto]) => `<button type="button" role="tab" data-ag-aba="${id}"><span class="ag-aba-longo">${longo}</span><span class="ag-aba-curto">${curto}</span>${id === 'fila' ? ' <span class="ag-fila-qtd" id="agFilaQtd" hidden></span>' : ''}</button>`).join('')}
+        </nav>
+        <span class="ag-salvo" id="agSalvo" aria-live="polite"></span>
       </div>
       <section class="ag-passo ag-vazio-modelos" id="agVazioModelos">
         <header class="ag-passo-cab"><span class="ag-num">${ico('pessoa')}</span><div><h2>Cadastre suas modelos</h2><p>Aqui vão as modelos da agência, as contas da Privacy onde o Agendador roda (não são as modelos mineradas). Cadastre a primeira pra montar a agenda dela.</p></div></header>
         <div id="agVazioForm"></div>
       </section>
-      <nav class="ag-abas" id="agAbas" role="tablist" aria-label="Partes da agenda">
-        ${AG_ABAS.map(([id, longo, curto]) => `<button type="button" role="tab" data-ag-aba="${id}"><span class="ag-aba-longo">${longo}</span><span class="ag-aba-curto">${curto}</span>${id === 'fila' ? ' <span class="ag-fila-qtd" id="agFilaQtd" hidden></span>' : ''}</button>`).join('')}
-      </nav>
       <div class="ag-aviso ag-aviso-perm" id="agAvisoPerm" hidden>${ico('alerta')}<span>A Agenda ainda não foi liberada no Firebase: o que você mudar aqui não fica salvo.</span></div>
 
       <section class="ag-passo" id="agPasso1" data-painel="quando" role="tabpanel" aria-labelledby="agP1">
@@ -1037,38 +1048,36 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       </section>
 
       <section class="ag-passo" id="agPasso2" data-painel="mensagens" role="tabpanel" aria-labelledby="agP2" hidden>
-        <header class="ag-passo-cab"><span class="ag-num">2</span><div><h2 id="agP2">O que vai falar</h2><p>Uma mensagem pra cada horário. Gere com a IA, use copys reais dela ou escreva você mesmo.</p></div></header>
+        <h2 id="agP2" class="ag-so-leitor">O que vai falar</h2>
         <div class="segmentado ag-vista" id="agVista" role="group" aria-label="Ver as mensagens como">
           <button type="button" data-ag-vista="lista" class="ativo" aria-pressed="true">Lista</button>
           <button type="button" data-ag-vista="chat" aria-pressed="false">Chat</button>
         </div>
-        <div class="ag-msg-grid" id="agMsgGrid">
-        <div class="ag-msg-lista">
-        <div class="ag-grupo" role="group" aria-label="Preencher">
-          <span class="ag-grupo-rot">Preencher</span>
-          <div class="ag-grupo-itens">
+        <div class="ag-nums" id="agNums" aria-live="polite"></div>
+        <div class="ag-barra1">
+          <div class="ag-barra1-acoes">
             <button type="button" class="ag-btn ag-btn-prim" id="agSortear" data-ag="gaveta" data-gaveta="sortear">${ico('dado')}<span>Sortear copys</span></button>
             <button type="button" class="ag-btn ag-btn-forte" id="agGerar" data-ag="gerar"></button>
-            <button type="button" class="ag-btn" id="agMisturar" data-ag="misturar" title="Metade dos horários vazios com copys reais dela e o resto gerado pela IA, imitando o jeito dela">${ico('brilho')}<span>Misturar IA + reais</span></button>
-            <button type="button" class="ag-link ag-link-acao" id="agReais" data-ag="reais" title="Preenche os horários vazios com copys de verdade dessa modelo, que ainda não saíram">${ico('copiar')}<span>Usar copys reais</span></button>
+            <button type="button" class="ag-btn" id="agMisturar" data-ag="misturar" title="Metade dos horários vazios com copys reais dela e o resto gerado pela IA, imitando o jeito dela">${ico('brilho')}<span>Misturar</span></button>
+            <button type="button" class="ag-btn ag-btn-s" data-ag="gaveta" data-gaveta="colar"><span>Colar várias</span></button>
+            <button type="button" class="ag-btn ag-btn-s" id="agCopiarTudo" data-ag="copiar-tudo" title="Copia as mensagens na ordem, prontas pro campo Mensagens do disparo"><span>Copiar tudo</span></button>
           </div>
-        </div>
-        <div class="ag-grupo" role="group" aria-label="Ferramentas">
-          <span class="ag-grupo-rot">Ferramentas</span>
-          <div class="ag-grupo-itens">
-            <button type="button" class="ag-btn ag-btn-s" data-ag="gaveta" data-gaveta="colar">${ico('mensagem')}<span>Colar várias</span></button>
-            <button type="button" class="ag-btn ag-btn-s" id="agCopiarTudo" data-ag="copiar-tudo" title="Copia as mensagens na ordem, prontas pro campo Mensagens do disparo">${ico('copiar')}<span>Copiar tudo</span></button>
+          <div class="ag-barra1-ajustes" role="group" aria-label="Ajustes">
+            <label class="ag-fonte" title="De onde saem as copys reais (sortear, usar, escolher e misturar)"><span>Copys de</span><select id="agFonte" aria-label="De onde vêm as copys reais"></select></label>
+            <div class="ag-ajustes" id="agAjustes"></div>
+            <div class="ag-mais">
+              <button type="button" class="ag-ajuste ag-mais-btn" data-ag="mais-ajustes" aria-expanded="false" aria-controls="agMaisLista"><span>Mais ajustes</span> ▾</button>
+              <div class="ag-mais-lista" id="agMaisLista" hidden>
+                <div id="agMaisAjustes"></div>
+                <button type="button" class="ag-mais-item ag-link-acao" id="agReais" data-ag="reais" title="Preenche os horários vazios com copys de verdade dessa modelo, que ainda não saíram">${ico('copiar')}<span>Usar copys reais (nos vazios)</span></button>
+              </div>
+            </div>
           </div>
         </div>
         <p class="ag-status" id="agStatus" aria-live="polite" hidden></p>
         <p class="ag-linha-info"><button type="button" class="ag-link" id="agRefazer" data-ag="refazer" hidden>Refazer todas com a IA</button><span id="agHist"></span></p>
-        <div class="ag-grupo ag-grupo-ajustes" role="group" aria-label="Ajustes">
-          <span class="ag-grupo-rot">Ajustes</span>
-          <div class="ag-grupo-itens">
-            <label class="ag-fonte" title="De onde saem as copys reais (sortear, usar, escolher e misturar)"><span>Copys de</span><select id="agFonte" aria-label="De onde vêm as copys reais"></select></label>
-            <div class="ag-ajustes" id="agAjustes"></div>
-          </div>
-        </div>
+        <div class="ag-msg-grid" id="agMsgGrid">
+        <div class="ag-msg-lista ag-card">
         <div class="ag-tl-info"><span class="ag-rot-dia">Mensagens por horário</span>
           <span class="ag-tl-todos"><button type="button" class="ag-link" data-ag="dias-todos" data-abrir="1">Abrir todos</button> · <button type="button" class="ag-link" data-ag="dias-todos" data-abrir="0">Fechar todos</button></span>
         </div>
@@ -1078,8 +1087,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
           <button type="button" class="ag-btn" data-ag="aba" data-aba="programar">Próximo: Programar →</button>
         </div>
         </div>
-        <aside class="ag-msg-chat" aria-label="Como a assinante vê no chat">
-          <p class="ag-chat-dica">Assim fica no chat da Privacy. Clique numa mensagem pra editar.</p>
+        <aside class="ag-msg-chat" aria-label="Como a assinante vê no chat (clique numa mensagem pra editar)">
           <div class="gr-chat ag-chat" id="agChat"></div>
         </aside>
         </div>
@@ -1108,6 +1116,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       <input type="file" id="agArquivo" accept=".json,application/json" hidden>`;
     agMostrarAba(agAbaInicial());
     raiz.addEventListener('click', agClique);
+    raiz.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-ag="ir-repetida"]')) { e.preventDefault(); agIrProSlot(e.target.dataset.idx); } });
     raiz.addEventListener('input', agDigitou);
     raiz.addEventListener('change', agMudou);
     document.getElementById('agArquivo').addEventListener('change', agImportar);
@@ -1161,6 +1170,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     agAtualizarRodape();
     if (!ag.cfg) return;
     agAtualizarDias();
+    agRenderNums();
     agChatDepois();
     const c = ag.cfg;
     const marcadas = agHorariosValidos(c.horarios, 99).length;
@@ -1268,15 +1278,18 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const btn = document.getElementById('agGerar');
     if (btn && !ag.gerando) {
       btn.disabled = false;
-      if (!slots.length) btn.innerHTML = `${ico('brilho')}<span>Gerar com IA</span>`;
-      else if (!com) btn.innerHTML = `${ico('brilho')}<span>Gerar ${slots.length} com IA</span>`;
-      else if (vazios) btn.innerHTML = `${ico('brilho')}<span>Gerar ${vazios === 1 ? 'o vazio' : `os ${vazios} vazios`} com IA</span>`;
-      else btn.innerHTML = `${ico('atualizar')}<span>Refazer todas com IA</span>`;
+      // rótulo curto (cabe na barra); a conta vai na dica
+      if (!slots.length || vazios) btn.innerHTML = `${ico('brilho')}<span>Gerar com IA</span>`;
+      else btn.innerHTML = `${ico('atualizar')}<span>Refazer com IA</span>`;
+      btn.title = !slots.length ? 'Marque dias e horários primeiro'
+        : !com ? `Gera as ${slots.length} mensagens com a IA`
+          : vazios ? `Gera ${vazios === 1 ? 'o horário vazio' : `os ${vazios} horários vazios`} com a IA`
+            : `Refaz as ${slots.length} mensagens com a IA`;
     }
     const reais = document.getElementById('agReais');
     if (reais) reais.disabled = ag.gerando || !vazios;
     const mist = document.getElementById('agMisturar');
-    if (mist && !ag.gerando) { mist.disabled = !vazios; mist.innerHTML = `${ico('brilho')}<span>Misturar IA + reais</span>`; }
+    if (mist && !ag.gerando) { mist.disabled = !vazios; mist.innerHTML = `${ico('brilho')}<span>Misturar</span>`; }
     const refazer = document.getElementById('agRefazer');
     if (refazer) refazer.hidden = !(com && vazios) || ag.gerando;
     const hist = (c.historicoCopies || []).length;
@@ -1305,14 +1318,18 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const pers = agPersonaAtual(c);
     const rot = agModeloRoteiroAtivo(c);
     const b = (id, rotulo, valor) => `<button type="button" class="ag-ajuste" data-ag="gaveta" data-gaveta="${id}"><span>${rotulo}</span>${valor ? `<b>${esc(valor)}</b>` : ''}</button>`;
-    box.innerHTML = [
-      b('persona', 'Persona:', pers ? (pers.nome || 'Sem nome') : 'nenhuma'),
-      b('roteiro', 'Roteiro:', !rot ? '—' : rot === 'personalizado' ? 'personalizado' : agRotuloSeq(rot)),
-      b('estilo', 'Estilo da IA', ''),
-      b('prompt', 'Prompt', c.prompt ? '(editado)' : ''),
-      b('pacotes', 'Pacotes', `(${c.pacotesReg.length})`),
-      b('config', 'Chave da IA e backup', '')
-    ].join('');
+    box.innerHTML = b('persona', 'Persona', pers ? (pers.nome || 'Sem nome') : 'nenhuma');
+    const mais = document.getElementById('agMaisAjustes');
+    if (mais) {
+      const m = (id, rotulo, valor) => `<button type="button" class="ag-mais-item" data-ag="gaveta" data-gaveta="${id}"><span>${rotulo}</span>${valor ? `<b>${esc(valor)}</b>` : ''}</button>`;
+      mais.innerHTML = [
+        m('roteiro', 'Roteiro', !rot ? '—' : rot === 'personalizado' ? 'personalizado' : agRotuloSeq(rot)),
+        m('pacotes', 'Pacotes', String(c.pacotesReg.length)),
+        m('estilo', 'Estilo da IA', ''),
+        m('prompt', 'Prompt', c.prompt ? 'editado' : 'padrão'),
+        m('config', 'Chave da IA e backup', agChave() ? '' : 'falta')
+      ].join('');
+    }
   }
 
   function agFmtDia(iso, longo) {
@@ -1346,7 +1363,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
 
   function agHtmlSlot(c, s, mapa) {
     const opcoes = Object.entries(AG_ASSUNTOS).map(([id, [rot]]) => `<option value="${id}" ${id === s.assunto ? 'selected' : ''}>${esc(rot)}</option>`).join('');
-    const seletor = `<select class="ag-input ag-assunto-sel" data-assunto-hora="${s.hora}" aria-label="Assunto das ${s.hora} (vale pra esse horário em todos os dias)" title="Assunto das ${s.hora}: vale pra esse horário em todos os dias">${opcoes}</select>`;
+    const seletor = `<span class="ag-assunto-pill" data-assunto="${s.assunto}"><i class="ag-ponto"></i><select class="ag-input ag-assunto-sel" data-assunto-hora="${s.hora}" aria-label="Assunto das ${s.hora} (vale pra esse horário em todos os dias)" title="Assunto das ${s.hora}: vale pra esse horário em todos os dias">${opcoes}</select></span>`;
     const hora = `<span class="ag-slot-hora">${s.hora}</span>`;
     if (AG_ACERVO_PROX[s.assunto]) {
       const tipo = s.assunto === 'video' ? 'vídeo' : 'pack';
@@ -1403,6 +1420,44 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     agMarcarLongos();
     if (!agAutoAlturaNativa) box.querySelectorAll('textarea[data-msg]').forEach(agAutoAltura);
     agChatDepois();
+  }
+
+  // ── painel de números da aba Mensagens ──
+  function agPrecoNum(p) {
+    const n = parseFloat(String(p || '').replace(/[^\d,.]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.'));
+    return isFinite(n) && n > 0 ? n : 0;
+  }
+  function agRenderNums() {
+    const box = document.getElementById('agNums');
+    if (!box || !ag.cfg) return;
+    const c = ag.cfg;
+    const plano = agMontarPlano(c);
+    const itens = agItensTimeline(c);
+    itens.forEach((s, i) => { s.idx = i; });
+    const mapa = agMsgsMapa(c);
+    const { prontas, total } = agProntasDia(itens, mapa);
+    const ppv = itens.filter(s => AG_ACERVO_PROX[s.assunto] && s.pack);
+    const precos = ppv.map(s => agPrecoNum(s.pack.preco)).filter(Boolean);
+    const media = precos.length ? precos.reduce((t, v) => t + v, 0) / precos.length : 0;
+    const chamadas = itens.filter(s => s.assunto === 'chamada' || s.assunto === 'desc_chamada').length;
+    const vistos = new Map();
+    let repetidas = 0, primeira = null;
+    itens.forEach((s) => {
+      if (AG_ACERVO_PROX[s.assunto]) return;
+      const t = agMsgDoHorario(mapa, s);
+      if (!t) return;
+      const k = normTexto(blocoCopy(t));
+      if (vistos.has(k)) { repetidas++; if (primeira === null) primeira = s.idx; } else vistos.set(k, s.idx);
+    });
+    const card = (valor, rotulo, cor, extra) => `<div class="ag-card ag-num-card" ${extra || ''}><b style="${cor ? `color:${cor}` : ''}">${valor}</b><span>${rotulo}</span></div>`;
+    box.innerHTML = [
+      card(plano.length, plano.length === 1 ? 'disparo na semana' : 'disparos na semana'),
+      card(`${prontas}/${total}`, 'copys prontas', total ? (prontas < total ? '#fbbf24' : '#34d399') : ''),
+      card(ppv.length || '—', ppv.length ? `PPV · média ${media ? media.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}` : 'PPV', ppv.length ? '#34d399' : ''),
+      card(chamadas, chamadas === 1 ? 'chamada' : 'chamadas'),
+      card(repetidas, 'repetidas na semana', repetidas ? '#f87171' : '#34d399',
+        repetidas ? `role="button" tabindex="0" data-ag="ir-repetida" data-idx="${primeira}" title="Ir pra primeira repetida"` : '')
+    ].join('');
   }
 
   // ── dias da lista: abrir/fechar (lembra na sessão) ──
@@ -2900,7 +2955,7 @@ bom dia, vida! já acordou?"></textarea>
     if (acao === 'config') { agAbrirConfig(); return; }
     if (!c) return;
     if (acao === 'aba') { agMostrarAba(acaoEl.dataset.aba, true); return; }
-    if (acao === 'gaveta') { agAbrirGaveta(acaoEl.dataset.gaveta); return; }
+    if (acao === 'gaveta') { agMais(false); agAbrirGaveta(acaoEl.dataset.gaveta); return; }
     if (acao === 'ir') { agIr(acaoEl.dataset.ir); return; }
     if (acao === 'exportar') return agExportar();
     if (acao === 'importar') return document.getElementById('agArquivo').click();
@@ -2981,8 +3036,10 @@ bom dia, vida! já acordou?"></textarea>
     // Copys (resumo e linha do tempo)
     if (acao === 'gerar') return agGerar();
     if (acao === 'refazer') return agGerar(true);
-    if (acao === 'reais') return agUsarReais();
+    if (acao === 'reais') { agMais(false); return agUsarReais(); }
     if (acao === 'misturar') return agMisturar();
+    if (acao === 'mais-ajustes') { agMais(); return; }
+    if (acao === 'ir-repetida') { agIrProSlot(acaoEl.dataset.idx); return; }
     const diaBtn = t.closest('[data-ag-dia]');
     if (diaBtn) { const g = diaBtn.closest('[data-dia-grupo]'); agAbrirDia(g, !g.classList.contains('aberto')); return; }
     if (acao === 'dias-todos') { const abrir = acaoEl.dataset.abrir === '1'; document.querySelectorAll('#agTimeline [data-dia-grupo]').forEach(g => agAbrirDia(g, abrir)); return; }
