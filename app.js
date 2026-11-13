@@ -1604,6 +1604,7 @@ const GR_ICO = {
   remover: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   subir: '<svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5"/></svg>',
   descer: '<svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>',
+  agenda: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
   dado: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1.3"/><circle cx="15.5" cy="15.5" r="1.3"/><circle cx="12" cy="12" r="1.3"/></svg>'
 };
 function avatarChatGerador() {
@@ -1637,6 +1638,7 @@ function renderGeradorSaida() {
       </div>
       <div class="gr-topo-acoes">
         <button type="button" class="gr-btn2" data-acao="resortear">${GR_ICO.trocar}<span>Sortear de novo</span></button>
+        <button type="button" class="gr-btn2 gr-agenda" data-acao="mandar-agenda" title="Coloca essas copys nos horários vazios da Agenda dessa modelo">${GR_ICO.agenda}<span>Mandar pra Agenda</span></button>
         <button type="button" class="gr-btn1 gr-copiar-tudo" data-acao="copiar-tudo">${GR_ICO.copiar}<span>Copiar tudo</span></button>
       </div>
     </div>
@@ -1782,6 +1784,12 @@ function configurarGerador() {
       return;
     }
     if (acao === 'resortear') { sortearGerador(); return; }
+    if (acao === 'mandar-agenda') {
+      // Vai pra Agenda sem marcar no histórico do Gerador (isso só acontece no "Copiar tudo")
+      salvarEdicaoGerador();
+      if (typeof window.agendaReceberCopys === 'function') window.agendaReceberCopys(grModelo, grItens.map((c) => c.texto));
+      return;
+    }
     if (acao === 'copiar-tudo') {
       salvarEdicaoGerador();
       copiarTexto(textoGerador()).then(() => {

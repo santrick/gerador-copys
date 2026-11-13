@@ -614,7 +614,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       : { copies, descartadas };
   }
 
-  async function agLoteCopies({ quantidade, horarios, briefing, prompt, tipos, emoji, persona, roteiro, oferta, evitar }) {
+  async function agLoteCopies({ quantidade, horarios, briefing, prompt, tipos, emoji, persona, roteiro, oferta, evitar, exemplos }) {
     const chave = agChave();
     if (!chave) return { erro: 'Falta a chave da OpenRouter: clique na engrenagem (IA) no topo da Agenda.' };
     const n = Math.min(Math.max(parseInt(quantidade) || 5, 1), AG_COPIES_POR_LOTE);
@@ -631,6 +631,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       + (tipos?.length ? `\n${roteiro?.length ? 'Abordagens pra variar o jeito de chamar' : 'Tipos de copy (use só estes, alternando)'}: ${tipos.join('; ')}` : '')
       + (emoji ? `\nEmojis: ${emoji}` : '')
       + (evitar?.length ? `\nJá foram escritas estas (NÃO repita nem copie o começo delas):\n${evitar.map(c => `- ${c.replace(/\s+/g, ' ').substring(0, 120)}`).join('\n')}` : '')
+      + (exemplos?.length ? `\nExemplos reais dessa modelo: imite o jeito de escrever, NÃO copie:\n${exemplos.filter(t => !temaProibido(t)).slice(0, 12).map(t => `- ${t.replace(/\s+/g, ' ').substring(0, 300)}`).join('\n')}` : '')
       + `\nResponda SÓ com as mensagens, sem numeração, separadas por uma linha contendo apenas ---`;
 
     let resp;
@@ -681,8 +682,9 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   function agTiposIA(cfg) { return (cfg.tiposCopy.length ? cfg.tiposCopy : Object.keys(AG_TIPOS_COPY)).map(t => AG_TIPOS_COPY[t][1]); }
   function agPersonaAtual(cfg) { return cfg.personas.find(p => p.id === cfg.persona) || null; }
 
-  function agPedirCopies(cfg, slots, evitarExtra, onProgresso) {
+  function agPedirCopies(cfg, slots, evitarExtra, onProgresso, exemplos) {
     return agGerarCopiesMassa({
+      exemplos: exemplos || [],
       quantidade: slots.length,
       horarios: slots.map(s => s.hora),
       briefing: cfg.briefing,
@@ -860,6 +862,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         <header class="ag-passo-cab"><span class="ag-num">2</span><div><h2 id="agP2">O que vai falar</h2><p>Uma mensagem pra cada horário. Gere com a IA, use copys reais dela ou escreva você mesmo.</p></div></header>
         <div class="ag-barra">
           <button type="button" class="ag-btn ag-btn-prim" id="agGerar" data-ag="gerar"></button>
+          <button type="button" class="ag-btn" id="agMisturar" data-ag="misturar" title="Metade dos horários vazios com copys reais dela e o resto gerado pela IA, imitando o jeito dela">${ico('brilho')}<span>Misturar IA + reais</span></button>
           <button type="button" class="ag-btn" id="agReais" data-ag="reais" title="Preenche os horários vazios com copys de verdade dessa modelo, que ainda não saíram">${ico('copiar')}<span>Usar copys reais</span></button>
           <button type="button" class="ag-btn" data-ag="gaveta" data-gaveta="colar">${ico('mensagem')}<span>Colar várias</span></button>
         </div>
@@ -1056,6 +1059,8 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     }
     const reais = document.getElementById('agReais');
     if (reais) reais.disabled = ag.gerando || !vazios;
+    const mist = document.getElementById('agMisturar');
+    if (mist && !ag.gerando) { mist.disabled = !vazios; mist.innerHTML = `${ico('brilho')}<span>Misturar IA + reais</span>`; }
     const refazer = document.getElementById('agRefazer');
     if (refazer) refazer.hidden = !(com && vazios) || ag.gerando;
     const hist = (c.historicoCopies || []).length;
@@ -1142,7 +1147,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         <textarea class="ag-input ag-txt ag-slot-msg" rows="1" data-msg placeholder="Vazio: repete uma das outras mensagens" aria-label="Mensagem das ${s.hora}">${esc(texto)}</textarea>
         <span class="ag-badge-proibida">${ico('alerta')}Tema proibido: essa mensagem não vai pra fila.</span>
       </div>
-      <button type="button" class="ag-btn ag-btn-p ag-slot-refazer" data-ag="refazer-um" title="Gerar de novo só a das ${s.hora}">${ico('atualizar')}<span>Refazer</span></button>
+      <span class="ag-slot-acoes">
+        <button type="button" class="ag-btn ag-btn-p" data-ag="escolher" title="Escolher uma copy real dela pras ${s.hora}">${ico('lista')}<span>Escolher</span></button>
+        <button type="button" class="ag-btn ag-btn-p ag-slot-refazer" data-ag="refazer-um" title="Gerar de novo só a das ${s.hora}">${ico('atualizar')}<span>Refazer</span></button>
+      </span>
     </div>`;
   }
 
@@ -1337,10 +1345,11 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     prompt: ['mensagem', 'Prompt da IA', 'Cole aqui as instruções do seu GPT. Salva sozinho.'],
     pacotes: ['pacote', 'Pacotes', 'Packs e vídeos que vão nos horários de Pack e Vídeo, em rodízio.'],
     config: ['engrenagem', 'Configurações', 'Chave da IA (fica só neste navegador) e backup da agenda.'],
-    colar: ['mensagem', 'Colar várias mensagens', 'Uma por bloco, com linha em branco entre elas. Preenche os horários na ordem.']
+    colar: ['mensagem', 'Colar várias mensagens', 'Uma por bloco, com linha em branco entre elas. Preenche os horários na ordem.'],
+    escolher: ['lista', 'Escolher copy', 'Copys reais dessa modelo. Clique numa pra colocar no horário.']
   };
   // Gavetas com campos que a pessoa digita e não podem ser redesenhadas por baixo
-  const AG_GAVETAS_FIXAS = ['config', 'prompt', 'colar'];
+  const AG_GAVETAS_FIXAS = ['config', 'prompt', 'colar', 'escolher'];
 
   function agAbrirGaveta(nome) {
     if (!AG_GAVETAS[nome]) return;
@@ -1364,18 +1373,19 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
 
   function agHtmlGaveta(nome) {
     const [icone, titulo, sub] = AG_GAVETAS[nome];
-    const corpo = { persona: agHtmlPersona, roteiro: agHtmlRoteiro, estilo: agHtmlEstilo, prompt: agHtmlPrompt, pacotes: agHtmlPacotes, config: agHtmlConfig, colar: agHtmlColar }[nome]();
+    const corpo = { persona: agHtmlPersona, roteiro: agHtmlRoteiro, estilo: agHtmlEstilo, prompt: agHtmlPrompt, pacotes: agHtmlPacotes, config: agHtmlConfig, colar: agHtmlColar, escolher: agHtmlEscolher }[nome]();
     const rodape = {
       persona: (agPersonaAtual(ag.cfg) ? `<button type="button" class="ag-btn ag-btn-perigo" data-ag="persona-apagar">${ico('lixo')}<span>Apagar persona</span></button>` : '') + `<button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-folha="fechar">Pronto</button>`,
       prompt: `<button type="button" class="ag-btn" data-ag="prompt-restaurar">${ico('atualizar')}<span>Restaurar padrão</span></button><button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-folha="fechar">Pronto</button>`,
       config: `<button type="button" class="ag-btn" data-folha="testar">Testar chave</button><button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-folha="salvar-ia">Salvar chave</button>`,
-      colar: `<button type="button" class="ag-btn" data-folha="fechar">Cancelar</button><button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-ag="colar">Preencher horários</button>`
+      colar: `<button type="button" class="ag-btn" data-folha="fechar">Cancelar</button><button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-ag="colar">Preencher horários</button>`,
+      escolher: `<button type="button" class="ag-btn ag-btn-grande" data-folha="fechar">Cancelar</button>`
     }[nome] || `<button type="button" class="ag-btn ag-btn-prim ag-btn-grande" data-folha="fechar">Pronto</button>`;
     return `
       <div class="ag-folha-topo">
         <div>
           <div class="ag-folha-titulo">${ico(icone)}${esc(titulo)}</div>
-          <div class="ag-folha-sub">${nome === 'prompt' ? '<span id="agPromptEstado"></span> · ' : ''}${esc(sub)}</div>
+          <div class="ag-folha-sub">${nome === 'prompt' ? '<span id="agPromptEstado"></span> · ' : ''}${nome === 'escolher' && ag.escolher ? `Pras <b>${esc(ag.escolher.hora)}</b> (${esc(AG_ASSUNTOS[ag.escolher.assunto][0])}). ` : ''}${esc(sub)}</div>
         </div>
         <button type="button" class="ag-btn ag-btn-p" data-folha="fechar">Fechar</button>
       </div>
@@ -1681,7 +1691,7 @@ bom dia, vida! já acordou?"></textarea>
     } catch (e) {
       agStatus(e.message, 'erro');
     }
-    if (btn.isConnected) { btn.disabled = false; btn.innerHTML = ico('atualizar'); }
+    if (btn.isConnected) { btn.disabled = false; btn.innerHTML = `${ico('atualizar')}<span>Refazer</span>`; }
   }
 
   function agColar() {
@@ -1705,7 +1715,52 @@ bom dia, vida! já acordou?"></textarea>
       + (proib ? ` · ${proib} com tema proibido (não vão pra fila)` : ''), proib ? 'aviso' : 'ok');
   }
 
-  // Preenche os horários vazios com copys reais da modelo (que ainda não saíram)
+  // ═══════════════════════════════════════════════ COPYS REAIS (pelo assunto, escolher, misturar, Gerador) ═══
+
+  // Categorias do Synora que combinam com cada assunto do roteiro (pack/vídeo não usam texto)
+  const AG_CATS_ASSUNTO = {
+    aquecimento: ['Reengajamento', 'Disparos em massa', 'Boas-vindas'],
+    chamada: ['Chamadas', 'Promoções'],
+    desc_chamada: ['Chamadas', 'Promoções'],
+    sexting: ['Promoções', 'Chamadas'],
+    desc_sexting: ['Promoções', 'Chamadas']
+  };
+
+  // Copys reais dessa modelo que ainda não saíram e não estão na agenda (embaralhadas)
+  function agPoolReais(c, mapa) {
+    const fora = new Set([...(c.historicoCopies || []), ...agMsgsPool(mapa)].map(t => normTexto(blocoCopy(t))));
+    const vistos = new Set();
+    return embaralhar(copysDaModelo(ag.modelo)
+      .map(x => ({ t: blocoCopy(x.texto || ''), cat: x.categoria || 'Outras' }))
+      .filter((x) => {
+        const k = normTexto(x.t);
+        if (!x.t || fora.has(k) || vistos.has(k) || temaProibido(x.t)) return false;
+        vistos.add(k);
+        return true;
+      }));
+  }
+
+  // Tira do pool uma copy pro assunto: primeiro das categorias dele, senão qualquer uma
+  function agTirarReal(pool, assunto) {
+    const cats = AG_CATS_ASSUNTO[assunto] || [];
+    let i = pool.findIndex(x => cats.includes(x.cat));
+    if (i < 0) i = pool.length ? 0 : -1;
+    return i < 0 ? null : pool.splice(i, 1)[0];
+  }
+
+  function agPreencherReais(c, mapa, slots) {
+    const pool = agPoolReais(c, mapa);
+    let n = 0;
+    for (const s of slots) {
+      const x = agTirarReal(pool, s.assunto);
+      if (!x) break;
+      mapa[agChaveMsg(s)] = x.t;
+      n++;
+    }
+    return n;
+  }
+
+  // Preenche os horários vazios com copys reais da modelo, pelo assunto de cada horário
   function agUsarReais() {
     const c = ag.cfg;
     const slots = agSlotsTexto(c);
@@ -1713,32 +1768,163 @@ bom dia, vida! já acordou?"></textarea>
     const mapa = agMsgsMapa(c);
     const vazios = slots.filter(s => !agMsgDoHorario(mapa, s));
     if (!vazios.length) return agStatus('Todos os horários já têm texto. Apague algum pra preencher com copy real.', 'aviso');
-    const fora = new Set([...(c.historicoCopies || []), ...agMsgsPool(mapa)].map(t => normTexto(blocoCopy(t))));
-    const vistos = new Set();
-    const reais = embaralhar(copysDaModelo(ag.modelo)
-      .map(x => ({ t: blocoCopy(x.texto || ''), preco: precoCopy(x.preco) }))
-      .filter(x => {
-        const k = normTexto(x.t);
-        if (!x.t || fora.has(k) || vistos.has(k) || temaProibido(x.t)) return false;
-        vistos.add(k);
-        return true;
-      }));
-    const semPreco = reais.filter(x => !x.preco);
-    const comPreco = reais.filter(x => x.preco);
-    let n = 0;
-    for (const s of vazios) {
-      // Aquecer prefere copy sem preço (não é venda); o resto prefere as de venda
-      const ordem = s.assunto === 'aquecimento' ? [semPreco, comPreco] : [comPreco, semPreco];
-      const lista = ordem.find(l => l.length);
-      if (!lista) break;
-      mapa[agChaveMsg(s)] = lista.shift().t;
-      n++;
-    }
+    const n = agPreencherReais(c, mapa, vazios);
     if (!n) return agStatus('Não sobrou copy real dessa modelo que ainda não saiu. Gere com a IA.', 'aviso');
     agSalvar();
     agRenderTimeline();
     agAtualizar();
     agStatus(`${n} ${n === 1 ? 'horário preenchido' : 'horários preenchidos'} com copys reais${n < vazios.length ? ` · faltaram ${vazios.length - n} (não tem mais copy nova dela)` : ''}`, n < vazios.length ? 'aviso' : 'ok');
+  }
+
+  // Metade dos vazios (arredondando pra cima) com copys reais, o resto pela IA com exemplos reais dela
+  async function agMisturar() {
+    const c = ag.cfg;
+    if (!c || ag.gerando) return;
+    const slots = agSlotsTexto(c);
+    if (!slots.length) return agStatus('Marque dias e horários em Quando.', 'aviso');
+    const mapa = agMsgsMapa(c);
+    const vazios = slots.filter(s => !agMsgDoHorario(mapa, s));
+    if (!vazios.length) return agStatus('Todos os horários já têm texto. Apague algum pra misturar.', 'aviso');
+    const pool = agPoolReais(c, mapa);
+    let nReais = 0;
+    const praIA = [];
+    vazios.forEach((s, i) => {
+      // intercala: um real, um da IA (os pares ficam com as reais → metade arredondada pra cima)
+      const x = i % 2 === 0 ? agTirarReal(pool, s.assunto) : null;
+      if (x) { mapa[agChaveMsg(s)] = x.t; nReais++; } else praIA.push(s);
+    });
+    const exemplos = embaralhar(copysDaModelo(ag.modelo).map(x => blocoCopy(x.texto || '')).filter(t => t && !temaProibido(t))).slice(0, 12);
+    if (nReais) { agSalvar(); agRenderTimeline(); }
+    if (!praIA.length) { agAtualizar(); return agStatus(`${nReais} reais + 0 da IA`, 'ok'); }
+    const id = ag.id;
+    ag.gerando = true;
+    const btn = document.getElementById('agMisturar');
+    const rotular = (t) => { if (btn && btn.isConnected) { btn.disabled = true; btn.innerHTML = `${ico('carregando', 'ag-gira')}<span>${esc(t)}</span>`; } };
+    rotular(`Gerando ${praIA.length} com a IA…`);
+    ['agGerar', 'agReais'].forEach((x) => { const b = document.getElementById(x); if (b) b.disabled = true; });
+    agStatus('');
+    try {
+      const r = await agPedirCopies(c, praIA, agMsgsPool(mapa), (feitas, total) => { if (ag.id === id && feitas) rotular(`Gerando… ${feitas} de ${total}`); }, exemplos);
+      if (ag.id !== id || ag.cfg !== c) return;
+      if (r.erro) agStatus(`${nReais} reais + 0 da IA · ${r.erro}`, 'erro');
+      else {
+        r.copies.forEach((t, i) => { if (praIA[i]) mapa[agChaveMsg(praIA[i])] = t; });
+        const desc = r.descartadas ? ` · ${r.descartadas} descartada${r.descartadas === 1 ? '' : 's'} por tema proibido` : '';
+        agStatus(`${nReais} reais + ${Math.min(r.copies.length, praIA.length)} da IA` + (r.aviso ? ` · ${r.aviso}` : '') + desc, r.aviso ? 'aviso' : 'ok');
+        agSalvar();
+      }
+    } catch (e) {
+      if (ag.id === id) agStatus(e.message, 'erro');
+    } finally {
+      if (ag.id === id) { ag.gerando = false; agRenderTimeline(); agAtualizar(); }
+    }
+  }
+
+  // ── Escolher copy pra um horário ──
+  function agAbrirEscolher(box) {
+    const c = ag.cfg;
+    const slot = agSlotsTexto(c).find(s => agChaveMsg(s) === box.dataset.chave);
+    if (!slot) return;
+    const existentes = new Set(copysDaModelo(ag.modelo).map(x => x.categoria || 'Outras'));
+    const cats = (AG_CATS_ASSUNTO[slot.assunto] || []).filter(x => existentes.has(x));
+    ag.escolher = { chave: agChaveMsg(slot), hora: slot.hora, assunto: slot.assunto, busca: '', cats: cats.length ? new Set(cats) : null, lista: [] };
+    agAbrirGaveta('escolher');
+    ag.gaveta = 'escolher';
+  }
+
+  function agCatsDaModelo() {
+    const porCat = {};
+    copysDaModelo(ag.modelo).forEach((x) => { const k = x.categoria || 'Outras'; porCat[k] = (porCat[k] || 0) + 1; });
+    const ordem = CATEGORIAS_COPYS.filter(k => porCat[k]).concat(Object.keys(porCat).filter(k => !CATEGORIAS_COPYS.includes(k)));
+    return { porCat, ordem };
+  }
+
+  function agHtmlEscolher() {
+    return `<label class="ag-campo"><span>Buscar</span><input class="ag-input" type="search" data-esc-busca placeholder="Buscar no texto das copys…" autocomplete="off" value="${escAttr(ag.escolher ? ag.escolher.busca : '')}" data-foco></label>
+      <div class="ag-pills ag-esc-cats" id="agEscCats">${agHtmlEscCats()}</div>
+      <div class="ag-esc-lista" id="agEscLista">${agHtmlEscLista()}</div>`;
+  }
+
+  function agHtmlEscCats() {
+    const e = ag.escolher;
+    if (!e) return '';
+    const { porCat, ordem } = agCatsDaModelo();
+    return `<button type="button" class="ag-pill ${e.cats ? '' : 'on'}" data-esc-cat="" aria-pressed="${!e.cats}">Todas</button>`
+      + ordem.map(k => `<button type="button" class="ag-pill ${e.cats && e.cats.has(k) ? 'on' : ''}" data-esc-cat="${escAttr(k)}" aria-pressed="${!!(e.cats && e.cats.has(k))}">${esc(k)} <small>${porCat[k]}</small></button>`).join('');
+  }
+
+  function agHtmlEscLista() {
+    const e = ag.escolher;
+    if (!e || !ag.cfg) return '';
+    const usadas = new Set((ag.cfg.historicoCopies || []).map(t => normTexto(blocoCopy(t))));
+    const busca = normTexto(e.busca);
+    const vistos = new Set();
+    const lista = copysDaModelo(ag.modelo).filter((x) => {
+      const k = normTexto(x.texto);
+      if (vistos.has(k)) return false;
+      vistos.add(k);
+      if (e.cats && !e.cats.has(x.categoria || 'Outras')) return false;
+      return !busca || k.includes(busca);
+    });
+    e.lista = lista;
+    if (!lista.length) return `<p class="ag-dica">Nenhuma copy com esse filtro.</p>`;
+    const MAX = 150;
+    return `<p class="ag-dica-mini">${lista.length} ${lista.length === 1 ? 'copy' : 'copys'}${lista.length > MAX ? ` · mostrando as ${MAX} primeiras, use a busca` : ''}</p>`
+      + lista.slice(0, MAX).map((x, i) => {
+        const usada = usadas.has(normTexto(blocoCopy(x.texto)));
+        return `<button type="button" class="ag-esc-item" data-esc-i="${i}">
+          <span class="ag-esc-meta"><span>${esc(x.categoria || 'Outras')}</span>${usada ? '<span class="ag-esc-usada">já usada</span>' : ''}</span>
+          <span class="ag-esc-txt">${esc(blocoCopy(x.texto))}</span>
+        </button>`;
+      }).join('');
+  }
+
+  function agEscolherCopy(i) {
+    const e = ag.escolher;
+    const x = e && e.lista[i];
+    if (!x || !ag.cfg) return;
+    agMsgsMapa(ag.cfg)[e.chave] = blocoCopy(x.texto);
+    agSalvar();
+    agFecharFolha();
+    agRenderTimeline();
+    agAtualizar();
+    agStatus(`Copy escolhida pras ${e.hora}.`, 'ok');
+  }
+
+  // ── Gerador → Agenda ──
+  // Chamado pelo botão "Mandar pra Agenda" do Gerador: coloca as copys nos horários vazios da agenda da modelo
+  async function agendaReceberCopys(modelo, textos) {
+    const lista = (textos || []).map(t => blocoCopy(t || '')).filter(Boolean);
+    if (!modelo || !lista.length) { toast('Não tem copy pra mandar'); return 0; }
+    if (!agUser()) { toast('Entre de novo pra usar a Agenda'); return 0; }
+    try { localStorage.setItem(AG_LS_MODELO, modelo); } catch (e) { /* ignora */ }
+    const carga = ag.modelo === modelo && ag.cfg ? null : agCarregarModelo(modelo);
+    if (typeof irParaTab === 'function') irParaTab('agenda');
+    if (carga) await carga;
+    if (ag.modelo !== modelo || !ag.cfg) { toast('Não deu pra abrir a agenda dessa modelo'); return 0; }
+    agMostrarAba('mensagens');
+    const c = ag.cfg;
+    const mapa = agMsgsMapa(c);
+    const slots = agSlotsTexto(c);
+    let alvo = slots.filter(s => !agMsgDoHorario(mapa, s));
+    if (slots.length && !alvo.length) {
+      if (!confirm(`Todos os ${slots.length} horários de ${agPrimeiroNome(modelo)} já têm mensagem.\nTrocar pelas ${lista.length} copys do Gerador, na ordem dos horários?`)) {
+        agStatus('As copys do Gerador não foram usadas: todos os horários já tinham mensagem.', 'aviso');
+        return 0;
+      }
+      alvo = slots;
+    }
+    alvo.forEach((s, i) => { if (lista[i]) mapa[agChaveMsg(s)] = lista[i]; });
+    const sobra = lista.slice(alvo.length);
+    sobra.forEach((t, i) => { mapa[`extra ${Date.now()}-${i}`] = t; });
+    agSalvar();
+    agRenderTudo();
+    const n = lista.length;
+    toast(`${n} ${n === 1 ? 'copy da Gerador foi' : 'copys da Gerador foram'} pra Agenda`);
+    if (!slots.length) agStatus(`Ainda não tem horário marcado: as ${n} copys ficaram guardadas e entram em rodízio quando você escolher os dias e horários.`, 'aviso');
+    else if (sobra.length) agStatus(`${Math.min(n, alvo.length)} horários preenchidos · ${sobra.length} sobraram e entram no rodízio.`, 'aviso');
+    else agStatus(`${n} horários preenchidos com as copys do Gerador.`, 'ok');
+    return n;
   }
 
   // ═══════════════════════════════════════════════ PRÉVIA + FILA ═══
@@ -2161,6 +2347,23 @@ bom dia, vida! já acordou?"></textarea>
     if (acao === 'gerar') return agGerar();
     if (acao === 'refazer') return agGerar(true);
     if (acao === 'reais') return agUsarReais();
+    if (acao === 'misturar') return agMisturar();
+    if (acao === 'escolher') { const box = acaoEl.closest('[data-chave]'); if (box) agAbrirEscolher(box); return; }
+    const escCat = t.closest('[data-esc-cat]');
+    if (escCat && ag.escolher) {
+      const k = escCat.dataset.escCat;
+      if (!k) ag.escolher.cats = null;
+      else {
+        const set = new Set(ag.escolher.cats || []);
+        if (set.has(k)) set.delete(k); else set.add(k);
+        ag.escolher.cats = set.size ? set : null;
+      }
+      const cats = document.getElementById('agEscCats'); if (cats) cats.innerHTML = agHtmlEscCats();
+      const l = document.getElementById('agEscLista'); if (l) l.innerHTML = agHtmlEscLista();
+      return;
+    }
+    const escItem = t.closest('[data-esc-i]');
+    if (escItem) { agEscolherCopy(Number(escItem.dataset.escI)); return; }
     if (acao === 'refazer-um') return agRefazerUm(acaoEl);
     if (acao === 'colar') return agColar();
     if (acao === 'hist-limpar') {
@@ -2207,6 +2410,11 @@ bom dia, vida! já acordou?"></textarea>
     const c = ag.cfg;
     if (!c) return;
     if (t.id === 'agConta') { c.contaPrivacy = agNormConta(t.value); agSalvar(); return; }
+    if (t.hasAttribute('data-esc-busca') && ag.escolher) {
+      ag.escolher.busca = t.value;
+      const l = document.getElementById('agEscLista'); if (l) l.innerHTML = agHtmlEscLista();
+      return;
+    }
     const campo = t.dataset.campo;
     if (campo === 'limiteDia') {
       if (t.value === '') return;
@@ -2294,6 +2502,7 @@ bom dia, vida! já acordou?"></textarea>
   }
 
   window.abrirAgenda = abrirAgenda;
+  window.agendaReceberCopys = agendaReceberCopys;
   // Pra testes no console
   window.AgendaSynora = { estado: ag, preparar: agPreparar, montarPlano: agMontarPlano, sanitizar: agSanitizar, montarCfg: agMontarCfg, prompt: () => AG_PROMPT_PADRAO + AG_REGRA_SEGURANCA };
 })();
