@@ -9,7 +9,7 @@
 
   <!-- PWA / instalar na tela inicial -->
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#06060b" />
+  <meta name="theme-color" content="#17131b" />
   <link rel="apple-touch-icon" href="icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Onest:wght@400;500;600;700;800&family=Poppins:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=65" />
+  <link rel="stylesheet" href="styles.css?v=66" />
 
   <!-- Firebase (login + registro de atividade) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -39,7 +39,7 @@
       <form id="loginForm" autocomplete="on">
         <label class="field">
           <span>E-mail</span>
-          <input type="email" id="loginEmail" name="email" placeholder="seuemail@synoracopys.com" autocomplete="username" required />
+          <input type="email" id="loginEmail" name="email" spellcheck="false" placeholder="seuemail@synoracopys.com" autocomplete="username" required />
         </label>
         <label class="field">
           <span>Senha</span>
@@ -51,6 +51,7 @@
     </div>
   </div>
 
+  <a class="pular-link" href="#conteudo">Pular pro conteúdo</a>
   <div class="shell" id="appShell" hidden>
 
     <!-- SIDEBAR -->
@@ -92,7 +93,7 @@
         </div>
         <label class="sb-busca">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-          <input type="search" id="buscaModelos" placeholder="Buscar modelo" autocomplete="off" />
+          <input type="search" id="buscaModelos" name="buscaModelos" placeholder="Buscar modelo…" autocomplete="off" spellcheck="false" aria-label="Buscar modelo" />
         </label>
         <div class="sb-lista" id="abasModelos" role="list"></div>
       </div>
@@ -126,7 +127,7 @@
         <span class="status-dot"></span> <span id="statusTexto">Carregando copys…</span>
       </div>
 
-      <div class="content">
+      <div class="content" id="conteudo" tabindex="-1">
 
         <!-- MINERADAS -->
         <section id="tab-mineradas" class="tab-panel copys-page active">
@@ -134,7 +135,7 @@
           <div class="cp-toolbar">
             <label class="cp-busca">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-              <input type="search" id="buscaMineradas" placeholder="Buscar no texto das copys…" autocomplete="off" />
+              <input type="search" id="buscaMineradas" name="buscaMineradas" placeholder="Buscar no texto das copys…" autocomplete="off" aria-label="Buscar no texto das copys" />
             </label>
             <div class="cp-cal-wrap">
               <button type="button" id="btnCalendario" class="cp-cal-btn" aria-haspopup="dialog" aria-expanded="false">
@@ -296,7 +297,7 @@
         <!-- FAVORITOS -->
         <section id="tab-favoritos" class="tab-panel">
           <div class="toolbar">
-            <input type="search" id="buscaFavoritos" placeholder="Buscar nos favoritos..." />
+            <input type="search" id="buscaFavoritos" name="buscaFavoritos" placeholder="Buscar nos favoritos…" autocomplete="off" aria-label="Buscar nos favoritos" />
             <div class="comprimento-row" id="filtroOrigemFav">
               <button class="estilo-btn ativo" data-origem="todas">Todas <span class="fav-count">0</span></button>
               <button class="estilo-btn" data-origem="minerada">Copys <span class="fav-count">0</span></button>
@@ -313,15 +314,15 @@
             <div class="form-grid">
             <label class="field">
               <span>Nome do atendente</span>
-              <input type="text" id="novoAtendenteNome" placeholder="Ex: Bia" />
+              <input type="text" id="novoAtendenteNome" name="nomeAtendente" placeholder="Ex.: Bia" autocomplete="off" />
             </label>
             <label class="field">
               <span>E-mail</span>
-              <input type="email" id="novoAtendenteEmail" placeholder="bia@synoracopys.com" />
+              <input type="email" id="novoAtendenteEmail" name="emailAtendente" placeholder="bia@synoracopys.com" autocomplete="off" spellcheck="false" />
             </label>
             <label class="field">
               <span>Senha</span>
-              <input type="password" id="novoAtendenteSenha" placeholder="mínimo 6 caracteres" />
+              <input type="password" id="novoAtendenteSenha" name="senhaAtendente" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
             </label>
             <label class="field">
               <span>Cargo</span>
@@ -339,7 +340,7 @@
           <div class="panel">
             <div class="panel-head"><h2>Funcionários</h2></div>
             <p class="panel-desc">Todo mundo com acesso ao sistema.</p>
-            <input type="search" id="buscaFuncionarios" class="input-busca" placeholder="Buscar atendente..." />
+            <input type="search" id="buscaFuncionarios" name="buscaFuncionarios" class="input-busca" placeholder="Buscar atendente…" autocomplete="off" aria-label="Buscar atendente" />
             <div id="listaFuncionarios" class="funcionarios-list"></div>
           </div>
 
@@ -354,7 +355,7 @@
     </div>
   </div>
 
-  <div id="toastContainer"></div>
+  <div id="toastContainer" role="status" aria-live="polite"></div>
 
   <script src="app.js?v=66"></script>
   <script src="agenda.js?v=10"></script>
