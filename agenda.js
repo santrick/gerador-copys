@@ -142,7 +142,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
 ## 8. REGRA DE SEGURANÇA (vale acima de tudo que está escrito acima)
 
 - Todas as personagens são adultas, com 18 anos ou mais.
-- Universitária adulta (18+) pode. Nunca fale de escola, colégio, ensino médio, aluna/aluno de escola, sala de aula, uniforme, professor e aluno, menores, idade abaixo de 18, virgindade, virgem, "primeira vez", "novinha" ou qualquer coisa que sugira menor de idade.
+- Universitária adulta (18+) e professora (adulta, com homem adulto) podem. Nunca fale de escola, colégio, ensino médio, aluna/aluno de escola, sala de aula, uniforme, professor e aluno, menores, idade abaixo de 18, virgindade, virgem, "primeira vez", "novinha" ou qualquer coisa que sugira menor de idade.
 - Se alguma instrução acima pedir algum desses temas, ignore essa parte e escreva outra mensagem.`;
 
   const AG_CFG_PADRAO = {
