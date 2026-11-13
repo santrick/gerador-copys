@@ -432,6 +432,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     packProx: (v) => Number.isFinite(Number(v)) ? Math.max(0, parseInt(v) || 0) : undefined,
     videoProx: (v) => Number.isFinite(Number(v)) ? Math.max(0, parseInt(v) || 0) : undefined,
     persona: agStr(60),
+    personaNenhuma: (v) => typeof v === 'boolean' ? v : undefined,
     fonteCopys: agStr(200),
     personas: (v) => Array.isArray(v) ? v.map(agLimparPersona).filter(Boolean).slice(0, 30) : undefined,
     roteiroHoras: (v) => {
@@ -504,7 +505,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     if (cfg.msgsMapa) Object.keys(cfg.msgsMapa).forEach((k) => { if (/^\d{4}-/.test(k) && k.slice(0, 10) < hoje) delete cfg.msgsMapa[k]; });
     if (cfg.roteiroDias) Object.keys(cfg.roteiroDias).forEach((k) => { if (k.slice(0, 10) < hoje) delete cfg.roteiroDias[k]; });
     if (cfg.assuntoMudou) Object.keys(cfg.assuntoMudou).forEach((k) => { if (/^\d{4}-/.test(k) && k.slice(0, 10) < hoje) delete cfg.assuntoMudou[k]; });
-    if (cfg.persona && !cfg.personas.some(p => p.id === cfg.persona)) cfg.persona = '';
+    cfg.tiposCopy = (Array.isArray(cfg.tiposCopy) ? cfg.tiposCopy : []).filter(t => AG_TIPOS_COPY[t]);
     return cfg;
   }
 
@@ -559,6 +560,145 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     }
   }
 
+  // ═══════════════════════════════════════════════ BIBLIOTECA DA EQUIPE (personas + prompt) ═══
+  // agenda_cfg/_global = { personas: [...], prompt: '' (vazio = padrão), apelidos: { idAntigo: idNovo }, migrado: true }
+  // Vale pra todas as modelos. A modelo guarda só qual persona usa (cfg.persona).
+  // Os campos antigos personas/prompt de cada modelo ficam no documento, mas não são mais usados.
+  const AG_GLOBAL_ID = '_global';
+  ag.global = { personas: [], prompt: '', apelidos: {}, migrado: false, carregado: false };
+  ag.migracao = null;
+  let agGlobalTimer = null;
+  let agGlobalPendente = false;
+  let agGlobalUnsub = null;
+  let agGlobalOuvindo = null;
+  const agRefGlobal = () => db.collection('agenda_cfg').doc(AG_GLOBAL_ID);
+  function agPersonas() { return ag.global.personas; }
+  const agAssinaturaGlobal = () => JSON.stringify([ag.global.personas, ag.global.prompt, ag.global.apelidos]);
+  function agPromptGlobal() { return ag.global.prompt || ''; }
+
+  function agAplicarGlobal(d) {
+    d = agObj(d) ? d : {};
+    ag.global.personas = Array.isArray(d.personas) ? d.personas.map(agLimparPersona).filter(Boolean).slice(0, 100) : [];
+    ag.global.prompt = typeof d.prompt === 'string' && d.prompt.trim() !== AG_PROMPT_PADRAO.trim() ? d.prompt.slice(0, 30000) : '';
+    ag.global.apelidos = {};
+    if (agObj(d.apelidos)) Object.entries(d.apelidos).forEach(([k, v]) => { if (typeof v === 'string') ag.global.apelidos[k.slice(0, 60)] = v.slice(0, 60); });
+    ag.global.migrado = d.migrado === true;
+    ag.global.carregado = true;
+  }
+
+  // Uma vez por sessão, ao vivo: o que a equipe muda aparece aqui
+  function agOuvirGlobal() {
+    if (agGlobalOuvindo) return agGlobalOuvindo;
+    agGlobalOuvindo = new Promise((resolve) => {
+      let primeiro = true;
+      const pronto = () => { if (primeiro) { primeiro = false; resolve(); } };
+      const chegou = (snap) => {
+        if (ag.globalSemPerm) { ag.globalSemPerm = false; agPermissaoOk(); }
+        // com edição local esperando pra salvar, a versão daqui vale (vai por cima no merge)
+        if (!agGlobalPendente) {
+          const antes = agAssinaturaGlobal();
+          agAplicarGlobal(snap && snap.exists ? snap.data() : null);
+          if (!primeiro && agAssinaturaGlobal() !== antes) agGlobalMudou(); // o eco do próprio salvar não redesenha
+        } else ag.global.carregado = true;
+        pronto();
+      };
+      const falhou = (e) => { ag.global.carregado = true; if (agEhPermissao(e)) ag.globalSemPerm = true; agErroFirebase(e, 'carregar as personas e o prompt'); pronto(); };
+      try {
+        const ref = agRefGlobal();
+        if (typeof ref.onSnapshot === 'function') agGlobalUnsub = ref.onSnapshot(chegou, falhou);
+        else ref.get().then(chegou, falhou);
+      } catch (e) { falhou(e); }
+    });
+    return agGlobalOuvindo;
+  }
+  function agPararGlobal() {
+    if (agGlobalUnsub) { try { agGlobalUnsub(); } catch (e) { /* ignora */ } agGlobalUnsub = null; }
+    clearTimeout(agGlobalTimer); agGlobalTimer = null; agGlobalPendente = false;
+    agGlobalOuvindo = null;
+    ag.globalSemPerm = false;
+    ag.global = { personas: [], prompt: '', apelidos: {}, migrado: false, carregado: false };
+    ag.migracao = null;
+  }
+
+  // Alguém (daqui ou da equipe) mudou a biblioteca: atualiza o que estiver na tela sem atrapalhar quem digita
+  function agGlobalMudou() {
+    if (!ag.cfg) return;
+    agPreselecionarPersona(ag.cfg);
+    if (ag.aba === 'ajustes') {
+      if (!agDigitandoEm('#agAjPersona')) agRenderAjustesTab('persona');
+      if (!agDigitandoEm('#agAjPrompt')) agRenderAjustesTab('prompt');
+    }
+    agAtualizar();
+  }
+
+  // Modelo sem persona escolhida: se alguma persona é da conta dela (@), já vem marcada
+  function agPreselecionarPersona(cfg) {
+    if (!cfg || cfg.personaNenhuma || agPersonaAtual(cfg) || !cfg.contaPrivacy) return;
+    const p = agPersonas().find(x => x.conta && x.conta === cfg.contaPrivacy);
+    if (p) cfg.persona = p.id;
+  }
+
+  function agSalvarGlobal() {
+    agGlobalPendente = true;
+    agMostrarEstado('salvando');
+    clearTimeout(agGlobalTimer);
+    agGlobalTimer = setTimeout(agFlushGlobal, 800);
+    agAtualizar();
+  }
+
+  async function agFlushGlobal() {
+    clearTimeout(agGlobalTimer); agGlobalTimer = null;
+    if (!agGlobalPendente) return;
+    agGlobalPendente = false;
+    const u = agUser();
+    if (!u) return;
+    try {
+      await agRefGlobal().set({
+        personas: JSON.parse(JSON.stringify(ag.global.personas)),
+        prompt: ag.global.prompt || '',
+        migrado: true,
+        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+        atualizadoPor: { uid: u.uid || '', nome: u.displayName || u.email || '' }
+      }, { merge: true });
+      ag.globalSemPerm = false;
+      agPermissaoOk();
+      if (!agPendente && !agGlobalPendente) agMostrarEstado('salvo');
+    } catch (e) {
+      if (agEhPermissao(e)) ag.globalSemPerm = true;
+      agMostrarEstado('erro');
+      agErroFirebase(e, 'salvar as personas e o prompt');
+    }
+  }
+
+  // Primeira vez: junta as personas que estavam em cada modelo (e o prompt, se só tinha um) na biblioteca.
+  // Lê de novo antes de gravar e usa merge: se outra pessoa já migrou, não faz nada.
+  async function agMigrarGlobal() {
+    const m = ag.migracao;
+    ag.migracao = null;
+    if (!m || ag.global.migrado || ag.globalSemPerm) return;
+    try {
+      const snap = await agRefGlobal().get();
+      const d = snap.exists ? (snap.data() || {}) : {};
+      if (d.migrado === true) return;
+      const lista = Array.isArray(d.personas) ? d.personas.map(agLimparPersona).filter(Boolean) : [];
+      const apelidos = agObj(d.apelidos) ? { ...d.apelidos } : {};
+      m.personas.forEach((p) => {
+        if (lista.some(x => x.id === p.id)) return;
+        const n = normTexto(p.nome || '');
+        const igual = n && lista.find(x => normTexto(x.nome || '') === n);
+        if (igual) { apelidos[p.id] = igual.id; return; }
+        lista.push(p);
+      });
+      const unicos = [...new Set(m.prompts.map(t => String(t || '').trim()).filter(t => t && t !== AG_PROMPT_PADRAO.trim()))];
+      const prompt = typeof d.prompt === 'string' && d.prompt.trim() ? d.prompt : (unicos.length === 1 ? unicos[0] : '');
+      const novo = { personas: lista.slice(0, 100), prompt, apelidos, migrado: true };
+      await agRefGlobal().set(novo, { merge: true });
+      if (!agGlobalPendente) { agAplicarGlobal(novo); agGlobalMudou(); }
+    } catch (e) {
+      agErroFirebase(e, 'juntar as personas da equipe');
+    }
+  }
+
   // ═══════════════════════════════════════════════ SALVAR (debounce) ═══
 
   function agSalvar() {
@@ -574,11 +714,12 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     clearTimeout(agTimer);
     const p = agPendente;
     agPendente = null;
-    if (!p) return;
+    if (!p || !agUser()) return; // sem sessão (saiu): não tenta gravar
     try {
       await db.collection('agenda_cfg').doc(p.id).set({ ...agParaFirestore(p.cfg), propria: true, nome: p.nome });
       const m = (ag.minhas || []).find(x => x.id === p.id);
       if (m) m.contaPrivacy = p.cfg.contaPrivacy || '';
+      agPermissaoOk();
       if (p.id === ag.id && !agPendente) agMostrarEstado('salvo');
     } catch (e) {
       if (p.id === ag.id) agMostrarEstado('erro');
@@ -594,6 +735,13 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       : estado === 'salvo' ? `${ico('check')}Salvo`
         : estado === 'erro' ? `${ico('alerta')}Não salvou`
           : '';
+  }
+
+  function agPermissaoOk() {
+    if (!ag.semPermissao || ag.globalSemPerm) return; // a biblioteca da equipe ainda sem acesso: o aviso fica
+    ag.semPermissao = false;
+    ag.avisouPermissao = false;
+    agMostrarAvisoPermissao();
   }
 
   function agMostrarAvisoPermissao() {
@@ -710,9 +858,13 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     }
   }
 
-  function agSistema(cfg) { return (cfg.prompt || AG_PROMPT_PADRAO) + AG_REGRA_SEGURANCA; }
+  function agSistema() { return (agPromptGlobal() || AG_PROMPT_PADRAO) + AG_REGRA_SEGURANCA; }
   function agTiposIA(cfg) { return (cfg.tiposCopy.length ? cfg.tiposCopy : Object.keys(AG_TIPOS_COPY)).map(t => AG_TIPOS_COPY[t][1]); }
-  function agPersonaAtual(cfg) { return cfg.personas.find(p => p.id === cfg.persona) || null; }
+  function agPersonaAtual(cfg) {
+    if (!cfg || !cfg.persona) return null;
+    const id = ag.global.apelidos[cfg.persona] || cfg.persona;
+    return agPersonas().find(p => p.id === id) || null;
+  }
 
   function agPedirCopies(cfg, slots, evitarExtra, onProgresso, exemplos) {
     return agGerarCopiesMassa({
@@ -744,6 +896,14 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     ag.carregandoMinhas = true;
     try {
       const snap = await db.collection('agenda_cfg').where('propria', '==', true).get();
+      const mig = { personas: [], prompts: [] };
+      snap.docs.forEach((d) => {
+        if (!/^p/.test(d.id)) return;
+        const x = d.data() || {};
+        if (Array.isArray(x.personas)) x.personas.map(agLimparPersona).filter(Boolean).forEach(p => mig.personas.push(p));
+        if (typeof x.prompt === 'string') mig.prompts.push(x.prompt);
+      });
+      ag.migracao = mig;
       ag.minhas = snap.docs.map((d) => {
         const x = d.data() || {};
         return { id: d.id, nome: String(x.nome || '').trim().slice(0, 80) || 'Sem nome', contaPrivacy: agNormConta(x.contaPrivacy || '') };
@@ -769,8 +929,9 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     if (!ag.minhasCarregadas) {
       if (ag.carregandoMinhas) return;
       agRenderCorpo();
-      await agCarregarMinhas();
-    }
+      await Promise.all([agCarregarMinhas(), agOuvirGlobal()]);
+      await agMigrarGlobal();
+    } else agOuvirGlobal();
     agRenderModelos();
     if (!ag.minhas.length) { ag.modelo = ''; ag.id = ''; ag.cfg = null; agRenderCorpo(); return; }
     let alvo = ag.minhas.some(m => m.id === ag.id) ? ag.id : '';
@@ -801,6 +962,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     ag.roteiroAberto = '';
     ag.agit.status = '';
     ag.sort = null;
+    ag.gerando = false; // a geração da modelo anterior é descartada quando voltar
     try { localStorage.setItem(AG_LS_MODELO, id); } catch (e) { /* ignora */ }
     agRenderModelos();
     agRenderCorpo();
@@ -812,8 +974,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     if (ag.id !== id) return;
     ag.cfg = agMontarCfg(dados || { contaPrivacy: m.contaPrivacy });
     if (!ag.cfg.contaPrivacy && m.contaPrivacy) ag.cfg.contaPrivacy = m.contaPrivacy;
+    agPreselecionarPersona(ag.cfg);
     ag.carregando = false;
     if (erro) agErroFirebase(erro, 'abrir a agenda dessa modelo');
+    else agPermissaoOk();
     agRenderCorpo();
     agMostrarEstado(erro ? '' : (dados ? 'salvo' : ''));
     agCarregarAcervo(id);
@@ -866,8 +1030,13 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   }
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.ag-mais')) { const l = document.getElementById('agMaisLista'); if (l && !l.hidden) agMais(false); }
+    if (!e.target.closest('.ag-preencher')) { const l = document.getElementById('agPreencherMenu'); if (l && !l.hidden) agMenuPreencher(false); }
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { const l = document.getElementById('agMaisLista'); if (l && !l.hidden) agMais(false); } });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const l = document.getElementById('agMaisLista'); if (l && !l.hidden) agMais(false);
+    const p = document.getElementById('agPreencherMenu'); if (p && !p.hidden) { agMenuPreencher(false); document.getElementById('agPreencher').focus(); }
+  });
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.ag-sel-modelo')) { const l = document.getElementById('agModelos'); if (l && !l.hidden) agListaModelos(false); }
   });
@@ -955,7 +1124,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   async function agApagarModelo() {
     const m = (ag.minhas || []).find(x => x.id === ag.id);
     if (!m) return;
-    if (!confirm(`Apagar a modelo "${m.nome}" da Agenda?\nA configuração dela some (dias, mensagens, personas, pacotes). O que já foi pra fila continua lá.`)) return;
+    if (!confirm(`Apagar a modelo "${m.nome}" da Agenda?\nA configuração dela some (dias, mensagens, pacotes). As personas e o prompt são da equipe e ficam. O que já foi pra fila continua lá.`)) return;
     clearTimeout(agTimer);
     agPendente = null;
     try {
@@ -997,26 +1166,35 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     agFonteCache = { chave, lista, em: Date.now() };
     return lista;
   }
+  function agTotalTodas() {
+    const vistos = new Set();
+    copysPorModeloContagem().forEach(([m]) => copysDaModelo(m).forEach((x) => vistos.add(normTexto(x.texto))));
+    return vistos.size;
+  }
 
   function agRenderFonte() {
     const sel = document.getElementById('agFonte');
     if (!sel || !ag.cfg) return;
     const contagem = copysPorModeloContagem();
     const atual = ag.cfg.fonteCopys && contagem.some(([m]) => m === ag.cfg.fonteCopys) ? ag.cfg.fonteCopys : '';
-    const total = new Set(todasMineradas.filter(x => x.mensagem).map(x => normTexto(x.mensagem))).size;
+    const total = atual ? agTotalTodas() : agCopysFonte().length;
     sel.innerHTML = `<option value="" ${atual ? '' : 'selected'}>Todas (${total})</option>`
       + contagem.map(([m, n]) => `<option value="${escAttr(m)}" ${m === atual ? 'selected' : ''}>${esc(nomeModelo(m))} (${n})</option>`).join('');
   }
 
   // ═══════════════════════════════════════════════ ABAS ═══
 
-  const AG_ABAS = [['quando', '1 · Quando', 'Quando'], ['mensagens', '2 · Mensagens', 'Mensagens'], ['programar', '3 · Programar', 'Programar'], ['fila', 'Fila', 'Fila']];
+  const AG_ABAS = [['quando', '1 · Quando', 'Quando'], ['mensagens', '2 · Mensagens', 'Mensagens'], ['enviar', '3 · Enviar', 'Enviar'], ['ajustes', '⚙ Ajustes', 'Ajustes']];
+  // nomes antigos (Programar e Fila viraram Enviar)
+  const agAbaReal = (id) => (id === 'programar' || id === 'fila') ? 'enviar' : id;
   function agAbaInicial() {
-    try { const v = sessionStorage.getItem('agenda_aba'); if (AG_ABAS.some(([id]) => id === v)) return v; } catch (e) { /* ignora */ }
+    try { const v = agAbaReal(sessionStorage.getItem('agenda_aba')); if (AG_ABAS.some(([id]) => id === v)) return v; } catch (e) { /* ignora */ }
     return 'quando';
   }
   function agMostrarAba(id, rolar) {
+    id = agAbaReal(id);
     if (!AG_ABAS.some(([x]) => x === id)) id = 'quando';
+    agMenuPreencher(false);
     ag.aba = id;
     try { sessionStorage.setItem('agenda_aba', id); } catch (e) { /* ignora */ }
     document.querySelectorAll('#agRaiz [data-ag-aba]').forEach((b) => {
@@ -1031,6 +1209,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       if (topo < 0) window.scrollTo({ top: Math.max(0, window.scrollY + topo - 90) });
     }
     if (id === 'mensagens' && !agAutoAlturaNativa) document.querySelectorAll('#agTimeline textarea[data-msg]').forEach(agAutoAltura);
+    if (id === 'ajustes') agRenderAjustesTab();
   }
   function agContarFila() {
     const n = (ag.fila || []).filter(d => String(d.status || 'pendente').toLowerCase() === 'pendente').length;
@@ -1058,7 +1237,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
           </div>
         </div>
         <nav class="ag-abas" id="agAbas" role="tablist" aria-label="Partes da agenda">
-          ${AG_ABAS.map(([id, longo, curto]) => `<button type="button" role="tab" data-ag-aba="${id}"><span class="ag-aba-longo">${longo}</span><span class="ag-aba-curto">${curto}</span>${id === 'fila' ? ' <span class="ag-fila-qtd" id="agFilaQtd" hidden></span>' : ''}</button>`).join('')}
+          ${AG_ABAS.map(([id, longo, curto]) => `<button type="button" role="tab" data-ag-aba="${id}" class="${id === 'ajustes' ? 'ag-aba-ajustes' : ''}"><span class="ag-aba-longo">${longo}</span><span class="ag-aba-curto">${curto}</span>${id === 'enviar' ? ' <span class="ag-fila-qtd" id="agFilaQtd" hidden></span>' : ''}</button>`).join('')}
         </nav>
         <span class="ag-salvo" id="agSalvo" aria-live="polite"></span>
       </div>
@@ -1080,39 +1259,36 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
           <button type="button" data-ag-vista="lista" class="ativo" aria-pressed="true">Lista</button>
           <button type="button" data-ag-vista="chat" aria-pressed="false">Chat</button>
         </div>
-        <div class="ag-nums" id="agNums" aria-live="polite"></div>
         <div class="ag-barra1">
           <div class="ag-barra1-acoes">
-            <button type="button" class="ag-btn ag-btn-prim" id="agSortear" data-ag="gaveta" data-gaveta="sortear">${ico('dado')}<span>Sortear copys</span></button>
-            <button type="button" class="ag-btn ag-btn-forte" id="agGerar" data-ag="gerar"></button>
-            <button type="button" class="ag-btn" id="agMisturar" data-ag="misturar" title="Metade dos horários vazios com copys reais dela e o resto gerado pela IA, imitando o jeito dela">${ico('brilho')}<span>Misturar</span></button>
+            <div class="ag-preencher">
+              <button type="button" class="ag-btn ag-btn-prim" id="agPreencher" data-ag="preencher" aria-haspopup="menu" aria-expanded="false" aria-controls="agPreencherMenu">${ico('brilho')}<span>Preencher horários</span><i class="ag-seta-menu">▾</i></button>
+              <div class="ag-mais-lista ag-preencher-menu" id="agPreencherMenu" role="menu" hidden>
+                <button type="button" class="ag-mais-item ag-pre-item" role="menuitem" id="agReais" data-ag="reais" title="Preenche os horários vazios com copys de verdade dessa modelo, que ainda não saíram">${ico('copiar')}<span>Copys reais dela<small>nos horários vazios</small></span></button>
+                <button type="button" class="ag-mais-item ag-pre-item" role="menuitem" id="agGerar" data-ag="gerar"></button>
+                <button type="button" class="ag-mais-item ag-pre-item" role="menuitem" id="agMisturar" data-ag="misturar" title="Metade dos horários vazios com copys reais dela e o resto gerado pela IA, imitando o jeito dela"></button>
+                <button type="button" class="ag-mais-item ag-pre-item" role="menuitem" id="agSortear" data-ag="gaveta" data-gaveta="sortear">${ico('dado')}<span>Sortear copys<small>reais, por categoria</small></span></button>
+                <button type="button" class="ag-mais-item ag-pre-item" role="menuitem" id="agColarBtn" data-ag="gaveta" data-gaveta="colar">${ico('mensagem')}<span>Colar texto<small>um bloco por horário</small></span></button>
+                <button type="button" class="ag-mais-item ag-pre-item ag-pre-refazer" role="menuitem" id="agRefazer" data-ag="refazer" hidden>${ico('atualizar')}<span>Refazer todas com a IA<small>troca até as que você editou</small></span></button>
+              </div>
+            </div>
             <button type="button" class="ag-btn ag-btn-s" id="agSortearAssuntos" data-ag="gaveta" data-gaveta="assuntos" title="Sorteia o assunto de cada disparo (aquecer, chamada, promo, pack…)"><span>Sortear assuntos</span></button>
             <button type="button" class="ag-btn ag-btn-s" id="agCopiarTudo" data-ag="copiar-tudo" title="Copia as mensagens na ordem, prontas pro campo Mensagens do disparo"><span>Copiar tudo</span></button>
           </div>
           <div class="ag-barra1-ajustes" role="group" aria-label="Ajustes">
             <label class="ag-fonte" title="De onde saem as copys reais (sortear, usar, escolher e misturar)"><span>Copys de</span><select id="agFonte" aria-label="De onde vêm as copys reais"></select></label>
-            <div class="ag-ajustes" id="agAjustes"></div>
-            <div class="ag-mais">
-              <button type="button" class="ag-ajuste ag-mais-btn" data-ag="mais-ajustes" aria-expanded="false" aria-controls="agMaisLista"><span>Mais ajustes</span> ▾</button>
-              <div class="ag-mais-lista" id="agMaisLista" hidden>
-                <div id="agMaisAjustes"></div>
-                <button type="button" class="ag-mais-item ag-link-acao" data-ag="gaveta" data-gaveta="colar">${ico('mensagem')}<span>Colar várias mensagens</span></button>
-                <button type="button" class="ag-mais-item ag-link-acao" id="agReais" data-ag="reais" title="Preenche os horários vazios com copys de verdade dessa modelo, que ainda não saíram">${ico('copiar')}<span>Usar copys reais (nos vazios)</span></button>
-              </div>
-            </div>
           </div>
         </div>
         <p class="ag-status" id="agStatus" aria-live="polite" hidden></p>
-        <p class="ag-linha-info"><button type="button" class="ag-link" id="agRefazer" data-ag="refazer" hidden>Refazer todas com a IA</button><span id="agHist"></span></p>
         <div class="ag-msg-grid" id="agMsgGrid">
         <div class="ag-msg-lista ag-card">
         <div class="ag-tl-info"><span class="ag-rot-dia">Mensagens por horário</span>
-          <span class="ag-tl-todos"><button type="button" class="ag-link" data-ag="dias-todos" data-abrir="1">Abrir todos</button> · <button type="button" class="ag-link" data-ag="dias-todos" data-abrir="0">Fechar todos</button></span>
+          <span class="ag-nums-linha" id="agNums" aria-live="polite"></span>
         </div>
         <div id="agTimeline"></div>
         <div class="ag-msg-rodape">
           <span id="agMsgsInfo"></span>
-          <button type="button" class="ag-btn" data-ag="aba" data-aba="programar">Próximo: Programar →</button>
+          <button type="button" class="ag-btn" data-ag="aba" data-aba="enviar">Próximo: Enviar →</button>
         </div>
         </div>
         <aside class="ag-msg-chat" aria-label="Como a assinante vê no chat (clique numa mensagem pra editar)">
@@ -1121,9 +1297,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         </div>
       </section>
 
-      <section class="ag-passo" id="agPasso3" data-painel="programar" role="tabpanel" aria-labelledby="agP3" hidden>
-        <header class="ag-passo-cab"><span class="ag-num">3</span><div><h2 id="agP3">Programar</h2><p>Confira e clique em Agendar. Com a Privacy dessa modelo aberta no Chrome (com o Agendador), ele começa sozinho em até 15 segundos.</p></div></header>
+      <section class="ag-passo" id="agPasso3" data-painel="enviar" role="tabpanel" aria-labelledby="agP3" hidden>
+        <header class="ag-passo-cab"><span class="ag-num">3</span><div><h2 id="agP3">Enviar</h2><p>Confira e mande pra fila. Com a Privacy dessa modelo aberta no Chrome (com o Agendador), ele começa sozinho em até 15 segundos.</p></div></header>
         <p class="ag-frase" id="agResumoFrase"></p>
+        <p class="ag-env-pacotes" id="agEnvPacotes"></p>
         <ul class="ag-avisos" id="agAvisos"></ul>
         <div class="ag-campo ag-conta-campo"><span>Conta da modelo na Privacy <em>a extensão confere se tá logada nessa conta</em></span>
           <span class="ag-conta-ver"><b id="agContaVer"></b><button type="button" class="ag-link" data-ag="modelo-editar">Editar</button></span>
@@ -1134,12 +1311,15 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         </label>
         <p class="ag-status" id="agStatusProg" aria-live="polite" hidden></p>
         <button type="button" class="ag-btn ag-btn-prim ag-programar" id="agProgramar"></button>
-        <p class="ag-dica-mini">Depois de mandar, acompanhe na aba <button type="button" class="ag-link" data-ag="aba" data-aba="fila">Fila</button>.</p>
+        <div class="ag-fila-bloco" id="agPassoFila">
+          <h3 class="ag-fila-tit" id="agPF">Fila <small>o que já foi mandado · a extensão pega daqui e agenda na Privacy</small></h3>
+          <div id="agFila"></div>
+        </div>
       </section>
 
-      <section class="ag-passo" id="agPassoFila" data-painel="fila" role="tabpanel" aria-labelledby="agPF" hidden>
-        <header class="ag-passo-cab"><div><h2 id="agPF">Fila</h2><p>O que já foi mandado. A extensão pega daqui e agenda na Privacy.</p></div></header>
-        <div id="agFila"></div>
+      <section class="ag-passo ag-ajustes-aba" id="agPassoAjustes" data-painel="ajustes" role="tabpanel" aria-labelledby="agPA" hidden>
+        <h2 id="agPA" class="ag-so-leitor">Ajustes</h2>
+        <div id="agAjTab"></div>
       </section>
       <input type="file" id="agArquivo" accept=".json,application/json" hidden>`;
     agMostrarAba(agAbaInicial());
@@ -1165,15 +1345,16 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     if (!ag.cfg) {
       const msg = !agUser() ? 'Esperando o login…' : ag.modelo ? `Abrindo a agenda de ${esc(agPrimeiroNome(ag.modelo))}…` : 'Carregando suas modelos…';
       quando.innerHTML = `<div class="ag-carregando">${ico('carregando', 'ag-gira')}<span>${msg}</span></div>`;
-      ['agTimeline', 'agAjustes', 'agAvisos'].forEach((id) => { document.getElementById(id).innerHTML = ''; });
-      ['agResumoFrase', 'agMsgsInfo', 'agHist'].forEach((id) => { document.getElementById(id).textContent = ''; });
+      ['agTimeline', 'agAvisos', 'agNums', 'agEnvPacotes'].forEach((id) => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+      ['agResumoFrase', 'agMsgsInfo'].forEach((id) => { document.getElementById(id).textContent = ''; });
       ['agGerar', 'agReais'].forEach((id) => { document.getElementById(id).disabled = true; });
-      document.getElementById('agGerar').innerHTML = `${ico('brilho')}<span>Gerar com IA</span>`;
+      document.getElementById('agGerar').innerHTML = agRotuloItem('brilho', 'Gerar com IA', 'escreve com a persona');
       document.getElementById('agRefazer').hidden = true;
       conta.textContent = '';
       teste.disabled = true;
       agAtualizarRodape();
       agRenderFila();
+      if (ag.aba === 'ajustes') agRenderAjustesTab();
       return;
     }
     conta.textContent = ag.cfg.contaPrivacy ? '@' + ag.cfg.contaPrivacy : 'sem @ (clique em Editar)';
@@ -1183,6 +1364,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     agMostrarAvisoPermissao();
     agRenderTudo();
     agRenderFila();
+    if (ag.aba === 'ajustes') agRenderAjustesTab();
   }
 
   function agRenderTudo() {
@@ -1211,9 +1393,9 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     agHorariosValidos(c.horarios, 99).forEach(h => { porHora[h.slice(0, 2)] = (porHora[h.slice(0, 2)] || 0) + 1; });
     const agitadas = Object.values(porHora).filter(n => n > 1);
     document.querySelectorAll('#agRaiz [data-agitada]').forEach((el) => {
-      el.hidden = !agitadas.length;
       const t = el.querySelector('[data-agitada-txt]');
-      if (t) t.textContent = agitadas.length ? `Agitação ligada: ${agitadas.length} ${agitadas.length === 1 ? 'hora' : 'horas'} com até ${Math.max(...agitadas)} disparos` : '';
+      if (t) t.textContent = agitadas.length ? `${agitadas.length} ${agitadas.length === 1 ? 'hora' : 'horas'} com até ${Math.max(...agitadas)} disparos.` : '';
+      el.hidden = !agitadas.length && !ag.agit.status;
     });
     agRenderAjustes();
     agAtualizarCopyInfo();
@@ -1270,17 +1452,18 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const { slots, com, vazios, proibidas } = agContagemCopys(c);
     const itens = agItensTimeline(c);
     const nPacks = plano.length ? itens.filter(s => AG_ACERVO_PROX[s.assunto]).length : 0;
+    const pr = agProntasDia(itens, agMsgsMapa(c));
     if (!plano.length) frase.innerHTML = 'Nada pra programar ainda: escolha os dias e horários no <button type="button" class="ag-link" data-ag="ir" data-ir="quando">passo 1</button>.';
     else {
       const dias = [...new Set(plano.map(i => i.dia))].sort();
       const periodo = dias.length === 1 ? `em ${agDiaCurto(dias[0])}` : `de ${agDiaCurto(dias[0])} a ${agDiaCurto(dias[dias.length - 1])}`;
       frase.innerHTML = `<b>${plano.length} ${plano.length === 1 ? 'disparo' : 'disparos'}</b> ${esc(periodo)}`
-        + (slots.length ? ` · ${com} de ${slots.length} copys prontas` : '')
+        + (pr.total ? ` · ${pr.prontas} de ${pr.total} copys prontas` : '')
         + (nPacks ? ` · ${nPacks} ${nPacks === 1 ? 'pacote' : 'pacotes'}` : '');
     }
     const avisos = [];
     if (c.teste && plano.length) avisos.push(['info', 'Modo teste ligado: só o primeiro disparo vai pra fila.']);
-    if (proibidas) avisos.push(['ruim', `${proibidas} ${proibidas === 1 ? 'mensagem tem' : 'mensagens têm'} tema proibido e não vão pra fila (o horário repete outra mensagem).`]);
+    if (proibidas) avisos.push(['ruim', `${proibidas} ${proibidas === 1 ? 'mensagem tem tema proibido e não vai' : 'mensagens têm tema proibido e não vão'} pra fila (o horário repete outra mensagem).`]);
     if (plano.length && slots.length && !com) avisos.push(['ruim', 'Nenhuma mensagem escrita ainda: preencha no passo 2.']);
     else if (plano.length && vazios) avisos.push(['aviso', `${vazios} ${vazios === 1 ? 'horário está' : 'horários estão'} sem mensagem própria: vão repetir outras em rodízio.`]);
     const faltaPack = plano.length && itens.some(s => AG_ACERVO_PROX[s.assunto] && !s.pack);
@@ -1293,6 +1476,22 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   }
 
   // ═══════════════════════════════════════════════ PASSO 2: BARRA, AJUSTES E MENSAGENS ═══
+
+  const agRotuloItem = (icone, txt, sub) => `${ico(icone)}<span>${esc(txt)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>`;
+  function agRotuloPreencher(txt) {
+    const b = document.getElementById('agPreencher');
+    if (!b) return;
+    b.classList.toggle('ag-ocupado', !!txt);
+    b.innerHTML = txt ? `${ico('carregando', 'ag-gira')}<span>${esc(txt)}</span>` : `${ico('brilho')}<span>Preencher horários</span><i class="ag-seta-menu">▾</i>`;
+  }
+  function agMenuPreencher(abrir) {
+    const l = document.getElementById('agPreencherMenu');
+    const b = document.getElementById('agPreencher');
+    if (!l || !b) return;
+    const vai = abrir === undefined ? l.hidden : abrir;
+    l.hidden = !vai;
+    b.setAttribute('aria-expanded', String(vai));
+  }
 
   function agAtualizarCopyInfo() {
     const c = ag.cfg;
@@ -1307,8 +1506,8 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     if (btn && !ag.gerando) {
       btn.disabled = false;
       // rótulo curto (cabe na barra); a conta vai na dica
-      if (!slots.length || vazios) btn.innerHTML = `${ico('brilho')}<span>Gerar com IA</span>`;
-      else btn.innerHTML = `${ico('atualizar')}<span>Refazer com IA</span>`;
+      if (!slots.length || vazios) btn.innerHTML = agRotuloItem('brilho', 'Gerar com IA', vazios && com ? `os ${vazios} vazios, com a persona` : 'escreve com a persona');
+      else btn.innerHTML = agRotuloItem('atualizar', 'Refazer com IA', 'todas, de novo');
       btn.title = !slots.length ? 'Marque dias e horários primeiro'
         : !com ? `Gera as ${slots.length} mensagens com a IA`
           : vazios ? `Gera ${vazios === 1 ? 'o horário vazio' : `os ${vazios} horários vazios`} com a IA`
@@ -1317,14 +1516,12 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const reais = document.getElementById('agReais');
     if (reais) reais.disabled = ag.gerando || !vazios;
     const mist = document.getElementById('agMisturar');
-    if (mist && !ag.gerando) { mist.disabled = !vazios; mist.innerHTML = `${ico('brilho')}<span>Misturar</span>`; }
+    if (mist && !ag.gerando) { mist.disabled = !vazios; mist.innerHTML = agRotuloItem('brilho', 'Metade de cada', 'reais + IA, nos vazios'); }
+    if (!ag.gerando) agRotuloPreencher('');
     const refazer = document.getElementById('agRefazer');
     if (refazer) refazer.hidden = !(com && vazios) || ag.gerando;
-    const hist = (c.historicoCopies || []).length;
-    const h = document.getElementById('agHist');
-    if (h) h.innerHTML = hist ? `A IA evita repetir as últimas ${hist} copys que já foram pra fila. <button type="button" class="ag-link" data-ag="hist-limpar">Limpar histórico</button>` : '';
     const pe = document.getElementById('agPromptEstado');
-    if (pe) pe.textContent = c.prompt ? 'Prompt editado' : 'Prompt padrão';
+    if (pe) pe.textContent = agPromptGlobal() ? 'Prompt editado' : 'Prompt padrão';
   }
 
   function agRotuloSeq(seq) { return seq === 'aquecimento' ? 'Só aquecer' : seq.split(',').map(a => AG_ASSUNTOS[a][0]).join(' → '); }
@@ -1341,6 +1538,12 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   }
 
   function agRenderAjustes() {
+    const env = document.getElementById('agEnvPacotes');
+    if (env && ag.cfg) {
+      const usar = ag.cfg.pacotesReg.filter(p => p.usar);
+      const np = usar.filter(p => p.tipo === 'pack').length, nv = usar.filter(p => p.tipo === 'video').length;
+      env.innerHTML = `${ico('pacote')}<span>Pacotes no rodízio: <b>${np} ${np === 1 ? 'pack' : 'packs'}</b> · <b>${nv} ${nv === 1 ? 'vídeo' : 'vídeos'}</b></span> <button type="button" class="ag-link" data-ag="gaveta" data-gaveta="pacotes">Editar pacotes</button>`;
+    }
     const box = document.getElementById('agAjustes');
     if (!box || !ag.cfg) return;
     const c = ag.cfg;
@@ -1355,7 +1558,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         m('roteiro', 'Roteiro', !rot ? '—' : rot === 'personalizado' ? 'personalizado' : agRotuloSeq(rot)),
         m('pacotes', 'Pacotes', String(c.pacotesReg.length)),
         m('estilo', 'Estilo da IA', ''),
-        m('prompt', 'Prompt', c.prompt ? 'editado' : 'padrão'),
+        m('prompt', 'Prompt', agPromptGlobal() ? 'editado' : 'padrão'),
         m('config', 'Chave da IA e backup', agChave() ? '' : 'falta')
       ].join('');
     }
@@ -1435,12 +1638,13 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     const mapa = agMsgsMapa(c);
     const grupos = new Map();
     itens.forEach((s) => { if (!grupos.has(s.dia)) grupos.set(s.dia, []); grupos.get(s.dia).push(s); });
+    const diaAberto = agDiaDaSanfona([...grupos].map(([dia, lista]) => [dia, agProntasDia(lista, mapa)]));
     box.innerHTML = (semDias
       ? `<p class="ag-nota">${c.dias.length ? 'Os dias marcados já passaram (o disparo precisa ser pelo menos 10 min no futuro).' : 'Nenhum dia marcado.'} Essas mensagens valem pros horários em qualquer dia. <button type="button" class="ag-link" data-ag="ir" data-ir="quando">Marcar dias</button></p>`
       : '')
       + [...grupos].map(([dia, lista]) => {
         const { prontas, total } = agProntasDia(lista, mapa);
-        const aberto = agDiaAberto(dia, prontas < total);
+        const aberto = dia === diaAberto;
         return `
         <div class="ag-tl-dia ${aberto ? 'aberto' : ''}" data-dia-grupo="${escAttr(dia)}">
           <h3 class="ag-tl-dia-h"><button type="button" class="ag-tl-dia-cab" data-ag-dia="${escAttr(dia)}" aria-expanded="${aberto}">
@@ -1482,15 +1686,18 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       const k = normTexto(blocoCopy(t));
       if (vistos.has(k)) { repetidas++; if (primeira === null) primeira = s.idx; } else vistos.set(k, s.idx);
     });
-    const card = (valor, rotulo, cor, extra) => `<div class="ag-card ag-num-card" ${extra || ''}><b style="${cor ? `color:${cor}` : ''}">${valor}</b><span>${rotulo}</span></div>`;
-    box.innerHTML = [
-      card(plano.length, plano.length === 1 ? 'disparo na semana' : 'disparos na semana'),
-      card(`${prontas}/${total}`, 'copys prontas', total ? (prontas < total ? '#fbbf24' : '#34d399') : ''),
-      card(ppv.length || '—', ppv.length ? `PPV · média ${media ? media.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}` : 'PPV', ppv.length ? '#34d399' : ''),
-      card(chamadas, chamadas === 1 ? 'chamada' : 'chamadas'),
-      card(repetidas, 'repetidas na semana', repetidas ? '#f87171' : '#34d399',
-        repetidas ? `role="button" tabindex="0" data-ag="ir-repetida" data-idx="${primeira}" title="Ir pra primeira repetida"` : '')
-    ].join('');
+    const pl = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+    const vazios = total - prontas;
+    const partes = [
+      `<span data-num="horarios">${pl(total, 'horário', 'horários')}</span>`,
+      `<span data-num="prontos">${pl(prontas, 'pronto', 'prontos')}</span>`,
+      `<span data-num="vazios" class="${vazios ? 'falta' : ''}">${pl(vazios, 'vazio', 'vazios')}</span>`
+    ];
+    if (ppv.length) partes.push(`<span data-num="ppv">${ppv.length} PPV${media ? ` · média ${media.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}` : ''}</span>`);
+    if (chamadas) partes.push(`<span data-num="chamadas">${pl(chamadas, 'chamada', 'chamadas')}</span>`);
+    if (repetidas) partes.push(`<button type="button" class="ag-link ag-num-rep" data-num="repetidas" data-ag="ir-repetida" data-idx="${primeira}" title="Ir pra primeira repetida">${pl(repetidas, 'repetida', 'repetidas')}</button>`);
+    box.innerHTML = partes.join('<i aria-hidden="true">·</i>');
+    box.dataset.disparos = String(plano.length);
   }
 
   // ── dias da lista: abrir/fechar (lembra na sessão) ──
@@ -1503,26 +1710,26 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     });
     return { prontas, total: lista.length };
   }
-  function agLerDias() { try { return JSON.parse(sessionStorage.getItem('agenda_dias_abertos')) || {}; } catch (e) { return {}; } }
-  // Na primeira vez que o dia aparece: aberto se falta mensagem, fechado se está pronto.
-  // Depois fica como a pessoa deixou (gerar copys não fecha nada sozinho).
-  function agDiaAberto(dia, incompleto) {
-    const v = agLerDias()[`${ag.id}|${dia}`];
-    if (v !== undefined) return v === 1;
-    agGuardarDia(dia, incompleto);
-    return incompleto;
+  // Sanfona: um dia aberto por vez. Lembra na sessão qual foi; senão abre o primeiro com horário vazio (ou o primeiro).
+  function agLerDias() { try { return JSON.parse(sessionStorage.getItem('agenda_dia_aberto')) || {}; } catch (e) { return {}; } }
+  function agDiaDaSanfona(grupos) {
+    const v = agLerDias()[ag.id];
+    if (v !== undefined && (v === null || grupos.some(([dia]) => dia === v))) return v;
+    const falta = grupos.find(([, p]) => p.prontas < p.total);
+    return (falta || grupos[0] || [null])[0];
   }
-  function agGuardarDia(dia, aberto) {
+  function agGuardarDia(dia) {
     const d = agLerDias();
-    d[`${ag.id}|${dia}`] = aberto ? 1 : 0;
-    try { sessionStorage.setItem('agenda_dias_abertos', JSON.stringify(d)); } catch (e) { /* ignora */ }
+    d[ag.id] = dia;
+    try { sessionStorage.setItem('agenda_dia_aberto', JSON.stringify(d)); } catch (e) { /* ignora */ }
   }
   function agAbrirDia(grupo, aberto) {
+    if (aberto) document.querySelectorAll('#agTimeline [data-dia-grupo].aberto').forEach((g) => { if (g !== grupo) { g.classList.remove('aberto'); const b = g.querySelector('[data-ag-dia]'); if (b) b.setAttribute('aria-expanded', 'false'); } });
     grupo.classList.toggle('aberto', aberto);
     const b = grupo.querySelector('[data-ag-dia]');
     if (b) b.setAttribute('aria-expanded', String(aberto));
-    agGuardarDia(grupo.dataset.diaGrupo, aberto);
-    if (aberto) agMarcarLongos(grupo);
+    agGuardarDia(aberto ? grupo.dataset.diaGrupo : null);
+    if (aberto) { agMarcarLongos(grupo); if (!agAutoAlturaNativa) grupo.querySelectorAll('textarea[data-msg]').forEach(agAutoAltura); }
   }
   // Atualiza o "X de Y prontas" de cada dia sem redesenhar (enquanto digita)
   function agAtualizarDias() {
@@ -1555,7 +1762,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   function agAvatarChat() {
     const m = ag.modelo;
     const foto = avataresModelos[m];
-    return `<span class="gr-av" style="--cor:${corAvatar(m || '?')}">${esc(iniciais(m))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
+    return `<span class="gr-av" style="--cor:${corAvatar(m || '?')}">${esc(iniciais(m))}${fotoAvatar(foto) ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
   }
 
   function agDiaChat(iso) {
@@ -1720,7 +1927,6 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         </div>
         <div class="ag-quando-col">
           <div class="ag-bloco-cab"><h3>Horários <span class="ag-extra" id="agHorasInfo"></span></h3></div>
-          ${agHtmlAgitada(false)}
           <div class="ag-periodos">${horas}</div>
           <div class="ag-quando-pe">
             <div class="ag-limite"><span>Máximo por dia</span>
@@ -1730,20 +1936,8 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
                 <button type="button" class="ag-mini" data-ag="limite" data-d="1" aria-label="Mais disparos por dia" ${c.limiteDia >= 50 ? 'disabled' : ''}>+</button>
               </span>
             </div>
-            <button type="button" class="ag-link" data-ag="agit-toggle" aria-expanded="${!!ag.agitAberto}">${ag.agitAberto ? 'Fechar' : 'Mais de um disparo por hora'}</button>
           </div>
-          ${ag.agitAberto ? `
-          <div class="ag-agit">
-            <p class="ag-dica">Preenche os horários sozinho: tantos disparos por hora, espalhados dentro de cada hora, no período que você escolher.</p>
-            <div class="ag-grade-3">
-              <label class="ag-campo"><span>Por hora</span><input class="ag-input" type="number" min="1" max="12" inputmode="numeric" data-agit="qtd" value="${escAttr(String(a.qtd))}"></label>
-              <label class="ag-campo"><span>Das</span><input class="ag-input" type="time" data-agit="de" value="${escAttr(a.de)}"></label>
-              <label class="ag-campo"><span>Até</span><input class="ag-input" type="time" data-agit="ate" value="${escAttr(a.ate)}"></label>
-            </div>
-            <div class="ag-agit-acoes"><button type="button" class="ag-btn ag-btn-p" data-ag="agit-aplicar">${ico('raio')}<span>Aplicar nos horários</span></button></div>
-            <p class="ag-dica ag-agit-status" id="agAgitStatus">${esc(a.status)}</p>
-            ${agHtmlAgitada(true)}
-          </div>` : ''}
+          ${agHtmlVariar()}
         </div>
       </div>
       <p class="ag-quando-resumo" id="agQuandoResumo"></p>`;
@@ -1758,14 +1952,31 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     el.innerHTML = `<b>${c.dias.length}</b> ${c.dias.length === 1 ? 'dia' : 'dias'} · <b>${porDia}</b> ${porDia === 1 ? 'horário' : 'horários'} por dia · <b>${n}</b> ${n === 1 ? 'disparo' : 'disparos'}`;
   }
 
-  function agHtmlAgitada(card) {
-    return `<div class="ag-agitada ${card ? 'ag-agitada-card' : ''}" data-agitada hidden>
-      <span class="ag-agitada-txt" data-agitada-txt></span>
-      <span class="ag-agitada-acoes">
-        <button type="button" class="ag-link" data-ag="agit-desfazer" title="Volta os horários (e o roteiro) de antes de aplicar a agitação">Tirar agitação</button>
-        ${card ? '<button type="button" class="ag-link" data-ag="agit-um" title="Mantém as mesmas horas, mas só 1 disparo em cada (hora cheia)">Deixar 1 por hora</button>' : ''}
-      </span>
-    </div>`;
+  // Agitação ("Variar horários"): ligar = espalha N disparos dentro de cada hora; desligar = volta o de antes.
+  // "1 disparo por hora" = mantém as horas da agitação, uma só em cada (hora cheia).
+  function agAgitacaoLigada(c) {
+    if (c.antesAgitacao) return true;
+    const porHora = {};
+    return agHorariosValidos(c.horarios, 99).some((h) => (porHora[h.slice(0, 2)] = (porHora[h.slice(0, 2)] || 0) + 1) > 1);
+  }
+  function agHtmlVariar() {
+    const c = ag.cfg;
+    const a = ag.agit;
+    const on = agAgitacaoLigada(c);
+    return `
+      <div class="ag-variar ${on ? 'on' : ''}">
+        <label class="ag-variar-chave">
+          <input type="checkbox" class="gr-switch" role="switch" id="agVariar" ${on ? 'checked' : ''}>
+          <span><b>Variar horários</b><small>Vários disparos por hora, espalhados dentro de cada hora</small></span>
+        </label>
+        <div class="ag-variar-campos">
+          <label class="ag-campo-inline"><span>Por hora</span><input class="ag-input ag-input-num" type="number" min="1" max="12" inputmode="numeric" data-agit="qtd" value="${escAttr(String(a.qtd))}"></label>
+          <label class="ag-campo-inline"><span>das</span><input class="ag-input" type="time" data-agit="de" value="${escAttr(a.de)}"></label>
+          <label class="ag-campo-inline"><span>até</span><input class="ag-input" type="time" data-agit="ate" value="${escAttr(a.ate)}"></label>
+          ${on ? `<label class="ag-variar-um" title="Mantém as mesmas horas, mas só 1 disparo em cada (hora cheia)"><input type="checkbox" id="agVariarUm"><span>1 disparo por hora</span></label>` : ''}
+        </div>
+        <p class="ag-dica ag-agit-status" id="agAgitStatus" data-agitada><span data-agitada-txt></span>${a.status ? ` <span>${esc(a.status)}</span>` : ''}</p>
+      </div>`;
   }
 
   function agAlternarHora(hh) {
@@ -1842,10 +2053,10 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   // ═══════════════════════════════════════════════ GAVETAS (ajustes) ═══
 
   const AG_GAVETAS = {
-    persona: ['pessoa', 'Persona', 'Quem "escreve" as copys da IA. Pode ter mais de uma; a escolhida é a que vale. Salva sozinho.'],
+    persona: ['pessoa', 'Persona', 'Quem "escreve" as copys da IA. As personas são da equipe e aparecem em todas as modelos; a escolhida aqui vale pra essa modelo. Salva sozinho.'],
     roteiro: ['lista', 'Roteiro do dia', 'O assunto de cada horário. Escolha um pronto ou troque horário por horário na lista de mensagens.'],
     estilo: ['brilho', 'Estilo da IA', 'Como a IA escreve as mensagens. Salva sozinho.'],
-    prompt: ['mensagem', 'Prompt da IA', 'Cole aqui as instruções do seu GPT. Salva sozinho.'],
+    prompt: ['mensagem', 'Prompt da IA', 'Cole aqui as instruções do seu GPT. Vale pra todas as modelos. Salva sozinho.'],
     pacotes: ['pacote', 'Pacotes', 'Packs e vídeos que vão nos horários de Pack e Vídeo, em rodízio.'],
     config: ['engrenagem', 'Configurações', 'Chave da IA (fica só neste navegador) e backup da agenda.'],
     colar: ['mensagem', 'Colar várias mensagens', 'Uma por bloco, com linha em branco entre elas. Preenche os horários na ordem.'],
@@ -1856,7 +2067,16 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   // Gavetas com campos que a pessoa digita e não podem ser redesenhadas por baixo
   const AG_GAVETAS_FIXAS = ['config', 'prompt', 'colar', 'assuntos', 'escolher', 'sortear'];
 
+  const AG_GAVETAS_AJUSTES = { persona: 'agAjPersona', estilo: 'agAjEstilo', prompt: 'agAjPrompt', config: 'agAjConfig' };
   function agAbrirGaveta(nome) {
+    // Persona, estilo, prompt e chave/backup moram na aba Ajustes
+    if (AG_GAVETAS_AJUSTES[nome]) {
+      agFecharFolha();
+      agMostrarAba('ajustes', true);
+      const sec = document.getElementById(AG_GAVETAS_AJUSTES[nome]);
+      if (sec) { sec.scrollIntoView({ block: 'start' }); const f = sec.querySelector('input, textarea'); if (nome === 'config' && f) f.focus({ preventScroll: true }); }
+      return;
+    }
     if (nome === 'assuntos' && ag.cfg) agPrepararSorteioAssuntos();
     if (nome === 'sortear' && ag.cfg) agCarregarSorteio();
     if (!AG_GAVETAS[nome]) return;
@@ -1869,7 +2089,37 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   }
   function agAbrirConfig() { agAbrirGaveta('config'); }
 
+  // Aba Ajustes: persona (da equipe) + estilo dessa modelo, prompt da equipe, chave da IA e backup
+  function agRenderAjustesTab(parte) {
+    const box = document.getElementById('agAjTab');
+    if (!box) return;
+    const sec = (id, icone, titulo, sub, corpo, pe, extra) => `
+      <section class="ag-card ag-aj-sec" id="${id}" ${extra || ''}>
+        <header class="ag-aj-cab"><span class="ag-aj-ico">${ico(icone)}</span><div><h3>${esc(titulo)}</h3><p>${sub}</p></div></header>
+        <div class="ag-aj-corpo">${corpo}</div>
+        ${pe ? `<div class="ag-aj-pe">${pe}</div>` : ''}
+      </section>`;
+    const html = {
+      persona: () => ag.cfg ? sec('agAjPersona', 'pessoa', 'Persona', `Quem "escreve" as copys da IA. As personas são da equipe; a escolhida aqui vale pra <b>${esc(agPrimeiroNome(ag.modelo))}</b>.`, agHtmlPersona(),
+        agPersonaAtual(ag.cfg) ? `<button type="button" class="ag-btn ag-btn-perigo" data-ag="persona-apagar">${ico('lixo')}<span>Apagar persona</span></button>` : '') : '',
+      estilo: () => ag.cfg ? sec('agAjEstilo', 'brilho', 'Estilo da IA', `Como a IA escreve as mensagens de ${esc(agPrimeiroNome(ag.modelo))}.`, agHtmlEstilo()) : '',
+      prompt: () => sec('agAjPrompt', 'mensagem', 'Prompt da IA', '<span id="agPromptEstado"></span> · vale pra todas as modelos', agHtmlPrompt(),
+        `<button type="button" class="ag-btn" data-ag="prompt-restaurar">${ico('atualizar')}<span>Restaurar padrão</span></button>`),
+      config: () => sec('agAjConfig', 'engrenagem', 'Chave da IA e backup', 'A chave fica só neste navegador.', agHtmlConfig(),
+        `<button type="button" class="ag-btn" data-folha="testar">Testar chave</button><button type="button" class="ag-btn ag-btn-prim" data-folha="salvar-ia">Salvar chave</button>`)
+    };
+    const partes = parte ? [].concat(parte) : ['persona', 'estilo', 'prompt', 'config'];
+    if (!parte || !box.querySelector('.ag-aj-grid')) {
+      box.innerHTML = `<div class="ag-aj-grid"><div class="ag-aj-col"><div data-aj="persona">${html.persona()}</div><div data-aj="prompt">${html.prompt()}</div></div><div class="ag-aj-col"><div data-aj="estilo">${html.estilo()}</div><div data-aj="config">${html.config()}</div></div></div>`;
+    } else {
+      partes.forEach((p) => { const el = box.querySelector(`[data-aj="${p}"]`); if (el) el.innerHTML = html[p](); });
+    }
+    agAtualizarCopyInfo();
+  }
+  const agDigitandoEm = (sel) => { const a = document.activeElement; return !!(a && a.closest && a.closest(sel) && /^(INPUT|TEXTAREA)$/.test(a.tagName)); };
+
   function agRenderGaveta() {
+    if (ag.aba === 'ajustes' && !agDigitandoEm('#agAjPersona')) agRenderAjustesTab('persona');
     const folha = document.querySelector('#agFolha .ag-folha');
     if (!folha || !ag.gaveta || AG_GAVETAS_FIXAS.includes(ag.gaveta)) return;
     const corpo = folha.querySelector('.ag-folha-corpo');
@@ -1941,7 +2191,7 @@ bom dia, vida! já acordou?"></textarea>
     const c = ag.cfg;
     const atual = agPersonaAtual(c);
     const pills = `<button type="button" class="ag-pill ${atual ? '' : 'on'}" data-persona="">Sem persona</button>`
-      + c.personas.map(p => `<button type="button" class="ag-pill ${atual === p ? 'on' : ''}" data-persona="${escAttr(p.id)}" title="${escAttr(p.conta ? 'Conta @' + p.conta : 'Sem conta vinculada')}">${esc(p.nome || 'Sem nome')}</button>`).join('')
+      + agPersonas().map(p => `<button type="button" class="ag-pill ${atual === p ? 'on' : ''}" data-persona="${escAttr(p.id)}" title="${escAttr(p.conta ? 'Conta @' + p.conta : 'Sem conta vinculada')}">${esc(p.nome || 'Sem nome')}</button>`).join('')
       + `<button type="button" class="ag-pill ag-pill-add" data-persona="+">${ico('mais')}Nova persona</button>`;
     if (!atual) return `<div class="ag-pills">${pills}</div><p class="ag-dica">Sem persona: a IA escreve no estilo geral. Crie uma pra ela escrever com o jeito da modelo.</p>`;
     const conta = c.contaPrivacy;
@@ -2036,8 +2286,7 @@ bom dia, vida! já acordou?"></textarea>
 
   // ── Prompt ──
   function agHtmlPrompt() {
-    const c = ag.cfg;
-    return `<textarea class="ag-input ag-txt ag-txt-prompt" data-campo="prompt" spellcheck="false" aria-label="Prompt da IA" data-foco>${esc(c.prompt || AG_PROMPT_PADRAO)}</textarea>
+    return `<textarea class="ag-input ag-txt ag-txt-prompt" data-campo="prompt" spellcheck="false" aria-label="Prompt da IA" data-foco>${esc(agPromptGlobal() || AG_PROMPT_PADRAO)}</textarea>
       <p class="ag-dica-mini">A regra de segurança (só adultas, 18+) sempre vai junto, mesmo editando.</p>`;
   }
 
@@ -2155,8 +2404,9 @@ bom dia, vida! já acordou?"></textarea>
     if (todas && nCom && !confirm(`Refazer as ${slots.length} mensagens?\nAs ${nCom} que você já tem (inclusive as que editou) vão ser substituídas.`)) return;
     const alvo = todas ? slots : slots.filter(s => !agMsgDoHorario(mapa, s));
     const id = ag.id;
-    ag.gerando = true;
-    const rotular = (t) => { const b = document.getElementById('agGerar'); if (b) { b.disabled = true; b.innerHTML = `${ico('carregando', 'ag-gira')}<span>${esc(t)}</span>`; } };
+    const dono = {};
+    ag.gerando = dono;
+    const rotular = (t) => { agRotuloPreencher(t); const b = document.getElementById('agGerar'); if (b) { b.disabled = true; b.innerHTML = `${ico('carregando', 'ag-gira')}<span>${esc(t)}</span>`; } };
     rotular(`Gerando ${alvo.length} copys…`);
     agAtualizarCopyInfo();
     agStatus('');
@@ -2178,11 +2428,8 @@ bom dia, vida! já acordou?"></textarea>
     } catch (e) {
       if (ag.id === id) agStatus(e.message, 'erro');
     } finally {
-      if (ag.id === id) {
-        ag.gerando = false;
-        agRenderTimeline();
-        agAtualizar();
-      }
+      if (ag.gerando === dono) ag.gerando = false;
+      if (ag.id === id && ag.cfg === c) { agRenderTimeline(); agAtualizar(); }
     }
   }
 
@@ -2315,9 +2562,10 @@ bom dia, vida! já acordou?"></textarea>
     if (nReais) { agSalvar(); agRenderTimeline(); }
     if (!praIA.length) { agAtualizar(); return agStatus(`${nReais} reais + 0 da IA`, 'ok'); }
     const id = ag.id;
-    ag.gerando = true;
+    const dono = {};
+    ag.gerando = dono;
     const btn = document.getElementById('agMisturar');
-    const rotular = (t) => { if (btn && btn.isConnected) { btn.disabled = true; btn.innerHTML = `${ico('carregando', 'ag-gira')}<span>${esc(t)}</span>`; } };
+    const rotular = (t) => { agRotuloPreencher(t); if (btn && btn.isConnected) { btn.disabled = true; btn.innerHTML = `${ico('carregando', 'ag-gira')}<span>${esc(t)}</span>`; } };
     rotular(`Gerando ${praIA.length} com a IA…`);
     ['agGerar', 'agReais'].forEach((x) => { const b = document.getElementById(x); if (b) b.disabled = true; });
     agStatus('');
@@ -2334,7 +2582,8 @@ bom dia, vida! já acordou?"></textarea>
     } catch (e) {
       if (ag.id === id) agStatus(e.message, 'erro');
     } finally {
-      if (ag.id === id) { ag.gerando = false; agRenderTimeline(); agAtualizar(); }
+      if (ag.gerando === dono) ag.gerando = false;
+      if (ag.id === id && ag.cfg === c) { agRenderTimeline(); agAtualizar(); }
     }
   }
 
@@ -2694,6 +2943,7 @@ bom dia, vida! já acordou?"></textarea>
     const semDias = !agMontarPlano(c).length;
     const grade = (sa.resultado || []).map(([dia, horas, seq]) => `<div class="ag-sa-dia"><span class="ag-sa-dia-nome">${esc(dia ? agFmtDia(dia, false) : 'Todo dia')}</span>${horas.map((h, i) => `<span class="ag-sa-cel" data-assunto="${seq[i]}" title="${escAttr(h + ' · ' + AG_ASSUNTOS[seq[i]][0])}"><small>${h}</small><i class="ag-ponto"></i>${esc(AG_ASSUNTOS[seq[i]][0])}</span>`).join('')}</div>`).join('');
     return `
+      <p class="ag-dica ag-sa-roteiro">Prefere escolher à mão? <button type="button" class="ag-link" data-ag="gaveta" data-gaveta="roteiro">Roteiro por horário</button></p>
       <div class="ag-campo"><span>Assuntos e peso <em>quanto maior o peso, mais aparece</em></span><div class="ag-sa-lista">${linhas}</div></div>
       <div class="ag-campo"><span>Como sortear</span>
         <span class="ag-seg2" role="radiogroup">
@@ -2948,6 +3198,23 @@ bom dia, vida! já acordou?"></textarea>
     falhou: ['erro', 'Com erro']
   };
 
+  function agTsMs(t) {
+    if (t && typeof t.toMillis === 'function') return t.toMillis();
+    if (t && t.seconds) return t.seconds * 1000;
+    if (typeof t === 'number') return t;
+    if (typeof t === 'string' && !isNaN(Date.parse(t))) return Date.parse(t);
+    return 0;
+  }
+  // Concluído há mais de 7 dias não aparece (continua no Firestore)
+  function agFilaVisivel() {
+    const corte = Date.now() - 7 * 86400000;
+    return (ag.fila || []).filter((d) => {
+      const st = (AG_STATUS_FILA[String(d.status || '').toLowerCase()] || ['pendente'])[0];
+      const t = agTsMs(d.concluidoEm) || agTsMs(d.criadoEm);
+      return !(st === 'concluido' && t && t < corte);
+    });
+  }
+
   function agRenderFila() {
     agContarFila();
     const box = document.getElementById('agFila');
@@ -2955,13 +3222,11 @@ bom dia, vida! já acordou?"></textarea>
     if (!ag.cfg && !ag.filaCarregada) { box.innerHTML = '<p class="ag-vazio">…</p>'; return; }
     if (ag.filaErro) { box.innerHTML = `<div class="ag-aviso">${ico('alerta')}<span>${esc(ag.filaErro)}</span></div>`; return; }
     if (!ag.filaCarregada) { box.innerHTML = `<p class="ag-vazio">${ico('carregando', 'ag-gira')} Carregando a fila…</p>`; return; }
-    const pendentes = ag.fila.filter(d => (AG_STATUS_FILA[String(d.status || '').toLowerCase()] || ['pendente'])[0] === 'pendente');
+    const fila = agFilaVisivel();
+    const pendentes = fila.filter(d => (AG_STATUS_FILA[String(d.status || '').toLowerCase()] || ['pendente'])[0] === 'pendente');
     if (!pendentes.length) {
-      const ultimos = ag.fila.slice(0, 5);
-      box.innerHTML = `<div class="ag-fila-vazia">
-          <p>Nada esperando pra agendar agora. Monte o plano e clique em Agendar no passo 3.</p>
-          <button type="button" class="ag-btn" data-ag="aba" data-aba="programar">Ir pro passo 3 · Programar</button>
-        </div>`
+      const ultimos = fila.slice(0, 5);
+      box.innerHTML = `<div class="ag-fila-vazia"><p>Nada esperando pra agendar agora.</p></div>`
         + (ultimos.length ? `<h3 class="ag-fila-ult-tit">Últimos envios</h3>` + ultimos.map((d) => {
           const [st, rot] = AG_STATUS_FILA[String(d.status || '').toLowerCase()] || ['pendente', String(d.status || 'Pendente')];
           const total = Number(d.total) || (Array.isArray(d.itens) ? d.itens.length : 0);
@@ -2975,7 +3240,7 @@ bom dia, vida! já acordou?"></textarea>
         }).join('') : '');
       return;
     }
-    box.innerHTML = ag.fila.map((d) => {
+    box.innerHTML = fila.map((d) => {
       const [st, rot] = AG_STATUS_FILA[String(d.status || '').toLowerCase()] || ['pendente', String(d.status || 'Pendente')];
       const itens = Array.isArray(d.itens) ? d.itens : [];
       const diasF = [...new Set(itens.map(it => it && it.dia).filter(Boolean))].sort();
@@ -3032,7 +3297,11 @@ bom dia, vida! já acordou?"></textarea>
     const acao = b.dataset.folha;
     if (acao === 'fechar') agFecharFolha();
     else if (acao === 'mandar') agMandarFila(b);
-    else if (acao === 'ver') { const i = document.getElementById('agCfgChave'); i.type = i.type === 'password' ? 'text' : 'password'; }
+    else agAcaoIA(acao);
+  }
+
+  function agAcaoIA(acao) {
+    if (acao === 'ver') { const i = document.getElementById('agCfgChave'); i.type = i.type === 'password' ? 'text' : 'password'; }
     else if (acao === 'testar') agTestarChaveUI();
     else if (acao === 'salvar-ia') {
       const chave = (document.getElementById('agCfgChave').value || '').trim();
@@ -3052,7 +3321,7 @@ bom dia, vida! já acordou?"></textarea>
 
   function agExportar() {
     if (!ag.cfg) return;
-    const dados = { app: 'agendador-privacy', versao: 2, origem: 'synora-copys', modelo: ag.modelo, exportadoEm: new Date().toISOString(), cfg: JSON.parse(JSON.stringify(ag.cfg)) };
+    const dados = { app: 'agendador-privacy', versao: 2, origem: 'synora-copys', modelo: ag.modelo, exportadoEm: new Date().toISOString(), cfg: JSON.parse(JSON.stringify({ ...ag.cfg, personas: agPersonas(), prompt: agPromptGlobal() })) };
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' }));
     a.download = `agenda-${normTexto(ag.modelo).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'modelo'}-${agDataISO(new Date())}.json`;
@@ -3094,17 +3363,45 @@ bom dia, vida! já acordou?"></textarea>
     }
     const nPac = (novo.pacotesReg || []).length;
     const nPers = (novo.personas || []).length;
-    if (!confirm(`Importar na agenda de ${nomeModelo(ag.modelo)}?\n\n${nPers} persona(s) e ${nPac} pacote(s) no arquivo.\nO que vier no arquivo substitui o que tem agora.`)) return;
-    ag.cfg = agMontarCfg({ ...JSON.parse(JSON.stringify(ag.cfg)), ...novo });
+    if (!confirm(`Importar na agenda de ${nomeModelo(ag.modelo)}?\n\n${nPers} persona(s) (entram na biblioteca da equipe) e ${nPac} pacote(s) no arquivo.\nO resto do que vier no arquivo substitui o que tem agora.`)) return;
+    // Personas e prompt são da equipe: personas novas entram na biblioteca; prompt só se ainda for o padrão
+    let nPersNovas = 0, mudouGlobal = false;
+    (novo.personas || []).forEach((p) => {
+      const n = normTexto(p.nome || '');
+      if (agPersonas().some(x => x.id === p.id || (n && normTexto(x.nome || '') === n))) return;
+      agPersonas().push(p); nPersNovas++; mudouGlobal = true;
+    });
+    if (novo.prompt && novo.prompt.trim() !== AG_PROMPT_PADRAO.trim() && !agPromptGlobal()) { ag.global.prompt = novo.prompt; mudouGlobal = true; }
+    delete novo.personas; delete novo.prompt;
+    if (novo.persona) {
+      const idP = ag.global.apelidos[novo.persona] || novo.persona;
+      const daLista = (Array.isArray(bruto.personas) ? bruto.personas : []).find(p => agObj(p) && p.id === novo.persona);
+      const naBib = agPersonas().find(x => x.id === idP) || (daLista && agPersonas().find(x => normTexto(x.nome || '') === normTexto(daLista.nome || '')));
+      novo.persona = naBib ? naBib.id : '';
+    }
+    if (mudouGlobal) agSalvarGlobal();
+    const junto = { ...JSON.parse(JSON.stringify(ag.cfg)), ...novo };
+    const soTexto = typeof bruto.mensagens === 'string' && bruto.mensagens.trim() && !agObj(bruto.msgsMapa);
+    if (soTexto) delete junto.msgsMapa; // backup da extensão: o texto vira o mapa na ordem dos horários
+    ag.cfg = agMontarCfg(junto);
+    const nMsgs = Object.values(agMsgsMapa(ag.cfg)).filter(t => (t || '').trim()).length;
     agSalvar();
     agRenderCorpo();
-    toast('Backup importado' + (avisoPacotes ? '. ' + avisoPacotes : ''));
+    const trouxe = 'mensagens' in bruto || 'msgsMapa' in bruto;
+    const msgInfo = trouxe ? (nMsgs ? ` · ${nMsgs} ${nMsgs === 1 ? 'mensagem' : 'mensagens'}` : ' · nenhuma mensagem veio do arquivo') : '';
+    const persInfo = nPersNovas ? ` · ${nPersNovas} ${nPersNovas === 1 ? 'persona nova' : 'personas novas'} na biblioteca` : '';
+    toast('Backup importado' + msgInfo + persInfo + (avisoPacotes ? '. ' + avisoPacotes : ''));
   }
 
   // ═══════════════════════════════════════════════ EVENTOS ═══
 
   function agClique(e) {
     const t = e.target;
+    if (t.closest('[data-ag="preencher"]')) { agMenuPreencher(); return; }
+    if (t.closest('#agPreencherMenu [data-ag]')) agMenuPreencher(false);
+    // botões da chave da IA na aba Ajustes (na gaveta eles passam por agCliqueFolha)
+    const bIA = t.closest('[data-folha]');
+    if (bIA && !bIA.closest('#agFolha') && ['ver', 'testar', 'salvar-ia'].includes(bIA.dataset.folha)) { agAcaoIA(bIA.dataset.folha); return; }
     const mod = t.closest('[data-ag-modelo]');
     if (mod) { agListaModelos(false); if (mod.dataset.agModelo !== ag.id || !ag.cfg) agCarregarModelo(mod.dataset.agModelo); return; }
     const acaoMod = t.closest('[data-ag^="modelo-"]');
@@ -3143,7 +3440,6 @@ bom dia, vida! já acordou?"></textarea>
     if (atalho) { agAtalhoDias(atalho.dataset.atalho); agSalvar(); agRenderTudo(); return; }
     const hora = t.closest('[data-hora]');
     if (hora) { agAlternarHora(hora.dataset.hora); agSalvar(); agRenderTudo(); return; }
-    if (acao === 'agit-toggle') { ag.agitAberto = !ag.agitAberto; agRenderQuando(); agAtualizar(); return; }
     if (acao === 'limite') {
       c.limiteDia = Math.min(50, Math.max(1, (parseInt(c.limiteDia) || 1) + Number(acaoEl.dataset.d)));
       agSalvar(); agRenderTudo(); return;
@@ -3157,34 +3453,37 @@ bom dia, vida! já acordou?"></textarea>
     if (pers) {
       const id = pers.dataset.persona;
       if (id === '+') {
-        const conta = c.contaPrivacy && !c.personas.some(p => p.conta === c.contaPrivacy) ? c.contaPrivacy : '';
-        const nova = { id: 'p' + Date.now(), nome: 'Nova persona', idade: '', desc: '', jeito: '', nunca: '', exemplos: '', conta };
-        c.personas.push(nova);
+        const conta = c.contaPrivacy && !agPersonas().some(p => p.conta === c.contaPrivacy) ? c.contaPrivacy : '';
+        const nova = { id: 'p' + Date.now() + Math.random().toString(36).slice(2, 5), nome: 'Nova persona', idade: '', desc: '', jeito: '', nunca: '', exemplos: '', conta };
+        agPersonas().push(nova);
         c.persona = nova.id;
-      } else c.persona = id;
+        c.personaNenhuma = false;
+        agSalvarGlobal();
+      } else { c.persona = id; c.personaNenhuma = !id; }
       agSalvar(); agRenderGaveta(); agAtualizar();
-      if (id === '+') { const n = document.querySelector('#agFolha [data-pcampo="nome"]'); if (n) n.select(); }
+      if (id === '+') { const n = document.querySelector('[data-pcampo="nome"]'); if (n) { n.focus(); n.select(); } }
       return;
     }
     if (acao === 'persona-apagar') {
       const atual = agPersonaAtual(c);
-      if (!atual || !confirm(`Apagar a persona "${atual.nome || 'sem nome'}"?`)) return;
-      c.personas = c.personas.filter(p => p !== atual);
+      if (!atual || !confirm(`Apagar a persona "${atual.nome || 'sem nome'}"?\nEla é da equipe: some de todas as modelos (quem usava fica sem persona).`)) return;
+      ag.global.personas = agPersonas().filter(p => p !== atual);
       c.persona = '';
-      agSalvar(); agRenderGaveta(); agAtualizar(); return;
+      c.personaNenhuma = true;
+      agSalvarGlobal(); agSalvar(); agRenderGaveta(); agAtualizar(); return;
     }
     if (acao === 'persona-vincular' || acao === 'persona-soltar') {
       const atual = agPersonaAtual(c);
       if (!atual) return;
-      if (acao === 'persona-vincular') { c.personas.forEach(p => { if (p.conta === c.contaPrivacy) p.conta = ''; }); atual.conta = c.contaPrivacy; }
+      if (acao === 'persona-vincular') { agPersonas().forEach(p => { if (p.conta === c.contaPrivacy) p.conta = ''; }); atual.conta = c.contaPrivacy; }
       else atual.conta = '';
-      agSalvar(); agRenderGaveta(); agAtualizar(); return;
+      agSalvarGlobal(); agRenderGaveta(); agAtualizar(); return;
     }
     if (acao === 'persona-testar') return agTestarPersona(acaoEl);
 
     // Estilo da IA
-    const tipo = t.closest('[data-tipo]');
-    if (tipo) {
+    const tipo = t.closest('.ag-pill[data-tipo]');
+    if (tipo && AG_TIPOS_COPY[tipo.dataset.tipo]) {
       const id = tipo.dataset.tipo;
       c.tiposCopy = c.tiposCopy.includes(id) ? c.tiposCopy.filter(x => x !== id) : c.tiposCopy.concat(id);
       const on = c.tiposCopy.includes(id);
@@ -3198,11 +3497,11 @@ bom dia, vida! já acordou?"></textarea>
       agSalvar(); return;
     }
     if (acao === 'prompt-restaurar') {
-      const ta = document.querySelector('#agFolha [data-campo="prompt"]');
-      if (c.prompt && !confirm('Voltar pro prompt padrão? O prompt que você editou vai ser perdido.')) return;
-      c.prompt = '';
+      const ta = document.querySelector('[data-campo="prompt"]');
+      if (agPromptGlobal() && !confirm('Voltar pro prompt padrão? O prompt editado vai ser perdido pra todas as modelos.')) return;
+      ag.global.prompt = '';
       if (ta) ta.value = AG_PROMPT_PADRAO;
-      agSalvar(); agAtualizar(); return;
+      agSalvarGlobal(); return;
     }
 
     // Copys (resumo e linha do tempo)
@@ -3231,7 +3530,6 @@ bom dia, vida! já acordou?"></textarea>
     if (acao === 'ir-repetida') { agIrProSlot(acaoEl.dataset.idx); return; }
     const diaBtn = t.closest('[data-ag-dia]');
     if (diaBtn) { const g = diaBtn.closest('[data-dia-grupo]'); agAbrirDia(g, !g.classList.contains('aberto')); return; }
-    if (acao === 'dias-todos') { const abrir = acaoEl.dataset.abrir === '1'; document.querySelectorAll('#agTimeline [data-dia-grupo]').forEach(g => agAbrirDia(g, abrir)); return; }
     if (acao === 'copiar-tudo') return agCopiarTudo();
     if (acao === 'sortear-ok') return agSortearColocar();
     if (ag.sort && t.closest('[data-gaveta-corpo="sortear"]')) {
@@ -3342,7 +3640,7 @@ bom dia, vida! já acordou?"></textarea>
       agSalvar(); agRenderTimeline(); return;
     }
     if (campo === 'briefing' || campo === 'oferta') { c[campo] = t.value; agSalvar(); return; }
-    if (campo === 'prompt') { c.prompt = t.value.trim() === AG_PROMPT_PADRAO.trim() ? '' : t.value; agSalvar(); return; }
+    if (campo === 'prompt') { ag.global.prompt = t.value.trim() === AG_PROMPT_PADRAO.trim() ? '' : t.value.slice(0, 30000); agSalvarGlobal(); return; }
     const ag2 = t.dataset.agit;
     if (ag2) { ag.agit[ag2] = t.value; return; }
     const pc = t.dataset.pcampo;
@@ -3362,7 +3660,8 @@ bom dia, vida! já acordou?"></textarea>
       }
       const aviso = document.getElementById('agPersonaProibida');
       if (aviso) aviso.hidden = !temaProibido([atual.nome, atual.desc, atual.jeito, atual.nunca, atual.exemplos].join('\n'));
-      agSalvar();
+      if (pc === 'nome') { const pill = document.querySelector(`[data-persona="${CSS.escape(atual.id)}"]`); if (pill) pill.textContent = atual.nome || 'Sem nome'; }
+      agSalvarGlobal();
       return;
     }
     if (t.hasAttribute('data-msg')) {
@@ -3391,6 +3690,9 @@ bom dia, vida! já acordou?"></textarea>
     const c = ag.cfg;
     if (!c) return;
     if (t.id === 'agTeste') { c.teste = t.checked; agSalvar(); return; }
+    if (t.id === 'agVariar') { if (t.checked) agAplicarAgitacao(); else agTirarAgitacao('desfazer'); return; }
+    if (t.id === 'agVariarUm') { if (t.checked) agTirarAgitacao('um'); return; }
+    if (t.dataset.agit) { ag.agit[t.dataset.agit] = t.value; if (agAgitacaoLigada(c)) agAplicarAgitacao(); return; }
     if (t.id === 'agFonte') {
       c.fonteCopys = t.value;
       ag.sort = null;
@@ -3428,11 +3730,14 @@ bom dia, vida! já acordou?"></textarea>
 
   // ═══════════════════════════════════════════════ INICIALIZAÇÃO ═══
 
-  window.addEventListener('beforeunload', () => { if (agPendente) agFlushSalvar(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && agPendente) agFlushSalvar(); });
+  window.addEventListener('beforeunload', () => { if (agPendente) agFlushSalvar(); if (agGlobalPendente) agFlushGlobal(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { if (agPendente) agFlushSalvar(); if (agGlobalPendente) agFlushGlobal(); } });
   if (typeof auth !== 'undefined' && auth && auth.onAuthStateChanged) {
     auth.onAuthStateChanged((u) => {
       if (!u) {
+        clearTimeout(agTimer); agTimer = null; agPendente = null;
+        ag.gerando = false;
+        agPararGlobal();
         if (ag.unsubFila) { try { ag.unsubFila(); } catch (e) { /* ignora */ } ag.unsubFila = null; }
         ag.cfg = null; ag.modelo = ''; ag.id = ''; ag.minhas = []; ag.minhasCarregadas = false;
         return;
@@ -3441,6 +3746,11 @@ bom dia, vida! já acordou?"></textarea>
     });
   }
 
+  // Chamado pelo botão Sair antes do signOut: grava o que ainda está no debounce
+  window.agendaAoSair = async () => {
+    await Promise.all([agPendente ? agFlushSalvar() : null, agGlobalPendente ? agFlushGlobal() : null]);
+    clearTimeout(agTimer); agTimer = null;
+  };
   window.abrirAgenda = abrirAgenda;
   window.agendaReceberCopys = agendaReceberCopys;
   // Abre a Agenda já na modelo pedida (ex.: botão "Gerar copys dela" da aba Copys)

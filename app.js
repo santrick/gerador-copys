@@ -13,6 +13,15 @@
   } catch (e) { /* sem localStorage: nada a limpar */ }
 })();
 
+// v2: o cache de copys agora é só o copys_firebase_v1; o contador local de cópias nunca era lido
+(function limparCachesMortos() {
+  try {
+    if (localStorage.getItem('gerador_limpeza_v2')) return;
+    ['gerador_mineradas_cache', 'gerador_copy_counts'].forEach((k) => localStorage.removeItem(k));
+    localStorage.setItem('gerador_limpeza_v2', '1');
+  } catch (e) { /* sem localStorage */ }
+})();
+
 // ═══════════════════════════════════════════════ LOGIN + ATIVIDADE (Firebase) ═══
 
 const FIREBASE_CONFIG = {
@@ -30,8 +39,6 @@ const auth = firebase.auth();
 const db = firebase.firestore();
 let usuarioAtual = null;
 let souAdmin = false;
-let feedAdminAtivo = false;
-let unsubAtividade = null;
 let unsubFuncionarios = null;
 
 function configurarLogin() {
@@ -66,20 +73,19 @@ function configurarLogin() {
     }
   }
 
-  document.getElementById('btnLogout').addEventListener('click', () => auth.signOut());
+  document.getElementById('btnLogout').addEventListener('click', async () => {
+    try { if (typeof window.agendaAoSair === 'function') await window.agendaAoSair(); } catch (e) { /* segue saindo */ }
+    auth.signOut();
+  });
 
   auth.onAuthStateChanged(async (user) => {
     usuarioAtual = user;
 
     // Limpa qualquer estado/listener da sessão anterior (evita vazar dado de uma conta pra outra na mesma aba)
-    if (unsubAtividade) { unsubAtividade(); unsubAtividade = null; }
     if (unsubFuncionarios) { unsubFuncionarios(); unsubFuncionarios = null; }
     if (unsubFavoritos) { unsubFavoritos(); unsubFavoritos = null; }
-    if (unsubFeedbackCopy) { unsubFeedbackCopy(); unsubFeedbackCopy = null; }
-    feedAdminAtivo = false;
     feedFuncionariosAtivo = false;
     favoritos = [];
-    feedbackCopy = {};
     const listaFunc = document.getElementById('listaFuncionarios');
     const listaAtiv = document.getElementById('atividadeEquipe');
     if (listaFunc) listaFunc.innerHTML = '';
@@ -104,6 +110,7 @@ function configurarLogin() {
 
     souAdmin = user.email === ADMIN_EMAIL;
     document.getElementById('navAdmin').classList.toggle('hidden', !souAdmin);
+    if (souAdmin && location.hash === '#admin') abrirTabDaHash();
     document.getElementById('usuarioLogado').textContent = '👤 ' + (user.displayName || user.email);
 
     overlay.classList.add('hidden');
@@ -123,34 +130,8 @@ function configurarLogin() {
     registrarAtividade('Entrou no sistema', '');
     carregarMineradas();
     iniciarFeedFavoritos();
-    iniciarFeedFeedbackCopy();
-    if (souAdmin) { iniciarFeedFuncionarios(); limparCopysFirestore(); }
+    if (souAdmin) iniciarFeedFuncionarios();
   });
-}
-
-// Roda uma vez (marcada em metricas/limpeza_copys): apaga favoritos, avaliações e contadores de copys da equipe.
-async function limparCopysFirestore() {
-  try {
-    const marca = db.collection('metricas').doc('limpeza_copys');
-    const snapMarca = await marca.get();
-    if (snapMarca.exists && snapMarca.data().v2) return;
-    let total = 0;
-    for (const nome of ['favoritos', 'feedback_copy']) {
-      const snap = await db.collection(nome).get();
-      for (let i = 0; i < snap.docs.length; i += 400) {
-        const lote = db.batch();
-        snap.docs.slice(i, i + 400).forEach((d) => lote.delete(d.ref));
-        await lote.commit();
-      }
-      total += snap.size;
-    }
-    await db.collection('metricas').doc('global').set({ copysGeradas: 0, copysCopiadas: 0, porHora: {} });
-    await marca.set({ v1: true, v2: true, apagados: total, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-    toast(`Limpeza feita: ${total} favoritos/avaliações apagados`);
-  } catch (err) {
-    console.error('[limpeza]', err);
-    toast('Erro na limpeza das copys: ' + err.message);
-  }
 }
 
 async function upsertFuncionario(user) {
@@ -174,6 +155,15 @@ async function upsertFuncionario(user) {
     return true;
   }
 }
+
+const fotosQuebradas = new Set();
+function fotoAvatar(url) { return url && !fotosQuebradas.has(url) ? url : ''; }
+document.addEventListener('error', (e) => {
+  const img = e.target;
+  if (!img || img.tagName !== 'IMG') return;
+  const src = img.getAttribute('src') || '';
+  if (src && Object.values(avataresModelos || {}).includes(src)) { fotosQuebradas.add(src); img.remove(); }
+}, true);
 
 const CORES_AVATAR = ['#a855f7', '#ec4899', '#34d399', '#fbbf24', '#60a5fa', '#f472b6', '#38bdf8', '#fb923c'];
 function corAvatar(texto) {
@@ -216,18 +206,11 @@ function renderListaFuncionarios() {
     const cargo = d.cargo || 'Funcionário';
     const ativo = d.ativo !== false;
     const ehVoceMesmo = usuarioAtual && uidItem === usuarioAtual.uid;
-    const geradas = d.copysGeradas || 0;
-    const usadas = d.copysUsadas || 0;
-    const fBoa = d.feedbackBoa || 0;
-    const fRuim = d.feedbackRuim || 0;
-    const totalF = fBoa + fRuim;
-    const pctF = totalF ? Math.round((fBoa / totalF) * 100) + '% positivo' : '—';
     return `<div class="funcionario-item ${ativo ? '' : 'funcionario-inativo'}">
       <div class="funcionario-avatar" style="background:${corAvatar(d.nome || d.email || uidItem)}">${esc(iniciais(d.nome))}</div>
       <div class="funcionario-info">
         <div class="funcionario-nome">${esc(d.nome || '—')} <span class="funcionario-cargo-badge">${esc(cargo)}</span>${ativo ? '' : ' <span class="funcionario-cargo-badge funcionario-badge-inativo">Desativado</span>'}</div>
         <div class="funcionario-email">${esc(d.email || '')}</div>
-        <div class="funcionario-stats">✨ ${geradas} geradas · 📋 ${usadas} usadas · 👍 ${esc(pctF)}</div>
       </div>
       <select class="funcionario-cargo-select" data-uid="${escAttr(uidItem)}">
         <option value="Funcionário" ${cargo === 'Funcionário' ? 'selected' : ''}>Funcionário</option>
@@ -457,40 +440,6 @@ function configurarFavoritos() {
 
 // ═══════════════════════════════════════════════ FEEDBACK DE COPY (boa/ruim, treina a IA) ═══
 
-function iniciarFeedFeedbackCopy() {
-  if (unsubFeedbackCopy) return;
-  unsubFeedbackCopy = db.collection('feedback_copy').onSnapshot((snap) => {
-    feedbackCopy = {};
-    snap.docs.forEach((d) => { feedbackCopy[d.id] = d.data().avaliacao; });
-    if (typeof todasMineradas !== 'undefined' && todasMineradas.length) aplicarFiltroMineradas();
-  }, (err) => console.error('[feedback_copy]', err));
-}
-
-function incrementarContadorFuncionario(campo, valor) {
-  if (!usuarioAtual) return;
-  db.collection('funcionarios').doc(usuarioAtual.uid).set({
-    [campo]: firebase.firestore.FieldValue.increment(valor)
-  }, { merge: true }).catch((err) => console.error('[funcionario incrementar]', err));
-}
-
-function iniciarFeedAdmin() {
-  if (feedAdminAtivo) return;
-  feedAdminAtivo = true;
-  unsubAtividade = db.collection('atividade').orderBy('timestamp', 'desc').limit(50)
-    .onSnapshot((snap) => {
-      const container = document.getElementById('atividadeEquipe');
-      if (!container) return;
-      if (snap.empty) { container.innerHTML = '<p class="empty-hint">Nenhuma atividade ainda.</p>'; return; }
-      container.innerHTML = snap.docs.map((doc) => {
-        const d = doc.data();
-        const hora = d.timestamp ? d.timestamp.toDate().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '…';
-        return `<div class="activity-item"><span class="activity-dot"></span>
-          <div><div class="activity-text"><b>${esc(d.nome || '—')}</b> · ${esc(d.acao || '')}${d.detalhe ? ' — ' + esc(d.detalhe) : ''}</div><div class="activity-meta">${esc(hora)}</div></div>
-        </div>`;
-      }).join('');
-    }, (err) => console.error('[feed admin]', err));
-}
-
 function configurarCriarAtendente() {
   const btn = document.getElementById('btnCriarAtendente');
   if (!btn) return;
@@ -538,7 +487,7 @@ function configurarCriarAtendente() {
     } finally {
       await appSecundario.delete();
       btn.disabled = false;
-      btn.textContent = 'Criar Conta';
+      btn.textContent = 'Criar conta';
     }
   });
 }
@@ -569,10 +518,8 @@ const CATEGORIAS_COPYS = ['PPV', 'Prévias', 'Boas-vindas', 'Remarketing', 'Expi
 
 let favoritos = []; // agora compartilhado via Firestore (coleção "favoritos"), veja iniciarFeedFavoritos()
 let favoritosDocs = []; // mesmos favoritos com origem/categoria/quem salvou, pra aba Favoritos
-let feedbackCopy = {}; // hash(texto) -> 'boa' | 'ruim', compartilhado via Firestore (coleção "feedback_copy")
+let feedbackCopy = {}; // hash(texto) -> 'ruim' esconde a copy; o feed da coleção "feedback_copy" foi desligado (ninguém escreve nela)
 let unsubFavoritos = null;
-let unsubFeedbackCopy = null;
-let copyCounts = safeParse('gerador_copy_counts', {});
 
 function safeParse(key, fallback) {
   try { const v = JSON.parse(localStorage.getItem(key)); return v || fallback; } catch (e) { return fallback; }
@@ -603,10 +550,7 @@ function fallbackCopy(texto) {
 function registrarCopia(texto) {
   const chave = (texto || '').slice(0, 80);
   if (!chave) return;
-  copyCounts[chave] = (copyCounts[chave] || 0) + 1;
-  localStorage.setItem('gerador_copy_counts', JSON.stringify(copyCounts));
   registrarAtividade('Copiou uma copy', chave);
-  incrementarContadorFuncionario('copysUsadas', 1);
   const hora = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false });
   db.collection('metricas').doc('global').set({
     copysCopiadas: firebase.firestore.FieldValue.increment(1),
@@ -773,7 +717,7 @@ function renderAbasCopys() {
     const nome = valor ? nomeModelo(nomeOrig) : nomeOrig;
     const foto = valor && avataresModelos[valor];
     return `<button type="button" class="sb-modelo ${ativa ? 'ativo' : ''}" data-valor="${escAttr(valor)}" role="listitem" title="${escAttr(nome)}" ${ativa ? 'aria-current="true"' : ''}>
-      <span class="sb-av" style="--cor:${valor ? corAvatar(nome) : 'var(--accent)'}">${valor ? esc(iniciais(nome)) : '✦'}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
+      <span class="sb-av" style="--cor:${valor ? corAvatar(nome) : 'var(--accent)'}">${valor ? esc(iniciais(nome)) : '✦'}${fotoAvatar(foto) ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
       <span class="sb-nome${valor ? ' sb-nome-modelo' : ''}">${esc(valor ? nome : 'Todas as modelos')}</span>
       <span class="sb-qtd">${qtd}</span>
     </button>`;
@@ -815,7 +759,7 @@ function renderHeroCopys(modelo, daModelo, contagem) {
   const ultima = Math.max(0, ...daModelo.map(tsCopy));
   const quando = ultima ? `${rotuloDia(inicioDoDia(ultima)).split(',')[0].toLowerCase()}${new Date(ultima).getHours() || new Date(ultima).getMinutes() ? ' às ' + new Date(ultima).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}` : '—';
   const stat = (valor, rotulo) => `<div class="cp-stat"><strong>${valor}</strong><span>${rotulo}</span></div>`;
-  const av = (m, cls) => { const foto = avataresModelos[m]; return `<span class="${cls}" style="--cor:${corAvatar(m)}">${esc(iniciais(m))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`; };
+  const av = (m, cls) => { const foto = avataresModelos[m]; return `<span class="${cls}" style="--cor:${corAvatar(m)}">${esc(iniciais(m))}${fotoAvatar(foto) ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`; };
   let ident;
   if (modelo) {
     ident = `${av(modelo, 'cp-hero-av')}
@@ -855,7 +799,8 @@ const CACHE_FIREBASE = 'copys_firebase_v1';
 // Lê do Firebase só o que mudou desde a última vez (o resto fica guardado no navegador)
 async function lerCopysFirebase(completo) {
   let cache = completo ? null : safeParse(CACHE_FIREBASE, null);
-  if (cache && (!cache.itens || Date.now() - (cache.lido || 0) > 3 * 86400000)) cache = null; // a cada 3 dias relê tudo
+  // A leitura incremental não enxerga copy apagada: relê tudo no ↻ e no máximo a cada 24h
+  if (cache && (!cache.itens || Date.now() - (cache.lido || 0) > 86400000)) cache = null;
   const itens = cache ? cache.itens : {};
   let ultimo = cache ? cache.ultimo || 0 : 0;
   let q = db.collection('copys');
@@ -869,7 +814,7 @@ async function lerCopysFirebase(completo) {
   });
   const avatares = {};
   snapModelos.forEach((d) => { const x = d.data(); if (x.nome && x.avatar) avatares[x.nome] = x.avatar; });
-  try { localStorage.setItem(CACHE_FIREBASE, JSON.stringify({ ultimo, lido: cache ? cache.lido : Date.now(), itens })); } catch (e) { /* cota cheia: relê tudo da próxima vez */ }
+  try { localStorage.setItem(CACHE_FIREBASE, JSON.stringify({ ultimo, lido: cache ? cache.lido : Date.now(), itens, avatares })); } catch (e) { /* cota cheia: relê tudo da próxima vez */ }
   return { itens, avatares };
 }
 
@@ -888,7 +833,6 @@ async function carregarMineradas(opcoes = {}) {
     const copys = Object.values(fb.itens);
     avataresModelos = fb.avatares;
     aplicarDadosMineradas(copys, null);
-    try { localStorage.setItem('gerador_mineradas_cache', JSON.stringify({ ts: Date.now(), copys: todasMineradas, modelos: null, avatares: avataresModelos })); } catch (e) { /* cota cheia: segue sem cache */ }
     const qtdNovas = novidades.mineradas.size;
     setStatus(`${todasMineradas.length} copys carregadas` + (qtdNovas ? ` · ${qtdNovas} nova${qtdNovas > 1 ? 's' : ''} desde sua última visita` : ' · nenhuma nova desde sua última visita'), 'ok');
   } catch (err) {
@@ -932,10 +876,11 @@ function preencherSelect(id, rotuloTodos, valores) {
 
 // Mostra na hora a última versão salva da planilha; a atualização vem por trás
 function carregarMineradasDoCache() {
-  const cache = safeParse('gerador_mineradas_cache', null);
-  if (!cache || !Array.isArray(cache.copys) || !cache.copys.length) return false;
-  avataresModelos = cache.avatares || {};
-  aplicarDadosMineradas(cache.copys, cache.modelos);
+  const cache = safeParse(CACHE_FIREBASE, null);
+  const copys = cache && cache.itens && typeof cache.itens === 'object' ? Object.values(cache.itens) : [];
+  if (!copys.length) return false;
+  avataresModelos = cache.avatares && typeof cache.avatares === 'object' ? cache.avatares : {};
+  aplicarDadosMineradas(copys, null);
   setStatus(`${todasMineradas.length} copys (versão salva)`, 'ok'); // a faixa some; a atualização vem por trás
   return true;
 }
@@ -1037,7 +982,7 @@ function configurarCalendario() {
     renderCalendario();
     if (calFim) setTimeout(fechar, 250);  });
   document.addEventListener('click', fechar);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fechar(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !box.hidden) { e.preventDefault(); fechar(); } });
 }
 
 function aplicarCalendario() {
@@ -1233,7 +1178,7 @@ function configurarSelecao() {
     });
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && selCopys.size && document.getElementById('popPeriodo').hidden && document.getElementById('tab-mineradas').classList.contains('active')) document.getElementById('selLimpar').click();
+    if (e.key === 'Escape' && !e.defaultPrevented && selCopys.size && document.getElementById('popPeriodo').hidden && document.getElementById('tab-mineradas').classList.contains('active')) document.getElementById('selLimpar').click();
   });
 }
 
@@ -1279,7 +1224,7 @@ function cardCopyModeloHtml(c, mostrarModelo, reBusca) {
       ${fora
         ? '<span class="copy-item-sel is-off" title="Essa copy não entra na seleção" aria-hidden="true"></span>'
         : `<button type="button" class="copy-item-sel" role="checkbox" aria-checked="${sel}" aria-label="Selecionar pro disparo" title="Selecionar pro disparo"></button>`}
-      ${mostrarModelo ? `<span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(c.modelo || '')}">${esc(iniciais(c.modelo))}${foto ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>${esc(nomeModelo(c.modelo).split(/\s+/)[0])}</span>` : ''}
+      ${mostrarModelo ? `<span class="copy-item-modelo"><span class="copy-item-av" style="--cor:${corAvatar(c.modelo || '')}">${esc(iniciais(c.modelo))}${fotoAvatar(foto) ? `<img src="${escAttr(foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>${esc(nomeModelo(c.modelo).split(/\s+/)[0])}</span>` : ''}
       <span class="copy-item-cat">${esc(c.tipo || '')}</span>
       ${nova ? '<span class="copy-item-nova">nova</span>' : ''}
       ${fora ? '<span class="copy-item-fora" title="Tema que pode parecer de menor de idade (escola, novinha, virgem…). O Gerador, o Extrair e a seleção não usam essa copy.">fora do gerador</span>' : ''}
@@ -1485,7 +1430,7 @@ function abrirGerador() {
     const foto = avataresModelos[m];
     const on = m === grModelo;
     return `<button type="button" class="gr2-mod ${on ? 'ativo' : ''}" data-m="${escAttr(m)}" role="option" aria-selected="${on}" title="${escAttr(nomeModelo(m))}">
-      <span class="gr-av" style="--cor:${corAvatar(m)}">${esc(iniciais(m))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>
+      <span class="gr-av" style="--cor:${corAvatar(m)}">${esc(iniciais(m))}${fotoAvatar(foto) ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>
       <span class="gr2-mod-txt"><b>${esc(nomeModelo(m).split(/\s+/)[0])}</b><small>${contagem[m]} copys</small></span>
     </button>`;
   }).join('');
@@ -1549,7 +1494,7 @@ const GR_ICO = {
 };
 function avatarChatGerador() {
   const foto = avataresModelos[grModelo];
-  return `<span class="gr-av" style="--cor:${corAvatar(grModelo)}">${esc(iniciais(grModelo))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
+  return `<span class="gr-av" style="--cor:${corAvatar(grModelo)}">${esc(iniciais(grModelo))}${fotoAvatar(foto) ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
 }
 
 function renderGeradorSaida() {
@@ -1791,7 +1736,7 @@ function copysExtrair() {
 
 function filtrarExtrair(lista) {
   const agora = Date.now();
-  const limite = exPeriodo === 'hoje' ? inicioDoDia(agora) : exPeriodo === 'todas' ? 0 : agora - Number(exPeriodo) * 86400000;
+  const limite = exPeriodo === 'hoje' ? inicioDoDia(agora) : exPeriodo === 'todas' ? 0 : inicioDoDia(agora) - (Number(exPeriodo) - 1) * 86400000;
   return lista.filter((c) => (!exCatsSel || exCatsSel.has(c.categoria)) && (!limite || c.ts >= limite));
 }
 
@@ -1976,6 +1921,7 @@ document.addEventListener('DOMContentLoaded', () => {
       barra.innerHTML = '<span>Saiu uma versão nova do site.</span><button type="button">Atualizar agora</button>';
       barra.querySelector('button').addEventListener('click', () => location.reload());
       document.body.appendChild(barra);
+      document.body.classList.add('tem-versao-nova');
     } catch (e) { /* sem internet: tenta de novo depois */ }
   };
   window.conferirVersaoNova = conferir;
