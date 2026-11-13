@@ -499,6 +499,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
     carregando: false,
     gaveta: null,
     agitAberto: false,
+    vistaMsg: 'lista',
     roteiroAberto: '',
     semPermissao: false,
     avisouPermissao: false,
@@ -860,6 +861,12 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
 
       <section class="ag-passo" id="agPasso2" data-painel="mensagens" role="tabpanel" aria-labelledby="agP2" hidden>
         <header class="ag-passo-cab"><span class="ag-num">2</span><div><h2 id="agP2">O que vai falar</h2><p>Uma mensagem pra cada horário. Gere com a IA, use copys reais dela ou escreva você mesmo.</p></div></header>
+        <div class="segmentado ag-vista" id="agVista" role="group" aria-label="Ver as mensagens como">
+          <button type="button" data-ag-vista="lista" class="ativo" aria-pressed="true">Lista</button>
+          <button type="button" data-ag-vista="chat" aria-pressed="false">Chat</button>
+        </div>
+        <div class="ag-msg-grid" id="agMsgGrid">
+        <div class="ag-msg-lista">
         <div class="ag-barra">
           <button type="button" class="ag-btn ag-btn-prim" id="agGerar" data-ag="gerar"></button>
           <button type="button" class="ag-btn" id="agMisturar" data-ag="misturar" title="Metade dos horários vazios com copys reais dela e o resto gerado pela IA, imitando o jeito dela">${ico('brilho')}<span>Misturar IA + reais</span></button>
@@ -875,6 +882,12 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
         <div class="ag-tl-info"><span class="ag-rot-dia">Mensagens por horário</span><span id="agMsgsInfo"></span></div>
         <div id="agTimeline"></div>
         <div class="ag-proximo"><button type="button" class="ag-btn" data-ag="aba" data-aba="programar">Próximo: Programar →</button></div>
+        </div>
+        <aside class="ag-msg-chat" aria-label="Como a assinante vê no chat">
+          <p class="ag-chat-dica">Assim fica no chat da Privacy. Clique numa mensagem pra editar.</p>
+          <div class="gr-chat ag-chat" id="agChat"></div>
+        </aside>
+        </div>
       </section>
 
       <section class="ag-passo" id="agPasso3" data-painel="programar" role="tabpanel" aria-labelledby="agP3" hidden>
@@ -947,6 +960,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
   function agAtualizar() {
     agAtualizarRodape();
     if (!ag.cfg) return;
+    agChatDepois();
     const c = ag.cfg;
     const marcadas = agHorariosValidos(c.horarios, 99).length;
     const info = document.getElementById('agHorasInfo');
@@ -1137,11 +1151,11 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       const card = s.pack
         ? `<div class="ag-pack">${ico(s.assunto === 'video' ? 'video' : 'pacote')}<span class="ag-pack-txt"><b>${esc(s.pack.apelido || s.pack.nome || 'pacote')}</b> <small>${esc(s.pack.preco ? 'R$ ' + String(s.pack.preco).replace(/^R\$\s*/, '') : 'sem preço')}${s.pack.nome ? ' · ' + esc(s.pack.nome) : ''} · vai com o texto do próprio pacote</small></span></div>`
         : `<div class="ag-pack falta">${ico('alerta')}<span class="ag-pack-txt"><b>Nenhum ${tipo} marcado no rodízio.</b> <button type="button" class="ag-link" data-ag="gaveta" data-gaveta="pacotes">Abrir Pacotes</button></span></div>`;
-      return `<div class="ag-slot ag-slot-pack" data-assunto="${s.assunto}">${hora}${seletor}<div class="ag-slot-conteudo">${card}</div></div>`;
+      return `<div class="ag-slot ag-slot-pack" data-assunto="${s.assunto}" data-idx="${s.idx}">${hora}${seletor}<div class="ag-slot-conteudo">${card}</div></div>`;
     }
     const texto = agMsgDoHorario(mapa, s);
     const ruim = !!texto && temaProibido(texto);
-    return `<div class="ag-slot ag-slot-txt ${ruim ? 'proibida' : ''}" data-assunto="${s.assunto}" data-chave="${escAttr(agChaveMsg(s))}">
+    return `<div class="ag-slot ag-slot-txt ${ruim ? 'proibida' : ''}" data-assunto="${s.assunto}" data-idx="${s.idx}" data-chave="${escAttr(agChaveMsg(s))}">
       ${hora}${seletor}
       <div class="ag-slot-conteudo">
         <textarea class="ag-input ag-txt ag-slot-msg" rows="1" data-msg placeholder="Vazio: repete uma das outras mensagens" aria-label="Mensagem das ${s.hora}">${esc(texto)}</textarea>
@@ -1164,6 +1178,7 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
       return;
     }
     const itens = agItensTimeline(c);
+    itens.forEach((s, i) => { s.idx = i; });
     const semDias = !agMontarPlano(c).length;
     const mapa = agMsgsMapa(c);
     const grupos = new Map();
@@ -1177,6 +1192,121 @@ A copy deve fazer o assinante pensar: "quero abrir isso agora".
           <div class="ag-tl-lista">${lista.map(s => agHtmlSlot(c, s, mapa)).join('')}</div>
         </div>`).join('');
     if (!agAutoAlturaNativa) box.querySelectorAll('textarea[data-msg]').forEach(agAutoAltura);
+    agChatDepois();
+  }
+
+  // ═══════════════════════════════════════════════ CHAT (prévia igual à da Privacy) ═══
+
+  let agChatTimer = null;
+  function agChatDepois() { clearTimeout(agChatTimer); agChatTimer = setTimeout(agRenderChat, 200); }
+
+  function agAvatarChat() {
+    const m = ag.modelo;
+    const foto = avataresModelos[m];
+    return `<span class="gr-av" style="--cor:${corAvatar(m || '?')}">${esc(iniciais(m))}${foto ? `<img src="${escAttr(foto)}" alt="" referrerpolicy="no-referrer">` : ''}</span>`;
+  }
+
+  function agDiaChat(iso) {
+    if (!iso) return 'Qualquer dia';
+    const hoje = agDataISO(new Date());
+    const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
+    if (iso === hoje) return 'Hoje';
+    if (iso === agDataISO(amanha)) return 'Amanhã';
+    return agFmtDia(iso, false);
+  }
+
+  function agPrecoTxt(preco) { return preco ? 'R$ ' + String(preco).replace(/^R\$\s*/, '') : ''; }
+
+  function agRenderChat() {
+    const box = document.getElementById('agChat');
+    if (!box) return;
+    const c = ag.cfg;
+    if (!c || !ag.modelo) { box.innerHTML = ''; return; }
+    const corpoAntes = box.querySelector('.gr-chat-corpo');
+    const rolagem = corpoAntes ? corpoAntes.scrollTop : 0;
+    const horas = agHorariosValidos(c.horarios, c.limiteDia);
+    const itens = horas.length ? agItensTimeline(c) : [];
+    itens.forEach((s, i) => { s.idx = i; });
+    const mapa = agMsgsMapa(c);
+    const av = agAvatarChat();
+    const grupos = new Map();
+    itens.forEach((s) => { if (!grupos.has(s.dia)) grupos.set(s.dia, []); grupos.get(s.dia).push(s); });
+    const balao = (s) => {
+      const tag = `<span class="gr-tag">${esc(AG_ASSUNTOS[s.assunto][0])}</span>`;
+      const titulo = `title="Editar a das ${s.hora}"`;
+      if (AG_ACERVO_PROX[s.assunto]) {
+        if (!s.pack) {
+          return `<li class="gr-item ag-chat-item ag-chat-vazio" data-assunto="${s.assunto}" data-chat-idx="${s.idx}" ${titulo}>
+            <div class="gr-msg">${av}<div class="gr-bolha"><p class="gr-texto">${s.assunto === 'video' ? 'Vídeo' : 'Pack'} sem pacote no rodízio</p></div></div>
+            <span class="gr-msg-hora">${s.hora} · ${tag}</span></li>`;
+        }
+        const preco = agPrecoTxt(s.pack.preco);
+        return `<li class="gr-item ag-chat-item is-ppv" data-assunto="${s.assunto}" data-chat-idx="${s.idx}" ${titulo}>
+          <div class="gr-msg">${av}<div class="gr-bolha">
+            <div class="gr-ppv-midia" aria-hidden="true">
+              <span class="gr-ppv-seta esq"><svg viewBox="0 0 24 24"><path d="M14 7l-5 5 5 5"/></svg></span>
+              <span class="gr-ppv-seta dir"><svg viewBox="0 0 24 24"><path d="M10 7l5 5-5 5"/></svg></span>
+              <span class="gr-ppv-cadeado"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>${esc(s.pack.apelido || s.pack.nome || (s.assunto === 'video' ? 'Vídeo' : 'Pack'))}</span>
+            </div>
+          </div></div>
+          <span class="gr-msg-hora">${s.hora} · ${tag}${preco ? ` <span class="gr-ppv-pago">· <b>${esc(preco)}</b> ainda não pago</span>` : ''}</span>
+          ${preco ? `<div class="gr-ppv-acao">${av}<span class="gr-ppv-btn">Desbloquear por ${esc(preco)}</span></div>` : ''}
+        </li>`;
+      }
+      const texto = agMsgDoHorario(mapa, s);
+      if (!texto) {
+        return `<li class="gr-item ag-chat-item ag-chat-vazio" data-assunto="${s.assunto}" data-chat-idx="${s.idx}" ${titulo}>
+          <div class="gr-msg">${av}<div class="gr-bolha"><p class="gr-texto">sem mensagem (repete outra)</p></div></div>
+          <span class="gr-msg-hora">${s.hora} · ${tag}</span></li>`;
+      }
+      const ruim = temaProibido(texto);
+      return `<li class="gr-item ag-chat-item ${ruim ? 'ag-chat-ruim' : ''}" data-assunto="${s.assunto}" data-chat-idx="${s.idx}" ${titulo}>
+        <div class="gr-msg">${av}<div class="gr-bolha"><p class="gr-texto">${esc(texto)}</p></div></div>
+        <span class="gr-msg-hora">${s.hora} · ${tag}${ruim ? ' · <b class="ag-chat-ruim-txt">tema proibido, não vai</b>' : ''}</span></li>`;
+    };
+    box.innerHTML = `<div class="gr-chat-topo">
+        <svg class="gr-chat-voltar" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+        ${av}
+        <span class="gr-chat-quem"><b>${esc(nomeModelo(ag.modelo))}<svg class="gr-chat-verif" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.2 12.3l2.6 2.6 5-5.4"/></svg></b><small>Visto por último ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small></span>
+        <span class="gr-chat-icones" aria-hidden="true">
+          <span class="gr-chat-galeria"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4.5 4"/></svg>Galeria</span>
+          <svg viewBox="0 0 24 24" class="cheio"><circle cx="12" cy="5.5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="18.5" r="1.7"/></svg>
+        </span>
+      </div>
+      <div class="gr-chat-corpo">${itens.length
+        ? [...grupos].map(([dia, lista]) => `<div class="gr-chat-dia"><span>${esc(agDiaChat(dia))}</span></div><ol class="gr-lista gr-chat-lista">${lista.map(balao).join('')}</ol>`).join('')
+        : '<p class="ag-chat-sem">Escolha os dias e horários no passo 1 pra ver as mensagens aqui.</p>'}</div>`;
+    box.querySelectorAll('img').forEach((img) => { img.onerror = () => img.remove(); });
+    const corpo = box.querySelector('.gr-chat-corpo');
+    if (corpo) corpo.scrollTop = rolagem;
+  }
+
+  // Lista | Chat (abaixo de 1100px uma de cada vez)
+  function agMostrarVista(v) {
+    ag.vistaMsg = v === 'chat' ? 'chat' : 'lista';
+    const grid = document.getElementById('agMsgGrid');
+    if (grid) grid.dataset.vista = ag.vistaMsg;
+    document.querySelectorAll('#agVista [data-ag-vista]').forEach((b) => {
+      const on = b.dataset.agVista === ag.vistaMsg;
+      b.classList.toggle('ativo', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    if (ag.vistaMsg === 'chat') agRenderChat();
+  }
+
+  // Clique num balão: vai pra linha dele na lista, foca e destaca
+  function agIrProSlot(idx) {
+    const linha = document.querySelector(`#agTimeline .ag-slot[data-idx="${idx}"]`);
+    if (!linha) return;
+    if (ag.vistaMsg === 'chat' && !window.matchMedia('(min-width: 1100px)').matches) agMostrarVista('lista');
+    const suave = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    linha.scrollIntoView({ block: 'center', behavior: suave });
+    const campo = linha.querySelector('textarea') || linha.querySelector('select');
+    if (campo) campo.focus({ preventScroll: true });
+    linha.classList.remove('ag-realce');
+    void linha.offsetWidth;
+    linha.classList.add('ag-realce');
+    setTimeout(() => linha.classList.remove('ag-realce'), 1600);
   }
 
   function agIr(onde) {
@@ -2348,6 +2478,10 @@ bom dia, vida! já acordou?"></textarea>
     if (acao === 'refazer') return agGerar(true);
     if (acao === 'reais') return agUsarReais();
     if (acao === 'misturar') return agMisturar();
+    const vista = t.closest('[data-ag-vista]');
+    if (vista) { agMostrarVista(vista.dataset.agVista); return; }
+    const balao = t.closest('[data-chat-idx]');
+    if (balao) { agIrProSlot(balao.dataset.chatIdx); return; }
     if (acao === 'escolher') { const box = acaoEl.closest('[data-chave]'); if (box) agAbrirEscolher(box); return; }
     const escCat = t.closest('[data-esc-cat]');
     if (escCat && ag.escolher) {
